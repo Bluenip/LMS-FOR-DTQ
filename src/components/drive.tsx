@@ -93,6 +93,22 @@ export function GoogleDriveConnect() {
       setBusy(false);
     }
   }
+  async function cleanup() {
+    setBusy(true);
+    try {
+      const r = await api<{ deletedFromDrive: number; removedRecords: number; failed: number }>(
+        '/api/drive/maintenance',
+        { method: 'POST', body: '{}' },
+      );
+      setMessage(
+        `Đã dọn: xóa ${r.deletedFromDrive} tệp khỏi Drive, ${r.removedRecords} bản ghi${r.failed ? `, ${r.failed} tệp lỗi (sẽ thử lại)` : ''}.`,
+      );
+    } catch (e) {
+      setMessage((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
   return (
     <section className="panel drive-connect" aria-labelledby="drive-connect-title">
       <div className="toolbar">
@@ -140,7 +156,12 @@ export function GoogleDriveConnect() {
         <a className="button primary" href="/api/drive/connect" aria-disabled={!status?.configured}>
           <Cloud size={16} /> {status?.connected ? 'Kết nối lại' : 'Kết nối Google Drive'}
         </a>
-        {status?.status && (
+        {status?.connected && (
+          <Button variant="secondary" disabled={busy} onClick={() => void cleanup()}>
+            Dọn tệp mồ côi
+          </Button>
+        )}
+        {(status?.connected || status?.status === 'REVOKED') && (
           <Button variant="danger" disabled={busy} onClick={() => void disconnect()}>
             Ngắt kết nối
           </Button>
@@ -178,7 +199,6 @@ export function DriveVideoPlayer({ fileId, title }: { fileId?: string; title: st
         src={`https://drive.google.com/file/d/${fileId}/preview`}
         title={title}
         allow="autoplay; fullscreen"
-        allowFullScreen
         onLoad={() => setLoaded(true)}
       />
       {!loaded && (

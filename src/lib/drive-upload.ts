@@ -35,7 +35,6 @@ interface Session {
 }
 interface ChunkResult {
   status: number;
-  range: string | null;
   body: string;
 }
 class Transient extends Error {}
@@ -66,11 +65,10 @@ function putChunk(
     xhr.setRequestHeader('Content-Range', `bytes ${start}-${start + chunk.size - 1}/${total}`);
     xhr.upload.onprogress = (event) => onBytes(event.loaded);
     xhr.onload = () =>
-      resolve({
-        status: xhr.status,
-        range: xhr.getResponseHeader('Range'),
-        body: xhr.responseText,
-      });
+      // Drive's "Range" response header is not exposed to cross-origin scripts, so it cannot be read
+      // here. A 308 means the whole chunk (a multiple of 256 KiB) was stored; the authoritative offset
+      // is re-read from Drive via /resume whenever something goes wrong.
+      resolve({ status: xhr.status, body: xhr.responseText });
     xhr.onerror = () => reject(new Transient('Mất kết nối khi tải lên.'));
     xhr.ontimeout = () => reject(new Transient('Quá thời gian chờ khi tải lên.'));
     xhr.onabort = () => reject(new DOMException('Đã hủy', 'AbortError'));
@@ -138,8 +136,7 @@ export async function uploadToDrive(file: File, options: UploadOptions): Promise
           offset = file.size;
           onProgress?.(file.size, file.size);
         } else if (result.status === 308) {
-          const match = /bytes=0-(\d+)/.exec(result.range || '');
-          offset = match ? Number(match[1]) + 1 : end;
+          offset = end;
           onProgress?.(offset, file.size);
           failures = 0;
         } else if (result.status === 429 || result.status >= 500)
@@ -185,6 +182,11 @@ export async function uploadFile(
     name: uploaded.name,
     size: uploaded.size,
     mimeType: uploaded.mimeType,
-    url: uploaded.previewUrl || `/api/drive/files/${uploaded.id}/download`,
+    // Attachments always point at the app's own (access-checked) route, which is also what the viewer
+    // needs; only a lesson video uses the Drive preview address.
+    url:
+      kind === 'video' && uploaded.previewUrl
+        ? uploaded.previewUrl
+        : `/api/drive/files/${uploaded.id}/download`,
   };
 }

@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import type { Database, DriveFile, DriveStatus, DriveUpload, StoredUser } from '@/lib/types';
 import { managesClass } from '@/lib/class-teachers';
-import { accessDriveDocument, isClassMaterial, teacherClass } from './actions';
+import { accessDriveDocument, driveJobUnused, isClassMaterial, teacherClass } from './actions';
 import { assertOrigin, errorResponse, HttpError, requireUser, sessionUserId } from './auth';
 import {
   appOrigin,
@@ -23,7 +23,10 @@ import {
   exchangeCode,
   getDriveFile,
   listDriveFiles,
+  matchesOfficeTail,
   matchesSignature,
+  needsOfficeCheck,
+  readFileTail,
   newOAuthState,
   previewUrl,
   queryResumable,
@@ -36,9 +39,9 @@ import {
   statesMatch,
   type DriveRemoteFile,
 } from './google-drive';
-import { RateLimit } from './rate-limit';
+import { RateLimit, SharedRateLimit } from './rate-limit';
 import { readJsonObject } from './request';
-import { withDatabase } from './repository';
+import { recordAudit, withDatabase } from './repository';
 import { MAX_DOCUMENT, MAX_VIDEO } from './storage';
 
 const FOLDER_NAME = 'LMS Đệ Tử Quy';
@@ -46,10 +49,10 @@ const SESSION_LIFETIME_MS = 6 * 86400000; // Drive keeps resumable sessions for 
 const MAX_ACTIVE_JOBS = 10;
 const ACTIVE = ['PENDING', 'UPLOADING'] as const;
 const STATE_COOKIE = 'dtq_drive_state';
-const initLimit = new RateLimit(
+const initLimit = new SharedRateLimit(
+  'drive-init',
   60,
   15 * 60 * 1000,
-  10000,
   'Bạn khởi tạo tải lên quá nhiều lần. Vui lòng thử lại sau.',
 );
 const callLimit = new RateLimit(
@@ -138,6 +141,19 @@ function jobFor(db: Database, user: StoredUser, jobId: string) {
     throw new HttpError(403, 'Bạn không có quyền với tệp này.');
   return job;
 }
+/**
+ * Owner or administrator may change a file. A class's teachers may only change class material,
+ * never a learner's own files (renaming, unsharing or deleting someone else's work).
+ */
+function mutableJob(db: Database, user: StoredUser, jobId: string) {
+  const job = jobFor(db, user, jobId);
+  if (job.ownerId !== user.id && !user.isAdmin && !isClassMaterial(db, job))
+    throw new HttpError(
+      403,
+      'Chỉ chủ tệp hoặc quản trị viên được thay đổi tệp bài làm của học viên.',
+    );
+  return job;
+}
 function requireAdminUser(db: Database, userId: string) {
   const user = readUser(db, userId);
   if (!user.isAdmin)
@@ -155,17 +171,21 @@ function expireIfStale(job: DriveUpload) {
 // Connection (OAuth)
 // ---------------------------------------------------------------------------
 export async function connectionStatus(userId: string): Promise<DriveStatus> {
-  return withDatabase((db) => {
-    const user = readUser(db, userId);
-    const connection = db.driveConnections.find((c) => c.id === CONNECTION_ID);
-    return {
-      configured: driveConfigured(),
-      connected: connection?.status === 'ACTIVE',
-      ...(connection ? { status: connection.status } : {}),
-      ...(connection && user.isAdmin ? { email: connection.email } : {}),
-      canConnect: user.isAdmin === true,
-    };
-  });
+  return withDatabase(
+    (db) => {
+      const user = readUser(db, userId);
+      const connection = db.driveConnections.find((c) => c.id === CONNECTION_ID);
+      return {
+        configured: driveConfigured(),
+        connected: connection?.status === 'ACTIVE',
+        ...(connection ? { status: connection.status } : {}),
+        ...(connection && user.isAdmin ? { email: connection.email } : {}),
+        canConnect: user.isAdmin === true,
+      };
+    },
+    false,
+    ['users', 'driveConnections'],
+  );
 }
 function cookieAttrs(request: Request, maxAge: number) {
   const secure = appOrigin(request).startsWith('https://') ? '; Secure' : '';
@@ -241,6 +261,7 @@ export async function finishConnect(request: Request) {
     }, true);
     clearAccessTokenCache();
     rememberAccessToken(tokens.access_token, tokens.expires_in);
+    await recordAudit(userId, 'drive.connect', undefined, `account=${email}`);
     return done('connected');
   } catch (error) {
     if (error instanceof HttpError && error.status !== 500) return done('error');
@@ -253,14 +274,22 @@ export async function disconnect(userId: string) {
     requireAdminUser(db, userId);
     return db.driveConnections.find((c) => c.id === CONNECTION_ID);
   });
-  if (!connection) return { message: 'Google Drive chưa được kết nối.' };
+  if (!connection || connection.status === 'DISCONNECTED')
+    return { message: 'Google Drive chưa được kết nối.' };
   try {
-    await revokeToken(decryptSecret(connection.encryptedRefreshToken));
+    if (connection.encryptedRefreshToken)
+      await revokeToken(decryptSecret(connection.encryptedRefreshToken));
   } catch {
     // The local credential is removed regardless; the grant can also be removed in the Google account.
   }
   await withDatabase((db) => {
-    db.driveConnections = db.driveConnections.filter((c) => c.id !== CONNECTION_ID);
+    // Keep the row (email, folder) so reconnecting the same account reuses its folder; drop the secret.
+    const current = db.driveConnections.find((c) => c.id === CONNECTION_ID);
+    if (current) {
+      current.status = 'DISCONNECTED';
+      current.encryptedRefreshToken = '';
+      current.updatedAt = now();
+    }
     // Sessions are bound to the removed credential and are useless afterwards.
     for (const job of db.driveUploads)
       if ((ACTIVE as readonly string[]).includes(job.status)) {
@@ -271,6 +300,7 @@ export async function disconnect(userId: string) {
       }
   }, true);
   clearAccessTokenCache();
+  await recordAudit(userId, 'drive.disconnect', undefined, `account=${connection.email}`);
   return {
     message:
       'Đã ngắt kết nối Google Drive. Tệp đã tải lên vẫn nằm trong Drive; video đã chia sẻ công khai vẫn xem được cho đến khi bạn xóa tệp.',
@@ -322,7 +352,7 @@ function uploadClass(
   return classroom;
 }
 export async function initUpload(userId: string, origin: string, raw: unknown) {
-  initLimit.consume(userId);
+  await initLimit.consume(userId);
   const v = validateDriveUpload(raw);
   const prepared = await withDatabase((db) => {
     const user = readUser(db, userId);
@@ -467,7 +497,11 @@ async function finalize(userId: string, jobId: string, file: DriveRemoteFile): P
     throw new HttpError(409, 'Tệp trên Google Drive không khớp với lượt tải lên này.');
   // Drive trusts the declared type; confirm the real bytes before the file is exposed to learners.
   const head = await readFileHead(file.id);
-  if (!matchesSignature(job.mimeType, head)) {
+  const genuine =
+    matchesSignature(job.mimeType, head) &&
+    (!needsOfficeCheck(job.mimeType) ||
+      matchesOfficeTail(job.mimeType, await readFileTail(file.id, job.size)));
+  if (!genuine) {
     await deleteDriveFile(file.id).catch(() => undefined);
     await markFailed(job.id, 'Nội dung tệp không đúng định dạng đã khai báo.');
     throw new HttpError(
@@ -498,12 +532,12 @@ async function finalize(userId: string, jobId: string, file: DriveRemoteFile): P
   }, true);
 }
 export async function cancelUpload(userId: string, jobId: string) {
-  const job = await withDatabase((db) => ({ ...jobFor(db, readUser(db, userId), jobId) }));
+  const job = await withDatabase((db) => ({ ...mutableJob(db, readUser(db, userId), jobId) }));
   if (job.status === 'COMPLETED')
     throw new HttpError(409, 'Tệp đã tải xong. Hãy dùng chức năng xóa tệp.');
   if (job.encryptedSessionUri) await cancelResumable(decryptSecret(job.encryptedSessionUri));
   const updated = await withDatabase((db) => {
-    const current = jobFor(db, readUser(db, userId), jobId);
+    const current = mutableJob(db, readUser(db, userId), jobId);
     if (current.status === 'COMPLETED') throw new HttpError(409, 'Tệp đã tải xong.');
     current.status = 'CANCELLED';
     delete current.encryptedSessionUri;
@@ -581,14 +615,14 @@ export async function updateFile(userId: string, jobId: string, input: unknown) 
     .strict()
     .refine((x) => Object.keys(x).length > 0, 'Chưa có thay đổi để lưu.')
     .parse(input);
-  const job = await withDatabase((db) => ({ ...jobFor(db, readUser(db, userId), jobId) }));
+  const job = await withDatabase((db) => ({ ...mutableJob(db, readUser(db, userId), jobId) }));
   if (v.name !== undefined && v.name !== job.name) {
     if (extensionOf(v.name) !== extensionOf(job.name))
       throw new HttpError(400, 'Giữ nguyên đuôi tệp khi đổi tên.');
     if (job.driveFileId) await renameDriveFile(job.driveFileId, v.name);
   }
   const updated = await withDatabase((db) => {
-    const current = jobFor(db, readUser(db, userId), jobId);
+    const current = mutableJob(db, readUser(db, userId), jobId);
     Object.assign(current, v, { updatedAt: now() });
     return { ...current };
   }, true);
@@ -596,7 +630,7 @@ export async function updateFile(userId: string, jobId: string, input: unknown) 
 }
 export async function deleteFile(userId: string, jobId: string) {
   const job = await withDatabase((db) => {
-    const found = jobFor(db, readUser(db, userId), jobId);
+    const found = mutableJob(db, readUser(db, userId), jobId);
     if (
       db.lessons.some((l) => l.documents.some((d) => d.id === found.id)) ||
       db.submissions.some((sub) => sub.attachments.some((a) => a.id === found.id))
@@ -623,7 +657,7 @@ export async function deleteFile(userId: string, jobId: string) {
 export async function setSharing(userId: string, jobId: string, input: unknown) {
   const { public: makePublic } = z.object({ public: z.boolean() }).strict().parse(input);
   const job = await withDatabase((db) => {
-    return { ...jobFor(db, readUser(db, userId), jobId) };
+    return { ...mutableJob(db, readUser(db, userId), jobId) };
   });
   if (job.status !== 'COMPLETED' || !job.driveFileId)
     throw new HttpError(409, 'Tệp chưa tải lên xong.');
@@ -635,7 +669,7 @@ export async function setSharing(userId: string, jobId: string, input: unknown) 
   if (makePublic) await ensurePublicReader(job.driveFileId);
   else await revokePublicReader(job.driveFileId);
   const updated = await withDatabase((db) => {
-    const current = jobFor(db, readUser(db, userId), jobId);
+    const current = mutableJob(db, readUser(db, userId), jobId);
     current.shared = makePublic;
     current.updatedAt = now();
     return { ...current };
@@ -651,6 +685,7 @@ function lessonUses(driveFileId: string) {
 const INLINE_TYPES = /^(video\/|image\/|application\/pdf$)/;
 export const canViewInline = (mimeType: string) => INLINE_TYPES.test(mimeType);
 // Seeking in a video issues many Range requests, so views get a roomier limit than API calls.
+const accessCache = new Map<string, { job: DriveUpload; until: number }>();
 const viewLimit = new RateLimit(
   3000,
   15 * 60 * 1000,
@@ -669,9 +704,30 @@ export async function serveDocument(
   inline: boolean,
 ) {
   viewLimit.consume(userId);
-  const job = await withDatabase((db) => ({
-    ...accessDriveDocument(db, readUser(db, userId), jobId),
-  }));
+  // Seeking in a video sends many requests within seconds; the access decision is reused briefly
+  // (the session itself is still verified on every request).
+  const cacheKey = `${userId}:${jobId}`;
+  const cached = accessCache.get(cacheKey);
+  const job =
+    cached && cached.until > Date.now()
+      ? cached.job
+      : await withDatabase(
+          (db) => ({ ...accessDriveDocument(db, readUser(db, userId), jobId) }),
+          false,
+          [
+            'users',
+            'classes',
+            'enrollments',
+            'lessons',
+            'assignments',
+            'submissions',
+            'driveUploads',
+          ],
+        );
+  if (!cached || cached.until <= Date.now()) {
+    if (accessCache.size > 5000) accessCache.clear();
+    accessCache.set(cacheKey, { job, until: Date.now() + 20000 });
+  }
   const upstream = await driveDownload(job.driveFileId!, range ?? undefined);
   const view = inline && canViewInline(job.mimeType);
   const pass = (name: string) => upstream.headers.get(name);
@@ -726,4 +782,91 @@ export async function driveRoute(
     response.headers.set('Cache-Control', 'private, no-store');
     return response;
   }
+}
+
+// ---------------------------------------------------------------------------
+// Maintenance: remove files nobody references any more
+// ---------------------------------------------------------------------------
+export interface PruneResult {
+  deletedFromDrive: number;
+  removedRecords: number;
+  failed: number;
+  skippedNoConnection: boolean;
+}
+/**
+ * Deletes from Google Drive (and from the database):
+ *  - files queued in DriveTrash (deleted lessons, assignments, classes);
+ *  - learner files and lesson materials that never got attached, or were detached, after `graceHours`;
+ *  - failed, cancelled and abandoned upload records.
+ * A teacher's library videos are kept on purpose: they are reusable material, not orphans.
+ * Idempotent and safe to run from several instances.
+ */
+export async function pruneDrive(graceHours = 24, at = Date.now()): Promise<PruneResult> {
+  const cutoff = at - graceHours * 3600000;
+  const plan = await withDatabase((db) => {
+    const connected = db.driveConnections.some(
+      (c) => c.id === CONNECTION_ID && c.status === 'ACTIVE',
+    );
+    const stale = db.driveUploads.filter((u) => {
+      if (Date.parse(u.createdAt) >= cutoff) return false;
+      if (u.status === 'FAILED' || u.status === 'CANCELLED') return true;
+      if (u.status === 'PENDING' || u.status === 'UPLOADING')
+        return Date.parse(u.createdAt) < at - SESSION_LIFETIME_MS;
+      return (
+        u.status === 'COMPLETED' &&
+        (u.kind === 'document' || !isClassMaterial(db, u)) &&
+        driveJobUnused(db, u)
+      );
+    });
+    return {
+      connected,
+      trash: db.driveTrash.map((t) => t.id),
+      stale: stale.map((u) => ({ id: u.id, driveFileId: u.driveFileId })),
+    };
+  });
+  const result: PruneResult = {
+    deletedFromDrive: 0,
+    removedRecords: 0,
+    failed: 0,
+    skippedNoConnection: false,
+  };
+  const goneTrash = new Set<string>();
+  const goneJobs = new Set<string>();
+  const drop = async (driveFileId: string | undefined) => {
+    if (!driveFileId) return true;
+    if (!plan.connected) {
+      result.skippedNoConnection = true;
+      return false;
+    }
+    try {
+      await deleteDriveFile(driveFileId);
+      result.deletedFromDrive++;
+      return true;
+    } catch (error) {
+      result.failed++;
+      console.error(
+        'Drive prune could not delete a file',
+        error instanceof Error ? error.message : '',
+      );
+      return false;
+    }
+  };
+  for (const id of plan.trash) if (await drop(id)) goneTrash.add(id);
+  for (const job of plan.stale) if (await drop(job.driveFileId)) goneJobs.add(job.id);
+  if (goneTrash.size || goneJobs.size)
+    await withDatabase((db) => {
+      db.driveTrash = db.driveTrash.filter((t) => !goneTrash.has(t.id));
+      // Re-check inside the write: the file may have been attached since the plan was made.
+      db.driveUploads = db.driveUploads.filter(
+        (u) => !(goneJobs.has(u.id) && (u.status !== 'COMPLETED' || driveJobUnused(db, u))),
+      );
+    }, true);
+  result.removedRecords = goneTrash.size + goneJobs.size;
+  return result;
+}
+export async function runMaintenance(userId: string) {
+  await withDatabase((db) => requireAdminUser(db, userId));
+  const result = await pruneDrive();
+  await recordAudit(userId, 'drive.prune', undefined, JSON.stringify(result));
+  return result;
 }

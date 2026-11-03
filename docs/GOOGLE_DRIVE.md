@@ -54,6 +54,7 @@ Phản hồi lỗi theo mẫu hiện có: `{ "error": "..." }`. Mọi `POST/PATC
 | POST | `/api/drive/files/{id}/sharing` | như trên | `{public: boolean}` tạo/thu hồi quyền `anyone/reader` |
 | GET | `/api/drive/files/{id}/download` | theo quy tắc ở trên | Tải tệp (stream qua server) |
 | GET | `/api/drive/files/{id}/view` | theo quy tắc ở trên | Xem ngay trong trang (video, PDF, ảnh) — `Content-Disposition: inline`, hỗ trợ `Range` để tua video; DOCX/PPTX chỉ tải xuống |
+| POST | `/api/drive/maintenance` | admin | Dọn tệp mồ côi ngay (xem mục "Dọn dẹp" bên dưới) |
 | DELETE | `/api/drive/files/{id}` | như trên | `files.delete`; **từ chối nếu video đang gắn bài giảng** |
 
 `{id}` luôn là id job nội bộ, không phải Drive file id (chống IDOR). Gắn video vào bài giảng dùng action `saveLesson` hiện có với `videoType: 'DRIVE'` và `driveFileId`; server chỉ chấp nhận file đã `COMPLETED`, đúng lớp, đúng loại video.
@@ -133,3 +134,14 @@ Kiểm thử thủ công với Google thật:
 - [ ] Đã quyết định chấp nhận chính sách “anyone with link” cho video.
 - [ ] Theo dõi dung lượng Drive và quota API (Drive API mặc định 12.000 request/phút/project).
 - [ ] Quy trình dọn file Drive khi xóa lớp.
+
+## Dọn dẹp, quyền sửa tệp và kiểm tra định dạng
+
+- **Hàng đợi xóa (`DriveTrash`)**: khi xóa bài tập, bài giảng hoặc lớp, các tệp Drive liên quan được ghi vào hàng đợi (không gọi Google trong giao dịch DB). Việc xóa thật trên Drive do `pruneDrive` thực hiện.
+- **`pruneDrive(graceHours = 24)`** xóa (trên Drive và trong DB): hàng đợi xóa; tệp học viên chưa/không còn được đính kèm và học liệu giáo viên không còn dùng sau 24 giờ; bản ghi tải lên lỗi, hủy hoặc bỏ dở. **Video thư viện của giáo viên được giữ lại.** Idempotent; nếu chưa kết nối Drive chỉ xử lý bản ghi không có tệp.
+- **Chạy khi nào:** tự động mỗi giờ khi có `GOOGLE_CLIENT_ID` (`src/instrumentation.ts`; `DRIVE_PRUNE_INTERVAL_MINUTES`, đặt `0` để tắt), bằng nút "Dọn tệp mồ côi" ở `/admin`, hoặc `npm run drive:prune [số giờ]` (ví dụ từ cron).
+- **Ai sửa được tệp:** chủ tệp và admin. Giáo viên của lớp chỉ sửa/xóa/đổi chia sẻ **học liệu của lớp** (tệp do giáo viên tải), không đụng tới tệp của học viên.
+- **Không có hạn mức dung lượng** tải lên (theo yêu cầu). Dung lượng và hạn mức API là của tài khoản Google đã kết nối; cần tự theo dõi.
+- **DOCX/PPTX**: ngoài chữ ký "PK" đầu tệp, server đọc 256 KiB cuối để kiểm tra danh mục ZIP có `word/document.xml` / `ppt/presentation.xml`; Excel hay ZIP đổi đuôi bị từ chối và bị xóa khỏi Drive.
+- **Ngắt kết nối** chỉ xóa bí mật (refresh token) và đánh dấu `DISCONNECTED`; email và thư mục được giữ để kết nối lại cùng tài khoản dùng lại thư mục cũ. Đổi sang tài khoản khác tạo thư mục mới.
+- **Tiến trình upload**: trình duyệt không đọc được header `Range` của Drive (CORS không công khai header này), nên coi mỗi đoạn 8 MiB là đã nhận khi Drive trả 308; offset chính xác luôn được lấy lại từ Drive qua `/resume` khi có lỗi.

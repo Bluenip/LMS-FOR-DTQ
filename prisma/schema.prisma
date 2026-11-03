@@ -34,14 +34,14 @@ model User {
 }
 
 model AuthToken {
-  id                  String  @id
+  id                  String    @id
   userId              String
-  user                User    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  tokenHash           String  @unique
+  user                User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash           String    @unique
   purpose             String
-  createdAt           String
-  expiresAt           String
-  consumedAt          String?
+  createdAt           DateTime  @db.Timestamptz(3)
+  expiresAt           DateTime  @db.Timestamptz(3)
+  consumedAt          DateTime? @db.Timestamptz(3)
   pendingPasswordHash String?
   pendingName         String?
 
@@ -65,7 +65,7 @@ model Classroom {
   autoApprove    Boolean       @default(false)
   schedule       String
   cover          String
-  createdAt      String
+  createdAt      DateTime      @db.Timestamptz(3)
   enrollments    Enrollment[]
   lessons        Lesson[]
   assignments    Assignment[]
@@ -83,9 +83,10 @@ model Enrollment {
   user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   status    String
   group     Int       @default(1)
-  joinedAt  String
+  joinedAt  DateTime  @db.Timestamptz(3)
 
   @@unique([classId, userId])
+  @@index([userId])
 }
 
 model Lesson {
@@ -105,7 +106,7 @@ model Lesson {
   revision     String        @default("")
   timestamps   Json          @default("[]")
   documents    Json          @default("[]")
-  createdAt    String
+  createdAt    DateTime      @db.Timestamptz(3)
   assignments  Assignment[]
   progress     Progress[]
   notes        Note[]
@@ -123,14 +124,15 @@ model Assignment {
   lesson        Lesson?        @relation(fields: [lessonId], references: [id], onDelete: SetNull)
   title         String
   instructions  String
-  dueAt         String
+  dueAt         DateTime       @db.Timestamptz(3)
   allowLate     Boolean
   allowResubmit Boolean
   maxAttempts   Int
   minWords      Int
   maxWords      Int?
-  createdAt     String
+  createdAt     DateTime       @db.Timestamptz(3)
   revision      String         @default("")
+  announcedAt   DateTime?      @db.Timestamptz(3)
   submissions   Submission[]
   notifications Notification[]
 
@@ -148,15 +150,16 @@ model Submission {
   attachments   Json       @default("[]")
   status        String
   attempt       Int
-  submittedAt   String?
+  submittedAt   DateTime?  @db.Timestamptz(3)
   score         Float?
   rubric        Json?
   feedback      String
-  gradedAt      String?
+  gradedAt      DateTime?  @db.Timestamptz(3)
   revision      String     @default("")
   gradeRevision String     @default("")
 
   @@unique([assignmentId, studentId])
+  @@index([studentId])
 }
 
 model Progress {
@@ -169,29 +172,31 @@ model Progress {
   bookmarked Boolean
 
   @@unique([userId, lessonId])
+  @@index([lessonId])
 }
 
 model Note {
-  id        String @id
+  id        String   @id
   userId    String
-  user      User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   lessonId  String
-  lesson    Lesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  lesson    Lesson   @relation(fields: [lessonId], references: [id], onDelete: Cascade)
   content   String
-  updatedAt String
+  updatedAt DateTime @db.Timestamptz(3)
 
   @@unique([userId, lessonId])
+  @@index([lessonId])
 }
 
 model Discussion {
-  id        String  @id
+  id        String    @id
   userId    String
-  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   lessonId  String
-  lesson    Lesson  @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  lesson    Lesson    @relation(fields: [lessonId], references: [id], onDelete: Cascade)
   content   String
-  createdAt String
-  updatedAt String?
+  createdAt DateTime  @db.Timestamptz(3)
+  updatedAt DateTime? @db.Timestamptz(3)
 
   @@index([lessonId])
 }
@@ -201,7 +206,7 @@ model Notification {
   userId       String
   user         User        @relation(fields: [userId], references: [id], onDelete: Cascade)
   content      String
-  createdAt    String
+  createdAt    DateTime    @db.Timestamptz(3)
   read         Boolean     @default(false)
   assignmentId String?
   assignment   Assignment? @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
@@ -221,23 +226,23 @@ model StoredFile {
   size      Float
   mimeType  String
   verified  Boolean   @default(false)
-  createdAt String
+  createdAt DateTime  @db.Timestamptz(3)
 
   @@index([classId, ownerId])
 }
 
 /// Single shared Google Drive account connected by an administrator (id is always "shared").
 model DriveConnection {
-  id                    String  @id
+  id                    String   @id
   connectedById         String
-  connectedBy           User    @relation(fields: [connectedById], references: [id], onDelete: Cascade)
+  connectedBy           User     @relation(fields: [connectedById], references: [id], onDelete: Cascade)
   email                 String
   encryptedRefreshToken String
   scope                 String
-  status                String  @default("ACTIVE")
+  status                String   @default("ACTIVE")
   folderId              String?
-  createdAt             String
-  updatedAt             String
+  createdAt             DateTime @db.Timestamptz(3)
+  updatedAt             DateTime @db.Timestamptz(3)
 }
 
 model DriveUpload {
@@ -261,10 +266,35 @@ model DriveUpload {
   webViewLink         String?
   shared              Boolean   @default(false)
   errorMessage        String?
-  createdAt           String
-  updatedAt           String
+  createdAt           DateTime  @db.Timestamptz(3)
+  updatedAt           DateTime  @db.Timestamptz(3)
 
   @@index([classId, status])
   @@index([ownerId, status])
   @@index([lessonId])
+}
+
+/// Shared (multi-instance safe) rate-limit counters; accessed with raw SQL only.
+model RateLimitEntry {
+  key     String @id
+  count   Int
+  resetAt BigInt
+}
+
+/// Drive files that must be deleted from Google Drive by the maintenance job.
+model DriveTrash {
+  id        String   @id
+  createdAt DateTime @db.Timestamptz(3)
+}
+
+/// Append-only record of administrative actions (not part of the in-memory snapshot).
+model AuditLog {
+  id        String   @id
+  actorId   String
+  action    String
+  targetId  String?
+  detail    String   @default("")
+  createdAt DateTime @db.Timestamptz(3)
+
+  @@index([createdAt])
 }

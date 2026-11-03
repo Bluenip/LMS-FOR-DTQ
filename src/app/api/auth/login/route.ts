@@ -1,9 +1,9 @@
 import { cookies } from 'next/headers';
 import { z } from 'zod';
-import { createHash } from 'node:crypto';
+import { createHash, randomBytes } from 'node:crypto';
 import { emailSchema } from '@/lib/server/accounts';
 import { readJsonObject } from '@/lib/server/request';
-import { clientIp, RateLimit } from '@/lib/server/rate-limit';
+import { clientIp, SharedRateLimit } from '@/lib/server/rate-limit';
 import {
   assertOrigin,
   COOKIE,
@@ -11,12 +11,16 @@ import {
   HttpError,
   publicUser,
   signSession,
+  hashPassword,
   verifyPassword,
   accountEnabled,
 } from '@/lib/server/auth';
-import { withDatabase } from '@/lib/server/repository';
+import { findUserByEmail } from '@/lib/server/repository';
 export const runtime = 'nodejs';
-const attempts = new RateLimit(20, 15 * 60 * 1000);
+const attempts = new SharedRateLimit('login', 20, 15 * 60 * 1000);
+// Verifying against this when the email is unknown keeps response times equal, so attackers cannot
+// learn which emails have accounts from how long a login takes.
+const DUMMY_HASH = hashPassword(randomBytes(12).toString('hex'));
 export async function POST(request: Request) {
   try {
     assertOrigin(request);
@@ -26,11 +30,9 @@ export async function POST(request: Request) {
     const key = createHash('sha256')
       .update(`${clientIp(request)}:${v.email}`)
       .digest('hex');
-    attempts.consume(key);
-    const user = await withDatabase((db) =>
-      db.users.find((u) => u.email.toLowerCase() === v.email.toLowerCase()),
-    );
-    if (!user || !verifyPassword(v.password, user.passwordHash)) {
+    await attempts.consume(key);
+    const user = await findUserByEmail(v.email);
+    if (!verifyPassword(v.password, user?.passwordHash ?? DUMMY_HASH) || !user) {
       throw new HttpError(401, 'Email hoặc mật khẩu không đúng.');
     }
     if (user.disabled)
@@ -48,7 +50,7 @@ export async function POST(request: Request) {
         403,
         'Tài khoản mẫu đã tắt trên hệ thống chính thức. Vui lòng dùng tài khoản được quản trị viên cấp.',
       );
-    attempts.reset(key);
+    await attempts.reset(key);
     (await cookies()).set(COOKIE, await signSession(user.id, user.sessionVersion ?? 0), {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',

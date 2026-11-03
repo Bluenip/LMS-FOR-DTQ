@@ -72,7 +72,8 @@ export function LmsProvider({ children }: { children: ReactNode }) {
       pendingRequest.current = controller;
       try {
         const data = await api<AppState>('/api/state', {
-          cache: 'no-store',
+          // Revalidate each poll; the server answers 304 when nothing changed.
+          cache: 'no-cache',
           signal: controller.signal,
         });
         if (controller.signal.aborted || version !== requestVersion.current) return;

@@ -13,7 +13,7 @@ import {
   requireUser,
   sessionUserId,
 } from './auth';
-import { withDatabase } from './repository';
+import { recordAudit, withDatabase } from './repository';
 
 const nameSchema = z.string().trim().min(2).max(100);
 export function requireAdmin(db: Database, userId: string | null) {
@@ -224,6 +224,11 @@ export async function adminRequest(
   request: Request,
   write: boolean,
   fn: (db: Database, actorId: string, input: Record<string, unknown>) => unknown,
+  audit?: {
+    action: string;
+    target?: string;
+    detail?: (result: unknown, input: Record<string, unknown>) => string;
+  },
 ) {
   try {
     if (write) assertOrigin(request);
@@ -234,6 +239,13 @@ export async function adminRequest(
       if (write) adminRateLimit(actor.id);
       return fn(db, actor.id, input);
     }, write);
+    if (write && audit)
+      await recordAudit(
+        id as string,
+        audit.action,
+        audit.target,
+        audit.detail?.(result, input) ?? '',
+      );
     return Response.json(result, { headers: { 'Cache-Control': 'private, no-store' } });
   } catch (error) {
     const response = errorResponse(error);

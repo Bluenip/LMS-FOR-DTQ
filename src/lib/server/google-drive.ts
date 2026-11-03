@@ -153,21 +153,29 @@ export function rememberAccessToken(token: string, expiresIn: number) {
 }
 async function markRevoked() {
   clearAccessTokenCache();
-  await withDatabase((db) => {
-    const connection = db.driveConnections.find((c) => c.id === CONNECTION_ID);
-    if (connection) {
-      connection.status = 'REVOKED';
-      connection.updatedAt = new Date().toISOString();
-    }
-  }, true);
+  await withDatabase(
+    (db) => {
+      const connection = db.driveConnections.find((c) => c.id === CONNECTION_ID);
+      if (connection) {
+        connection.status = 'REVOKED';
+        connection.updatedAt = new Date().toISOString();
+      }
+    },
+    true,
+    ['driveConnections'],
+  );
 }
 export async function driveAccessToken(): Promise<string> {
   if (cached && cached.expires > Date.now()) return cached.token;
-  const connection = await withDatabase((db) =>
-    db.driveConnections.find((c) => c.id === CONNECTION_ID),
+  const connection = await withDatabase(
+    (db) => db.driveConnections.find((c) => c.id === CONNECTION_ID),
+    false,
+    ['driveConnections'],
   );
   if (!connection)
     throw new HttpError(409, 'Google Drive chưa được kết nối. Quản trị viên cần kết nối trước.');
+  if (connection.status === 'DISCONNECTED')
+    throw new HttpError(409, 'Google Drive đã được ngắt kết nối. Quản trị viên cần kết nối lại.');
   if (connection.status !== 'ACTIVE')
     throw new HttpError(409, 'Kết nối Google Drive đã bị thu hồi. Quản trị viên cần kết nối lại.');
   const { res, data } = await tokenRequest({
@@ -405,6 +413,28 @@ export async function driveDownload(fileId: string, range?: string) {
   });
   if (!res.ok || !res.body) throw await googleError(res);
   return res;
+}
+/**
+ * DOCX, PPTX and XLSX are all ZIP files starting with "PK", so the first bytes cannot tell them
+ * apart. Their ZIP central directory (at the end of the file) lists the part names, which can.
+ */
+const OFFICE_MARKERS: Record<string, string> = {
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'word/document.xml',
+  'application/vnd.openxmlformats-officedocument.presentationml.presentation':
+    'ppt/presentation.xml',
+};
+export const needsOfficeCheck = (mime: string) => mime in OFFICE_MARKERS;
+export function matchesOfficeTail(mime: string, tail: Buffer) {
+  const marker = OFFICE_MARKERS[mime];
+  return !marker || tail.includes(Buffer.from(marker));
+}
+export async function readFileTail(fileId: string, size: number, bytes = 262144) {
+  const start = Math.max(0, size - bytes);
+  const res = await driveCall(`${API}/files/${encodeURIComponent(fileId)}?alt=media`, {
+    headers: { Range: `bytes=${start}-${size - 1}` },
+  });
+  if (!res.ok) throw await googleError(res);
+  return Buffer.from(await res.arrayBuffer());
 }
 /** Reads only the first 4 KiB so a 2 GB video is never pulled through the server. */
 export async function readFileHead(fileId: string, bytes = 4096) {

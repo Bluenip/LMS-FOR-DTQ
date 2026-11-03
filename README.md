@@ -48,7 +48,7 @@ Dữ liệu demo có lớp, bài tập và tiến độ mẫu; không kèm video
 
 ## Video qua Google Drive
 
-Giáo viên có thể tải video lên Google Drive dùng chung (quản trị viên kết nối tại `/admin`) và phát trong bài giảng bằng Drive Preview; tải theo chunk, tự tiếp tục khi mất mạng. Cấu hình Google Cloud, API, giới hạn và checklist: [docs/GOOGLE_DRIVE.md](docs/GOOGLE_DRIVE.md).
+Giáo viên có thể tải video lên Google Drive dùng chung (quản trị viên kết nối tại `/admin`) và phát trong bài giảng bằng Drive Preview; tải theo chunk, tự tiếp tục khi mất mạng. Cấu hình Google Cloud, API, giới hạn và checklist: [docs/GOOGLE_DRIVE.md](docs/GOOGLE_DRIVE.md). Bảo mật, hiệu năng, vận hành: [docs/BAO_MAT_VAN_HANH.md](docs/BAO_MAT_VAN_HANH.md). Nghiệp vụ đầy đủ: [docs/NGHIEP_VU.md](docs/NGHIEP_VU.md).
 
 ## Chức năng và đường dẫn
 

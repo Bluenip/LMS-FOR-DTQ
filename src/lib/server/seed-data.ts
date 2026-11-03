@@ -156,5 +156,6 @@ export function seedData(): Database {
     authTokens: [],
     driveConnections: [],
     driveUploads: [],
+    driveTrash: [],
   };
 }

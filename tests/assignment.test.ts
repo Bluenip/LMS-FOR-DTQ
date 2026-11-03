@@ -212,7 +212,7 @@ test('reminders reach only the chosen student who has not submitted and remain u
     assignmentId: a.id,
     userId: student.id,
   });
-  assert.deepEqual(result, { count: 1 });
+  assert.deepEqual(result, { count: 1, skipped: 0 });
   const n = stateFor(db, student).notifications.find((n) => n.assignmentId === a.id)!;
   assert(n);
   assert.equal(n.read, false);
@@ -227,7 +227,7 @@ test('reminders reach only the chosen student who has not submitted and remain u
   });
   assert.deepEqual(
     runAction(db, teacher, { action: 'remindStudents', assignmentId: a.id, userId: student.id }),
-    { count: 0 },
+    { count: 0, skipped: 0 },
   );
   assert.throws(
     () => runAction(db, student, { action: 'remindStudents', assignmentId: a.id }),
@@ -242,6 +242,8 @@ test('reading displayed notification IDs does not consume another user notificat
     runAction(db, teacher, { action: 'remindStudents', assignmentId: a.id, userId: student.id });
   remind();
   const first = db.notifications.at(-1)!;
+  // Reminders are limited to one per learner every 3 hours, so the first one must be older.
+  first.createdAt = new Date(Date.now() - 4 * 3600000).toISOString();
   remind();
   const second = db.notifications.at(-1)!;
   runAction(db, teacher, { action: 'markNotificationsRead', ids: [first.id] });

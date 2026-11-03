@@ -93,6 +93,8 @@ export interface Assignment {
   maxWords: number | null;
   createdAt: string;
   revision?: string;
+  /** Set once learners were notified; prevents repeat announcements on re-publish. */
+  announcedAt?: string;
 }
 export interface Submission {
   id: string;
@@ -193,10 +195,23 @@ export interface DriveConnection {
   /** AES-256-GCM envelope; never leaves the server. */
   encryptedRefreshToken: string;
   scope: string;
-  status: 'ACTIVE' | 'REVOKED';
+  status: 'ACTIVE' | 'REVOKED' | 'DISCONNECTED';
   folderId?: string;
   createdAt: string;
   updatedAt: string;
+}
+/** A Drive file queued for deletion (its DriveUpload row may already be gone). */
+export interface DriveTrash {
+  id: string;
+  createdAt: string;
+}
+export interface AuditLog {
+  id: string;
+  actorId: string;
+  action: string;
+  targetId?: string;
+  detail: string;
+  createdAt: string;
 }
 export interface DriveUpload {
   id: string;
@@ -263,4 +278,7 @@ export interface Database {
   authTokens: AuthToken[];
   driveConnections: DriveConnection[];
   driveUploads: DriveUpload[];
+  driveTrash: DriveTrash[];
+  /** Demo (JSON) mode only; PostgreSQL keeps the audit trail outside the snapshot. */
+  auditLogs?: AuditLog[];
 }

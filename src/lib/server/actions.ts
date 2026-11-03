@@ -14,12 +14,15 @@ import type {
 } from '@/lib/types';
 import { accountEnabled, HttpError, needsPasswordChange, publicUser } from './auth';
 import { acceptsWordCount, wordRequirement } from '../assignment-policy';
+import type { TableKey } from './repository';
 import { assignedTeacherIds, classTeacherNames, managesClass } from '../class-teachers';
 const id = z.string().min(1).max(120);
 const text = z.string().max(50000);
 const commentContent = z.string().trim().min(1, 'Vui lòng nhập nội dung thảo luận.').max(5000);
 const title = z.string().trim().min(2).max(200);
 const time = () => new Date().toISOString();
+const REMIND_COOLDOWN_MS = 3 * 3600 * 1000;
+const REMINDER_PREFIX = 'Nhắc nộp bài:';
 const uid = () => randomUUID();
 const assignmentSchema = z.object({
   classId: id,
@@ -266,7 +269,30 @@ function newCode(db: Database) {
   } while (db.classes.some((c) => c.code === code));
   return code;
 }
+/** Queue a Drive file for deletion; the network call cannot run inside a database transaction. */
+function trashDriveFile(db: Database, driveFileId: string | undefined) {
+  if (driveFileId && !db.driveTrash.some((t) => t.id === driveFileId))
+    db.driveTrash.push({ id: driveFileId, createdAt: time() });
+}
+export function driveJobUnused(db: Database, job: DriveUpload) {
+  return (
+    !db.lessons.some(
+      (l) =>
+        (!!job.driveFileId && l.driveFileId === job.driveFileId) ||
+        l.documents.some((d) => d.id === job.id),
+    ) && !db.submissions.some((s) => s.attachments.some((a) => a.id === job.id))
+  );
+}
+/** Drops the records of Drive files whose owner (lesson/assignment) was deleted and queues the files. */
+function discardDriveJobs(db: Database, ids: Set<string>) {
+  const gone = db.driveUploads.filter((u) => ids.has(u.id) && driveJobUnused(db, u));
+  gone.forEach((u) => trashDriveFile(db, u.driveFileId));
+  db.driveUploads = db.driveUploads.filter((u) => !gone.includes(u));
+}
 function deleteClassData(db: Database, classId: string) {
+  db.driveUploads
+    .filter((u) => u.classId === classId)
+    .forEach((u) => trashDriveFile(db, u.driveFileId));
   const lessonIds = new Set(db.lessons.filter((x) => x.classId === classId).map((x) => x.id));
   const assignmentIds = new Set(
     db.assignments.filter((x) => x.classId === classId).map((x) => x.id),
@@ -286,6 +312,9 @@ function deleteClassData(db: Database, classId: string) {
   db.driveUploads = db.driveUploads.filter((x) => x.classId !== classId);
 }
 function announceAssignment(db: Database, a: Assignment) {
+  // Once per assignment: unpublishing and republishing a lesson must not notify learners again.
+  if (a.announcedAt) return;
+  a.announcedAt = time();
   for (const enrollment of db.enrollments.filter(
     (e) => e.classId === a.classId && e.status === 'APPROVED',
   ))
@@ -765,6 +794,7 @@ export function runAction(db: Database, user: StoredUser, input: Record<string, 
       db.driveUploads.forEach((u) => {
         if (u.lessonId === l.id) delete u.lessonId;
       });
+      discardDriveJobs(db, new Set(l.documents.map((d) => d.id)));
       db.progress = db.progress.filter((x) => x.lessonId !== l.id);
       db.notes = db.notes.filter((x) => x.lessonId !== l.id);
       db.discussions = db.discussions.filter((x) => x.lessonId !== l.id);
@@ -907,9 +937,15 @@ export function runAction(db: Database, user: StoredUser, input: Record<string, 
       active(teacherClass(db, user, a.classId));
       if (v.confirmTitle !== a.title)
         throw new HttpError(409, 'Tên bài tập không khớp. Kiểm tra lại trước khi xóa.');
+      const attached = new Set(
+        db.submissions
+          .filter((s) => s.assignmentId === a.id)
+          .flatMap((s) => s.attachments.map((f) => f.id)),
+      );
       db.submissions = db.submissions.filter((s) => s.assignmentId !== a.id);
       db.notifications = db.notifications.filter((n) => n.assignmentId !== a.id);
       db.assignments = db.assignments.filter((assignment) => assignment.id !== a.id);
+      discardDriveJobs(db, attached);
       return null;
     }
     case 'saveSubmission':
@@ -950,7 +986,8 @@ export function runAction(db: Database, user: StoredUser, input: Record<string, 
         if (!v.content.trim() && !files.length && !v.link.trim())
           throw new HttpError(400, 'Vui lòng nhập bài làm, đính kèm tệp hoặc liên kết minh chứng.');
         const words = v.content.trim() ? v.content.trim().split(/\s+/u).length : 0;
-        if (!files.length && !acceptsWordCount(words, a))
+        // Evidence by file or link replaces the written answer, so the word range only applies to text.
+        if (!files.length && !v.link.trim() && !acceptsWordCount(words, a))
           throw new HttpError(
             400,
             `Bài viết cần ${wordRequirement(a)}, hoặc đính kèm tệp bài làm.`,
@@ -1079,16 +1116,33 @@ export function runAction(db: Database, user: StoredUser, input: Record<string, 
             (s) => s.assignmentId === a.id && s.studentId === e.userId && s.status !== 'DRAFT',
           ),
       );
-      for (const e of missing)
+      // At most one reminder per learner and assignment every REMIND_COOLDOWN_MS.
+      const cutoff = Date.now() - REMIND_COOLDOWN_MS;
+      const due = missing.filter(
+        (e) =>
+          !db.notifications.some(
+            (n) =>
+              n.assignmentId === a.id &&
+              n.userId === e.userId &&
+              n.content.startsWith(REMINDER_PREFIX) &&
+              Date.parse(n.createdAt) > cutoff,
+          ),
+      );
+      if (missing.length && !due.length)
+        throw new HttpError(
+          429,
+          'Học viên đã được nhắc trong 3 giờ qua. Vui lòng thử lại sau để tránh làm phiền.',
+        );
+      for (const e of due)
         db.notifications.push({
           id: uid(),
           userId: e.userId,
-          content: `Nhắc nộp bài: ${a.title}. Hạn nộp ${new Date(a.dueAt).toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' })} (GMT+7).`,
+          content: `${REMINDER_PREFIX} ${a.title}. Hạn nộp ${new Date(a.dueAt).toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' })} (GMT+7).`,
           createdAt: time(),
           read: false,
           assignmentId: a.id,
         });
-      return { count: missing.length };
+      return { count: due.length, skipped: missing.length - due.length };
     }
     case 'markNotificationsRead': {
       const v = z.object({ ids: z.array(id).max(2000).optional() }).parse(input);
@@ -1102,3 +1156,119 @@ export function runAction(db: Database, user: StoredUser, input: Record<string, 
       throw new HttpError(400, 'Thao tác không được hỗ trợ.');
   }
 }
+
+/**
+ * Every caller that handles user input (the API route, scripts) must use this entry point: edits
+ * of shared content need the version the editor started from, so stale tabs get a 409.
+ */
+export function requireEditVersion(input: Record<string, unknown>) {
+  const reload = () => {
+    throw new HttpError(
+      409,
+      'Phiên soạn thảo đã cũ. Hãy sao chép nội dung và tải lại trang trước khi lưu.',
+    );
+  };
+  if (
+    (input.action === 'saveSubmission' || input.action === 'submitAssignment') &&
+    typeof input.expectedRevision !== 'string'
+  )
+    reload();
+  if (
+    input.action === 'saveNote' &&
+    !(input.expectedUpdatedAt === null || typeof input.expectedUpdatedAt === 'string')
+  )
+    reload();
+  if (
+    input.action === 'saveLesson' &&
+    (input.id || input.lessonId) &&
+    typeof input.expectedRevision !== 'string'
+  )
+    reload();
+  if (
+    (input.action === 'updateClass' || input.action === 'updateAssignment') &&
+    typeof input.expectedRevision !== 'string'
+  )
+    reload();
+  if (
+    input.action === 'gradeSubmission' &&
+    (typeof input.expectedGradeRevision !== 'string' ||
+      typeof input.expectedAttempt !== 'number' ||
+      !(input.expectedSubmittedAt === null || typeof input.expectedSubmittedAt === 'string'))
+  )
+    reload();
+}
+export function runActionStrict(
+  db: Database,
+  user: StoredUser,
+  input: Record<string, unknown>,
+): unknown {
+  requireEditVersion(input);
+  return runAction(db, user, input);
+}
+
+/**
+ * Tables each action reads or writes. The API route loads only these, so a click on "complete
+ * lesson" no longer reads and diffs every submission and notification (see withDatabase).
+ * Actions not listed (rare, broad ones such as deleteClass) load everything. A table missing from a
+ * list makes the action fail loudly, and tests/action-tables.test.ts checks every list.
+ */
+const ACCESS: TableKey[] = ['users', 'classes', 'enrollments'];
+const LESSON_ACCESS: TableKey[] = [...ACCESS, 'lessons'];
+const SUBMIT: TableKey[] = [
+  ...LESSON_ACCESS,
+  'assignments',
+  'submissions',
+  'files',
+  'driveUploads',
+  'notifications',
+];
+export const ACTION_TABLES: Record<string, TableKey[]> = {
+  createClass: ['users', 'classes'],
+  updateClass: ACCESS,
+  setClassTeachers: ACCESS,
+  archiveClass: ['users', 'classes'],
+  regenerateCode: ['users', 'classes'],
+  previewClass: ['users', 'classes'],
+  joinClass: ACCESS,
+  cancelEnrollment: ACCESS,
+  leaveClass: ACCESS,
+  removeEnrollment: ACCESS,
+  setEnrollmentGroup: ACCESS,
+  approveEnrollment: ACCESS,
+  rejectEnrollment: ACCESS,
+  saveLesson: [...LESSON_ACCESS, 'assignments', 'files', 'driveUploads', 'notifications'],
+  deleteLesson: [
+    ...LESSON_ACCESS,
+    'assignments',
+    'submissions',
+    'progress',
+    'notes',
+    'discussions',
+    'driveUploads',
+    'driveTrash',
+  ],
+  completeLesson: [...LESSON_ACCESS, 'progress'],
+  bookmarkLesson: [...LESSON_ACCESS, 'progress'],
+  saveNote: [...LESSON_ACCESS, 'notes'],
+  comment: [...LESSON_ACCESS, 'discussions'],
+  updateComment: [...LESSON_ACCESS, 'discussions'],
+  deleteComment: [...LESSON_ACCESS, 'discussions'],
+  createAssignment: [...LESSON_ACCESS, 'assignments', 'notifications'],
+  updateAssignment: [...LESSON_ACCESS, 'assignments'],
+  deleteAssignment: [
+    ...LESSON_ACCESS,
+    'assignments',
+    'submissions',
+    'notifications',
+    'driveUploads',
+    'driveTrash',
+  ],
+  saveSubmission: SUBMIT,
+  submitAssignment: SUBMIT,
+  withdrawSubmission: [...LESSON_ACCESS, 'assignments', 'submissions'],
+  gradeSubmission: [...ACCESS, 'assignments', 'submissions', 'notifications'],
+  remindStudents: [...ACCESS, 'assignments', 'submissions', 'notifications'],
+  markNotificationsRead: ['users', 'notifications'],
+};
+export const tablesFor = (action: unknown): readonly TableKey[] | undefined =>
+  typeof action === 'string' ? ACTION_TABLES[action] : undefined;

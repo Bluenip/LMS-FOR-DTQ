@@ -28,25 +28,6 @@ export const VERIFY_MESSAGE =
 export const RESET_MESSAGE =
   'Nếu email thuộc tài khoản phù hợp, hướng dẫn đặt lại mật khẩu đã được tạo. Vui lòng kiểm tra hộp thư và thư rác.';
 export type Delivery = (mail: AccountMail) => Promise<{ previewUrl?: string }>;
-const attempts = new Map<string, { count: number; reset: number }>();
-export function accountRateLimit(request: Request) {
-  const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'local';
-  const key = createHash('sha256').update(ip).digest('hex');
-  const now = Date.now();
-  const previous = attempts.get(key);
-  if (attempts.size >= 10000 && !previous) {
-    for (const [entry, value] of attempts) if (value.reset <= now) attempts.delete(entry);
-    if (attempts.size >= 10000)
-      throw new HttpError(429, 'Hệ thống đang nhận nhiều yêu cầu. Vui lòng thử lại sau.');
-  }
-  if (previous && previous.reset > now && previous.count >= 30)
-    throw new HttpError(429, 'Bạn đã gửi quá nhiều yêu cầu. Vui lòng thử lại sau 15 phút.');
-  attempts.set(key, {
-    count: previous && previous.reset > now ? previous.count + 1 : 1,
-    reset: previous && previous.reset > now ? previous.reset : now + 900000,
-  });
-  if (attempts.size > 10000) for (const [k, v] of attempts) if (v.reset <= now) attempts.delete(k);
-}
 export const accountInput = readJsonObject;
 function passwordInput(input: unknown) {
   const v = z

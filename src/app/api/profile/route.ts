@@ -4,12 +4,14 @@ import {
   assertOrigin,
   COOKIE,
   errorResponse,
+  HttpError,
+  publicUser,
   requireUser,
   sessionUserId,
   signSession,
 } from '@/lib/server/auth';
-import { getProfile, profileRateLimit, updateProfile } from '@/lib/server/profile';
-import { withDatabase } from '@/lib/server/repository';
+import { profileRateLimit, updateProfile } from '@/lib/server/profile';
+import { findSessionUser, withDatabase } from '@/lib/server/repository';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 function failure(error: unknown) {
@@ -20,9 +22,12 @@ function failure(error: unknown) {
 export async function GET() {
   try {
     const id = await sessionUserId();
-    return Response.json(await withDatabase((db) => getProfile(db, id)), {
-      headers: { 'Cache-Control': 'private, no-store' },
-    });
+    const user = id ? await findSessionUser(id) : undefined;
+    if (!user) throw new HttpError(401, 'Vui lòng đăng nhập để tiếp tục.');
+    return Response.json(
+      { user: publicUser(user) },
+      { headers: { 'Cache-Control': 'private, no-store' } },
+    );
   } catch (error) {
     return failure(error);
   }
