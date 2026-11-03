@@ -42,23 +42,33 @@ async function action(who, name, payload = {}) {
       'gradeSubmission',
       'updateClass',
       'updateAssignment',
+      'deleteClass',
+      'deleteLesson',
+      'deleteAssignment',
+      'withdrawSubmission',
+      'removeEnrollment',
+      'leaveClass',
     ].includes(name) ||
     (name === 'saveLesson' && (payload.id || payload.lessonId))
   ) {
     const current = await state(who);
-    if (name === 'updateClass') {
+    if (name === 'updateClass' || name === 'deleteClass') {
       payload = {
         expectedRevision:
           current.classes.find((entry) => entry.id === payload.classId)?.revision || '',
         ...payload,
       };
-    } else if (name === 'updateAssignment') {
+    } else if (name === 'updateAssignment' || name === 'deleteAssignment') {
       payload = {
         expectedRevision:
           current.assignments.find((entry) => entry.id === payload.assignmentId)?.revision || '',
         ...payload,
       };
-    } else if (name === 'saveSubmission' || name === 'submitAssignment') {
+    } else if (
+      name === 'saveSubmission' ||
+      name === 'submitAssignment' ||
+      name === 'withdrawSubmission'
+    ) {
       const submission = current.submissions.find(
         (s) => s.assignmentId === payload.assignmentId && s.studentId === current.user.id,
       );
@@ -68,9 +78,16 @@ async function action(who, name, payload = {}) {
         (n) => n.lessonId === payload.lessonId && n.userId === current.user.id,
       );
       payload = { expectedUpdatedAt: note?.updatedAt || null, ...payload };
-    } else if (name === 'saveLesson') {
+    } else if (name === 'saveLesson' || name === 'deleteLesson') {
       const lesson = current.lessons.find((entry) => entry.id === (payload.id || payload.lessonId));
       payload = { expectedRevision: lesson?.revision || '', ...payload };
+    } else if (name === 'removeEnrollment' || name === 'leaveClass') {
+      const enrollment = current.enrollments.find((e) =>
+        name === 'removeEnrollment'
+          ? e.id === payload.enrollmentId
+          : e.classId === payload.classId && e.userId === current.user.id,
+      );
+      payload = { expectedJoinedAt: enrollment?.joinedAt || '', ...payload };
     } else {
       const submission = current.submissions.find((entry) => entry.id === payload.submissionId);
       payload = {
@@ -492,6 +509,158 @@ assert(st.lessons.some((x) => x.id === l.id));
 checks++;
 await action(teacher, 'archiveClass', { classId: c.id, archived: true });
 await action(teacher, 'archiveClass', { classId: c.id, archived: false });
+// Regression coverage from the 03/11 report, on this disposable class only.
+const hiddenLesson = await action(teacher, 'saveLesson', {
+  classId: c.id,
+  title: 'Hidden regression lesson',
+  description: 'Draft text',
+  order: 10,
+});
+const hiddenAssignment = await action(teacher, 'createAssignment', {
+  classId: c.id,
+  lessonId: hiddenLesson.id,
+  title: 'Hidden regression assignment',
+  instructions: 'Keep private until publication',
+  minWords: 0,
+  maxAttempts: 5,
+  dueAt: new Date(Date.now() + 86400000).toISOString(),
+});
+assert(!(await state(student)).assignments.some((entry) => entry.id === hiddenAssignment.id));
+checks++;
+await action(teacher, 'saveLesson', { ...hiddenLesson, description: 'Edited draft' });
+const staleLessonDelete = await request('/api/actions', {
+  who: teacher,
+  method: 'POST',
+  body: {
+    action: 'deleteLesson',
+    lessonId: hiddenLesson.id,
+    expectedRevision: hiddenLesson.revision,
+  },
+});
+assert.equal(staleLessonDelete.status, 409);
+checks++;
+await action(teacher, 'deleteLesson', { lessonId: hiddenLesson.id });
+st = await state(teacher);
+assert.equal(st.assignments.find((entry) => entry.id === hiddenAssignment.id).published, false);
+assert(!(await state(student)).assignments.some((entry) => entry.id === hiddenAssignment.id));
+checks++;
+await action(teacher, 'updateAssignment', { assignmentId: hiddenAssignment.id, published: true });
+await action(teacher, 'updateAssignment', { assignmentId: hiddenAssignment.id, published: false });
+await action(teacher, 'updateAssignment', { assignmentId: hiddenAssignment.id, published: true });
+st = await state(student);
+assert.equal(
+  st.notifications.filter(
+    (n) => n.assignmentId === hiddenAssignment.id && n.content.startsWith('Lớp có bài tập mới:'),
+  ).length,
+  1,
+);
+checks++;
+const staleAssignmentDelete = await request('/api/actions', {
+  who: teacher,
+  method: 'POST',
+  body: {
+    action: 'deleteAssignment',
+    assignmentId: hiddenAssignment.id,
+    confirmTitle: hiddenAssignment.title,
+    expectedRevision: hiddenAssignment.revision,
+  },
+});
+assert.equal(staleAssignmentDelete.status, 409);
+checks++;
+const protectedSubmission = await action(student, 'submitAssignment', {
+  assignmentId: hiddenAssignment.id,
+  content: 'Keep submitted history',
+  pledge: true,
+});
+await action(teacher, 'gradeSubmission', {
+  submissionId: protectedSubmission.id,
+  rubric: { understanding: 30, application: 30, presentation: 10 },
+  feedback: 'Concurrent draft grade',
+});
+const staleWithdrawal = await request('/api/actions', {
+  who: student,
+  method: 'POST',
+  body: {
+    action: 'withdrawSubmission',
+    assignmentId: hiddenAssignment.id,
+    expectedRevision: protectedSubmission.revision,
+  },
+});
+assert.equal(staleWithdrawal.status, 409);
+assert.equal(
+  (await state(teacher)).submissions.find((entry) => entry.id === protectedSubmission.id).score,
+  70,
+);
+checks++;
+const secondHiddenLesson = await action(teacher, 'saveLesson', {
+  classId: c.id,
+  title: 'Second hidden lesson',
+  description: 'Draft',
+  order: 11,
+});
+await action(teacher, 'updateAssignment', {
+  assignmentId: hiddenAssignment.id,
+  lessonId: secondHiddenLesson.id,
+});
+st = await state(student);
+assert.equal(st.assignments.find((entry) => entry.id === hiddenAssignment.id).published, false);
+assert.equal(
+  st.submissions.find((entry) => entry.id === protectedSubmission.id).content,
+  'Keep submitted history',
+);
+const hiddenReminder = await request('/api/actions', {
+  who: teacher,
+  method: 'POST',
+  body: { action: 'remindStudents', assignmentId: hiddenAssignment.id },
+});
+assert.equal(hiddenReminder.status, 409);
+checks++;
+await action(teacher, 'gradeSubmission', {
+  submissionId: protectedSubmission.id,
+  rubric: { understanding: 30, application: 30, presentation: 10 },
+  returnGrade: true,
+});
+assert.equal(
+  (await state(student)).submissions.find((entry) => entry.id === protectedSubmission.id).score,
+  70,
+);
+checks++;
+const enrollmentBefore = (await state(teacher)).enrollments.find(
+  (entry) => entry.classId === c.id && entry.userId === protectedSubmission.studentId,
+);
+await action(student, 'leaveClass', { classId: c.id });
+await action(student, 'joinClass', { code: c.code });
+const staleRemoval = await request('/api/actions', {
+  who: teacher,
+  method: 'POST',
+  body: {
+    action: 'removeEnrollment',
+    enrollmentId: enrollmentBefore.id,
+    expectedJoinedAt: enrollmentBefore.joinedAt,
+  },
+});
+assert.equal(staleRemoval.status, 409);
+checks++;
+const staleClassDelete = await request('/api/actions', {
+  who: teacher,
+  method: 'POST',
+  body: { action: 'deleteClass', classId: c.id, code: c.code, expectedRevision: c.revision },
+});
+assert.equal(staleClassDelete.status, 409);
+checks++;
+const repeatedComplete = await request('/api/uploads/complete', {
+  who: teacher,
+  method: 'POST',
+  body: { fileId: p.data.fileId },
+});
+assert.equal(repeatedComplete.status, 200);
+assert.equal(repeatedComplete.data.id, complete.data.id);
+checks++;
+const loggedOut = await request('/api/auth/logout', { who: student, method: 'POST', body: {} });
+assert.equal(loggedOut.status, 200);
+const replay = await request('/api/state', { who: student });
+assert.equal(replay.status, 401, 'a copied cookie must be invalid after logout');
+checks++;
 await action(teacher, 'deleteClass', { classId: c.id, code: c.code });
 st = await state(teacher);
 assert(!st.classes.some((x) => x.id === c.id));

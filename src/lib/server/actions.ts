@@ -22,6 +22,7 @@ const time = () => new Date().toISOString();
 const uid = () => randomUUID();
 const assignmentSchema = z.object({
   classId: id,
+  published: z.boolean().default(true),
   lessonId: id.nullable().optional(),
   title,
   instructions: text,
@@ -156,14 +157,24 @@ function active(c: Classroom) {
   if (c.status === 'ARCHIVED')
     throw new HttpError(409, 'Lớp học đã lưu trữ, không thể thay đổi nội dung.');
 }
+export function assignmentPublished(db: Database, a: Assignment) {
+  return (
+    a.published !== false &&
+    (!a.lessonId || db.lessons.some((l) => l.id === a.lessonId && l.published))
+  );
+}
+function checkRevision(actual: string | undefined, expected: unknown, subject: string) {
+  const revision = z.string().max(120).optional().parse(expected);
+  if (revision !== undefined && revision !== (actual || ''))
+    throw new HttpError(
+      409,
+      `${subject} đã thay đổi ở phiên khác. Hãy tải lại và kiểm tra trước khi xác nhận.`,
+    );
+}
 function assignment(db: Database, user: StoredUser, assignmentId: string) {
   const a = needed(db.assignments.find((x) => x.id === assignmentId));
   const c = accessClass(db, user, a.classId);
-  if (
-    a.lessonId &&
-    !managesClass(c, user) &&
-    !db.lessons.some((l) => l.id === a.lessonId && l.published)
-  )
+  if (!managesClass(c, user) && !assignmentPublished(db, a))
     throw new HttpError(403, 'Bài tập chưa được công bố.');
   return { a, c };
 }
@@ -227,6 +238,8 @@ function deleteClassData(db: Database, classId: string) {
   db.files = db.files.filter((x) => x.classId !== classId);
 }
 function announceAssignment(db: Database, a: Assignment) {
+  if (a.announcedAt || !assignmentPublished(db, a)) return;
+  a.announcedAt = time();
   for (const enrollment of db.enrollments.filter(
     (e) => e.classId === a.classId && e.status === 'APPROVED',
   ))
@@ -283,7 +296,11 @@ export function stateFor(db: Database, user: StoredUser): AppState {
   const assignments = db.assignments.filter(
     (a) =>
       allowed.has(a.classId) &&
-      (managed.has(a.classId) || !a.lessonId || lessons.some((l) => l.id === a.lessonId)),
+      (managed.has(a.classId) ||
+        assignmentPublished(db, a) ||
+        db.submissions.some(
+          (s) => s.assignmentId === a.id && s.studentId === user.id && s.status !== 'DRAFT',
+        )),
   );
   const assignmentIds = new Set(assignments.map((a) => a.id));
   const enrollments = db.enrollments.filter(
@@ -322,7 +339,10 @@ export function stateFor(db: Database, user: StoredUser): AppState {
     classes,
     enrollments,
     lessons,
-    assignments,
+    assignments: assignments.map((a) => ({
+      ...a,
+      published: managed.has(a.classId) ? a.published !== false : assignmentPublished(db, a),
+    })),
     submissions: db.submissions
       .filter(
         (s) =>
@@ -357,6 +377,19 @@ export function stateFor(db: Database, user: StoredUser): AppState {
 }
 export function runAction(db: Database, user: StoredUser, input: Record<string, unknown>): unknown {
   const action = z.string().parse(input.action);
+  // JSON demo databases predate the publication fields; retain their announcement history.
+  for (const a of db.assignments) {
+    if (a.published === undefined) {
+      if (
+        assignmentPublished(db, a) ||
+        db.notifications.some(
+          (n) => n.assignmentId === a.id && n.content.startsWith('Lớp có bài tập mới:'),
+        )
+      )
+        a.announcedAt ||= a.createdAt;
+      a.published = true;
+    }
+  }
   switch (action) {
     case 'createClass': {
       if (user.role !== 'TEACHER') throw new HttpError(403, 'Chỉ giáo viên được tạo lớp.');
@@ -472,6 +505,7 @@ export function runAction(db: Database, user: StoredUser, input: Record<string, 
       const v = z.object({ classId: id, code: z.string() }).parse(input);
       const c = ownerClass(db, user, v.classId);
       if (v.code !== c.code) throw new HttpError(400, 'Mã xác nhận không khớp mã lớp học.');
+      checkRevision(c.revision, input.expectedRevision, 'Lớp học');
       deleteClassData(db, c.id);
       return null;
     }
@@ -517,7 +551,10 @@ export function runAction(db: Database, user: StoredUser, input: Record<string, 
         joinedAt: time(),
       };
       if (previous) {
-        Object.assign(previous, { status: e.status, joinedAt: e.joinedAt });
+        Object.assign(previous, {
+          status: e.status,
+          joinedAt: new Date(Math.max(Date.now(), Date.parse(previous.joinedAt) + 1)).toISOString(),
+        });
         return previous;
       }
       db.enrollments.push(e);
@@ -543,6 +580,9 @@ export function runAction(db: Database, user: StoredUser, input: Record<string, 
           : teacherClass(db, user, e.classId);
       active(c);
       if (e.status !== 'APPROVED') throw new HttpError(409, 'Học viên không còn trong lớp.');
+      const expectedJoinedAt = z.string().optional().parse(input.expectedJoinedAt);
+      if (expectedJoinedAt !== undefined && expectedJoinedAt !== e.joinedAt)
+        throw new HttpError(409, 'Lần tham gia lớp đã thay đổi. Hãy tải lại danh sách thành viên.');
       e.status = 'REMOVED';
       return null;
     }
@@ -677,13 +717,17 @@ export function runAction(db: Database, user: StoredUser, input: Record<string, 
     case 'deleteLesson': {
       const l = needed(db.lessons.find((l) => l.id === input.lessonId));
       active(teacherClass(db, user, l.classId));
+      checkRevision(l.revision, input.expectedRevision, 'Bài giảng');
+      // Freeze publication before removing the relationship; a hidden assignment stays hidden.
+      for (const a of db.assignments.filter((a) => a.lessonId === l.id)) {
+        a.published = assignmentPublished(db, a);
+        a.revision = uid();
+        delete a.lessonId;
+      }
       db.lessons = db.lessons.filter((x) => x.id !== l.id);
       db.progress = db.progress.filter((x) => x.lessonId !== l.id);
       db.notes = db.notes.filter((x) => x.lessonId !== l.id);
       db.discussions = db.discussions.filter((x) => x.lessonId !== l.id);
-      db.assignments.forEach((a) => {
-        if (a.lessonId === l.id) delete a.lessonId;
-      });
       return null;
     }
     case 'completeLesson':
@@ -794,8 +838,7 @@ export function runAction(db: Database, user: StoredUser, input: Record<string, 
         revision: uid(),
       };
       db.assignments.push(a);
-      if (!a.lessonId || db.lessons.some((l) => l.id === a.lessonId && l.published))
-        announceAssignment(db, a);
+      announceAssignment(db, a);
       return a;
     }
     case 'updateAssignment': {
@@ -809,9 +852,14 @@ export function runAction(db: Database, user: StoredUser, input: Record<string, 
         );
       if (input.classId !== undefined && input.classId !== a.classId)
         throw new HttpError(400, 'Không thể chuyển bài tập sang lớp khác.');
+      const wasVisible = assignmentPublished(db, a);
       const v = assignmentValues(db, { ...a, ...input, classId: a.classId });
+      // Moving away from a draft lesson is not consent to disclose the assignment.
+      if (!wasVisible && v.lessonId !== a.lessonId && input.published === undefined)
+        v.published = false;
       Object.assign(a, v, { revision: uid() });
       if (!v.lessonId) delete a.lessonId;
+      announceAssignment(db, a);
       return a;
     }
     case 'deleteAssignment': {
@@ -820,6 +868,7 @@ export function runAction(db: Database, user: StoredUser, input: Record<string, 
       active(teacherClass(db, user, a.classId));
       if (v.confirmTitle !== a.title)
         throw new HttpError(409, 'Tên bài tập không khớp. Kiểm tra lại trước khi xóa.');
+      checkRevision(a.revision, input.expectedRevision, 'Bài tập');
       db.submissions = db.submissions.filter((s) => s.assignmentId !== a.id);
       db.notifications = db.notifications.filter((n) => n.assignmentId !== a.id);
       db.assignments = db.assignments.filter((assignment) => assignment.id !== a.id);
@@ -909,7 +958,10 @@ export function runAction(db: Database, user: StoredUser, input: Record<string, 
       const s = needed(
         db.submissions.find((s) => s.assignmentId === a.id && s.studentId === user.id),
       );
+      checkRevision(s.revision, input.expectedRevision, 'Bài nộp');
       if (s.status === 'GRADED') throw new HttpError(409, 'Bài đã chấm không thể thu hồi.');
+      if (s.status !== 'SUBMITTED')
+        throw new HttpError(409, 'Bài làm không còn ở trạng thái đã nộp.');
       if (Date.now() > Date.parse(a.dueAt)) throw new HttpError(409, 'Đã hết hạn thu hồi bài làm.');
       if (!a.allowResubmit || s.attempt >= a.maxAttempts)
         throw new HttpError(409, 'Bài tập không cho phép nộp lại hoặc đã hết lượt.');
@@ -965,6 +1017,8 @@ export function runAction(db: Database, user: StoredUser, input: Record<string, 
       s.score = Object.values(v.rubric).reduce((a, b) => a + b, 0);
       s.feedback = v.feedback;
       s.gradeRevision = uid();
+      // A withdrawal confirmed before grading must not silently erase the new grade.
+      s.revision = uid();
       if (v.returnGrade) {
         s.status = 'GRADED';
         s.gradedAt = time();
@@ -983,6 +1037,8 @@ export function runAction(db: Database, user: StoredUser, input: Record<string, 
       const v = z.object({ assignmentId: id, userId: id.optional() }).parse(input);
       const a = needed(db.assignments.find((a) => a.id === v.assignmentId));
       active(teacherClass(db, user, a.classId));
+      if (!assignmentPublished(db, a))
+        throw new HttpError(409, 'Bài tập chưa được công bố. Hãy công bố trước khi nhắc nộp bài.');
       const missing = db.enrollments.filter(
         (e) =>
           e.classId === a.classId &&

@@ -40,8 +40,20 @@ function requireEditVersion(input: Record<string, unknown>) {
   )
     reload();
   if (
-    (input.action === 'updateClass' || input.action === 'updateAssignment') &&
+    [
+      'updateClass',
+      'updateAssignment',
+      'deleteClass',
+      'deleteLesson',
+      'deleteAssignment',
+      'withdrawSubmission',
+    ].includes(String(input.action)) &&
     typeof input.expectedRevision !== 'string'
+  )
+    reload();
+  if (
+    ['removeEnrollment', 'leaveClass'].includes(String(input.action)) &&
+    typeof input.expectedJoinedAt !== 'string'
   )
     reload();
   if (

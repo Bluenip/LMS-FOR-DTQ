@@ -78,6 +78,8 @@ export interface Attachment {
   url?: string;
 }
 export interface Assignment {
+  published?: boolean;
+  announcedAt?: string;
   id: string;
   classId: string;
   lessonId?: string;

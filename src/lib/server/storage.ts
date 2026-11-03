@@ -1,9 +1,10 @@
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import {
   CopyObjectCommand,
   DeleteObjectCommand,
   GetObjectCommand,
   HeadObjectCommand,
+  HeadBucketCommand,
   PutObjectCommand,
   S3Client,
 } from '@aws-sdk/client-s3';
@@ -33,6 +34,8 @@ export function storage() {
     endpoint: process.env.S3_ENDPOINT || undefined,
     forcePathStyle: !!process.env.S3_ENDPOINT,
     requestChecksumCalculation: 'WHEN_REQUIRED',
+    maxAttempts: 2,
+    requestHandler: { connectionTimeout: 10000, requestTimeout: 60000 },
     responseChecksumValidation: 'WHEN_REQUIRED',
     credentials: {
       accessKeyId: process.env.S3_ACCESS_KEY_ID,
@@ -135,21 +138,30 @@ export async function verifyObject(file: StoredFile) {
     new HeadObjectCommand({ Bucket: process.env.S3_BUCKET, Key: file.key }),
   );
   if (head.ContentLength !== file.size || head.ContentType !== file.mimeType) {
-    await s3.send(new DeleteObjectCommand({ Bucket: process.env.S3_BUCKET, Key: file.key }));
     throw new HttpError(400, 'Kích thước hoặc định dạng tệp không khớp. Vui lòng tải lại.');
   }
   const result = await s3.send(
     new GetObjectCommand({
       Bucket: process.env.S3_BUCKET,
       Key: file.key,
+      IfMatch: head.ETag,
       ...(file.mimeType.startsWith('video/') ? { Range: 'bytes=0-4095' } : {}),
     }),
   );
-  const bytes = Buffer.from(await result.Body!.transformToByteArray());
+  if (!head.ETag || !result.Body)
+    throw new HttpError(502, 'Kho tệp không trả về thông tin xác thực.');
+  const limit = file.mimeType.startsWith('video/') ? 4096 : MAX_DOCUMENT;
+  const chunks: Uint8Array[] = [];
+  let length = 0;
+  for await (const chunk of result.Body as AsyncIterable<Uint8Array>) {
+    length += chunk.length;
+    if (length > limit) throw new HttpError(413, 'Nội dung tệp vượt quá giới hạn.');
+    chunks.push(chunk);
+  }
+  const bytes = Buffer.concat(chunks, length);
   if (result.ETag !== head.ETag)
     throw new HttpError(409, 'Tệp đã thay đổi trong khi xác thực. Vui lòng tải lại.');
   if (!signature(bytes, file.mimeType)) {
-    await s3.send(new DeleteObjectCommand({ Bucket: process.env.S3_BUCKET, Key: file.key }));
     throw new HttpError(400, 'Tệp không đúng định dạng thực tế.');
   }
   return result.ETag;
@@ -169,7 +181,11 @@ export async function downloadUrl(file: StoredFile) {
 
 export async function finalizeObject(file: StoredFile, etag: string | undefined) {
   const s3 = storage();
-  const finalKey = `verified/${file.key}`;
+  if (!etag) throw new HttpError(502, 'Kho tệp không trả về phiên bản tệp.');
+  // Each validated source version has an immutable destination. A concurrent re-upload
+  // cannot overwrite a version already committed by another completion request.
+  const version = createHash('sha256').update(etag).digest('hex').slice(0, 32);
+  const finalKey = `verified/${file.key.replace(/(\.[^.]+)$/, `-${version}$1`)}`;
   await s3.send(
     new CopyObjectCommand({
       Bucket: process.env.S3_BUCKET,
@@ -180,6 +196,50 @@ export async function finalizeObject(file: StoredFile, etag: string | undefined)
       CopySourceIfMatch: etag,
     }),
   );
-  await s3.send(new DeleteObjectCommand({ Bucket: process.env.S3_BUCKET, Key: file.key }));
   return finalKey;
+}
+
+export async function deleteObject(key: string) {
+  await storage().send(new DeleteObjectCommand({ Bucket: process.env.S3_BUCKET, Key: key }));
+}
+
+/** Never remove the retriable source until the database has durably committed. */
+export async function completeStoredUpload(
+  file: StoredFile,
+  commit: (key: string) => Promise<StoredFile>,
+  operations = { verifyObject, finalizeObject, deleteObject },
+) {
+  if (file.verified) return file;
+  const etag = await operations.verifyObject(file);
+  const key = await operations.finalizeObject(file, etag);
+  const committed = await commit(key);
+  if (!committed.verified) throw new Error('File completion did not commit');
+  // A failed cleanup must not turn a successful commit into a failed upload.
+  // The pruning job removes leftover source/copy objects after the retention period.
+  await operations.deleteObject(file.key).catch(() => {});
+  return committed;
+}
+
+type StorageStatus = 'unconfigured' | 'reachable' | 'unavailable';
+let storageProbe: { expires: number; result: Promise<StorageStatus> } | undefined;
+/** Connectivity/credentials probe only; browser PUT/GET and CORS still need a setup test. */
+export async function storageStatus(): Promise<StorageStatus> {
+  if (!process.env.S3_BUCKET || !process.env.S3_ACCESS_KEY_ID || !process.env.S3_SECRET_ACCESS_KEY)
+    return 'unconfigured';
+  if (storageProbe && storageProbe.expires > Date.now()) return storageProbe.result;
+  const result = (async (): Promise<StorageStatus> => {
+    const s3 = storage();
+    try {
+      await s3.send(new HeadBucketCommand({ Bucket: process.env.S3_BUCKET }), {
+        abortSignal: AbortSignal.timeout(3000),
+      });
+      return 'reachable';
+    } catch {
+      return 'unavailable';
+    } finally {
+      s3.destroy();
+    }
+  })();
+  storageProbe = { expires: Date.now() + 60000, result };
+  return result;
 }

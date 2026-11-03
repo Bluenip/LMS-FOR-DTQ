@@ -1,4 +1,5 @@
 import { isIP } from 'node:net';
+import { createHash } from 'node:crypto';
 import { HttpError } from './auth';
 
 export function clientIp(request: Request) {
@@ -33,5 +34,37 @@ export class RateLimit {
   }
   reset(key: string) {
     this.entries.delete(key);
+  }
+}
+
+const localSharedLimits = new Map<string, RateLimit>();
+export async function consumeSharedRateLimit(
+  key: string,
+  limit: number,
+  windowMs: number,
+  message = 'Quá nhiều yêu cầu. Vui lòng thử lại sau 15 phút.',
+) {
+  const hashed = createHash('sha256').update(key).digest('hex');
+  if (process.env.DATABASE_URL) {
+    const { consumeRequestLimit } = await import('./repository');
+    if (!(await consumeRequestLimit(hashed, limit, windowMs))) throw new HttpError(429, message);
+    return;
+  }
+  const policy = `${limit}:${windowMs}:${message}`;
+  let limiter = localSharedLimits.get(policy);
+  if (!limiter) {
+    limiter = new RateLimit(limit, windowMs, 10000, message);
+    localSharedLimits.set(policy, limiter);
+  }
+  limiter.consume(hashed);
+}
+
+export async function resetSharedRateLimit(key: string) {
+  const hashed = createHash('sha256').update(key).digest('hex');
+  if (process.env.DATABASE_URL) {
+    const { resetRequestLimit } = await import('./repository');
+    await resetRequestLimit(hashed);
+  } else {
+    for (const limiter of localSharedLimits.values()) limiter.reset(hashed);
   }
 }

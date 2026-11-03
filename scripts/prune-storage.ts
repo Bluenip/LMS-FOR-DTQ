@@ -2,7 +2,7 @@
 import { DeleteObjectCommand, ListObjectsV2Command } from '@aws-sdk/client-s3';
 import { withDatabase } from '../src/lib/server/repository';
 import { storage } from '../src/lib/server/storage';
-import { orphanedStorageKeys } from '../src/lib/storage-cleanup';
+import { orphanedStorageKeys, staleUnreferencedFileIds } from '../src/lib/storage-cleanup';
 
 async function main() {
   const apply = process.argv.includes('--apply');
@@ -15,6 +15,7 @@ async function main() {
   const s3 = storage();
   const result = await withDatabase(async (db) => {
     const candidates: string[] = [];
+    const observedKeys = new Set<string>();
     for (const prefix of ['classes/', 'verified/classes/']) {
       let token: string | undefined;
       do {
@@ -25,7 +26,9 @@ async function main() {
             ContinuationToken: token,
           }),
         );
-        candidates.push(...orphanedStorageKeys(db, page.Contents || [], cutoff));
+        const objects = page.Contents || [];
+        for (const object of objects) if (object.Key) observedKeys.add(object.Key);
+        candidates.push(...orphanedStorageKeys(db, objects, cutoff));
         token = page.IsTruncated ? page.NextContinuationToken : undefined;
         if (page.IsTruncated && !token)
           throw new Error('Storage listing was truncated without a continuation token.');
@@ -34,8 +37,12 @@ async function main() {
     if (apply) {
       for (const key of candidates)
         await s3.send(new DeleteObjectCommand({ Bucket: process.env.S3_BUCKET, Key: key }));
-      const removed = new Set(candidates);
-      db.files = db.files.filter((file) => !removed.has(file.key));
+      const removed = new Set(staleUnreferencedFileIds(db, cutoff));
+      const deletedKeys = new Set(candidates);
+      db.files = db.files.filter(
+        (file) =>
+          !removed.has(file.id) || (observedKeys.has(file.key) && !deletedKeys.has(file.key)),
+      );
     }
     return {
       candidates: candidates.length,

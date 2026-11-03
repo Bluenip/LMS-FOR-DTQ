@@ -111,6 +111,8 @@ model Lesson {
 }
 
 model Assignment {
+  published     Boolean        @default(true)
+  announcedAt   String?
   id            String         @id
   classId       String
   classroom     Classroom      @relation(fields: [classId], references: [id], onDelete: Cascade)
@@ -219,4 +221,11 @@ model StoredFile {
   createdAt String
 
   @@index([classId, ownerId])
+}
+
+// Shared limits are maintained directly, outside application snapshots.
+model RequestLimit {
+  key     String @id
+  count   Int
+  resetAt BigInt
 }

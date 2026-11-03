@@ -6,12 +6,15 @@ import {
   sessionUserId,
 } from '@/lib/server/auth';
 import { withDatabase } from '@/lib/server/repository';
-import { finalizeObject, verifyObject } from '@/lib/server/storage';
+import { completeStoredUpload } from '@/lib/server/storage';
 import { accessClass, teacherClass } from '@/lib/server/actions';
 import { readJsonObject } from '@/lib/server/request';
+import { consumeSharedRateLimit } from '@/lib/server/rate-limit';
+import { uploadGate } from '@/lib/server/upload-policy';
 import { z } from 'zod';
 export const runtime = 'nodejs';
 export async function POST(request: Request) {
+  let release: (() => void) | undefined;
   try {
     assertOrigin(request);
     const userId = await sessionUserId();
@@ -28,36 +31,40 @@ export async function POST(request: Request) {
       if (classroom.status === 'ARCHIVED') throw new HttpError(409, 'Lớp học đã lưu trữ.');
       return f;
     });
-    if (file.verified)
-      return Response.json({
-        id: file.id,
-        name: file.name,
-        size: file.size,
-        mimeType: file.mimeType,
-        url: `/api/files/${file.id}`,
-      });
-    const etag = await verifyObject(file);
-    const finalKey = await finalizeObject(file, etag);
-    await withDatabase((db) => {
-      const user = requireUser(db, userId);
-      const classroom = file.mimeType.startsWith('video/')
-        ? teacherClass(db, user, file.classId)
-        : accessClass(db, user, file.classId);
-      if (classroom.status === 'ARCHIVED') throw new HttpError(409, 'Lớp học đã lưu trữ.');
-      const f = db.files.find((f) => f.id === file.id);
-      if (f) {
-        f.verified = true;
-        f.key = finalKey;
-      }
-    }, true);
+    release = uploadGate.acquire(file.ownerId);
+    await consumeSharedRateLimit(
+      `upload-complete:${file.ownerId}`,
+      120,
+      3600000,
+      'Bạn đã gửi quá nhiều yêu cầu hoàn tất tệp. Vui lòng thử lại sau.',
+    );
+    const result = await completeStoredUpload(file, (finalKey) =>
+      withDatabase((db) => {
+        const user = requireUser(db, userId);
+        const classroom = file.mimeType.startsWith('video/')
+          ? teacherClass(db, user, file.classId)
+          : accessClass(db, user, file.classId);
+        if (classroom.status === 'ARCHIVED') throw new HttpError(409, 'Lớp học đã lưu trữ.');
+        const f = db.files.find((f) => f.id === file.id && f.ownerId === user.id);
+        if (!f) throw new HttpError(409, 'Tệp đã bị xóa. Vui lòng tải lại.');
+        if (!f.verified) {
+          if (f.key !== file.key) throw new HttpError(409, 'Tệp đã thay đổi. Vui lòng thử lại.');
+          f.verified = true;
+          f.key = finalKey;
+        }
+        return f;
+      }, true),
+    );
     return Response.json({
-      id: file.id,
-      name: file.name,
-      size: file.size,
-      mimeType: file.mimeType,
-      url: `/api/files/${file.id}`,
+      id: result.id,
+      name: result.name,
+      size: result.size,
+      mimeType: result.mimeType,
+      url: `/api/files/${result.id}`,
     });
   } catch (e) {
     return errorResponse(e);
+  } finally {
+    release?.();
   }
 }

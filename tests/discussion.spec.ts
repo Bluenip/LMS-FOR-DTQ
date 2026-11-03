@@ -67,6 +67,7 @@ test('authors edit discussions while teachers moderate them and both pages synch
     await expect(own.getByText('Chia sẻ ban đầu của học viên', { exact: true })).toBeVisible();
     await own.getByRole('button', { name: 'Sửa', exact: true }).click();
     await own.getByLabel('Sửa nội dung thảo luận', { exact: true }).fill('Bản chưa lưu sẽ hủy');
+    studentPage.once('dialog', (dialog) => void dialog.accept());
     await own.getByRole('button', { name: 'Hủy', exact: true }).click();
     await expect(own.getByText('Chia sẻ ban đầu của học viên', { exact: true })).toBeVisible();
     await expect(own.getByText('Đã chỉnh sửa', { exact: true })).toHaveCount(0);
@@ -121,6 +122,7 @@ test('authors edit discussions while teachers moderate them and both pages synch
     await expect(
       studentPage.getByRole('button', { name: 'Lưu chỉnh sửa', exact: true }),
     ).toBeDisabled();
+    studentPage.once('dialog', (dialog) => void dialog.accept());
     await studentPage.getByRole('button', { name: 'Hủy', exact: true }).click();
     await expect(
       studentPage.getByText('Lời nhắn riêng của giáo viên', { exact: true }),
@@ -196,6 +198,7 @@ test('peers cannot change other discussions and stale editing protects a newer r
     await expect(own.getByLabel('Sửa nội dung thảo luận', { exact: true })).toHaveValue(
       'Bản chưa lưu ở cửa sổ cũ',
     );
+    page.once('dialog', (dialog) => void dialog.accept());
     await own.getByRole('button', { name: 'Hủy', exact: true }).click();
     await expect(own.getByText(latest.content, { exact: true })).toBeVisible();
     await own.getByRole('button', { name: 'Xóa', exact: true }).click();

@@ -103,6 +103,8 @@ export function seedData(): Database {
     assignments: [
       {
         id: 'assignment-1',
+        published: true,
+        announcedAt: now,
         classId,
         lessonId: 'lesson-2',
         title: 'Tâm đắc bài học: Đạo làm con',

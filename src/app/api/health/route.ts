@@ -1,3 +1,4 @@
+import { storageStatus } from '@/lib/server/storage';
 import { checkDatabaseConnection } from '@/lib/server/repository';
 
 export const runtime = 'nodejs';
@@ -10,7 +11,7 @@ export async function GET() {
     if (process.env.APP_URL && new URL(process.env.APP_URL).origin !== process.env.APP_URL)
       throw new Error('Invalid app origin');
     await checkDatabaseConnection();
-    return Response.json({ status: 'ok' }, { headers });
+    return Response.json({ status: 'ok', storage: await storageStatus() }, { headers });
   } catch {
     return Response.json({ status: 'unavailable' }, { status: 503, headers });
   }

@@ -115,6 +115,7 @@ failed() {
   if [[ "$rollout_started" == true && -n "$previous_image" ]]; then
     image=$previous_image
     log "Restoring previous application image: $image"
+    log 'Database schema is NOT rolled back. Only backward-compatible migrations are safe; restore a backup manually after review if needed.'
     if ! compose up -d --no-deps --wait --wait-timeout 120 app; then
       log 'Application rollback failed. Database backup is retained for recovery.'
     fi
@@ -128,7 +129,9 @@ log "Building revision ${target:0:12}; running application remains active during
 compose build app
 compose up -d --wait --wait-timeout 120 postgres
 backup="$state_dir/backups/deploy-$(date -u +%Y%m%dT%H%M%S)-${target:0:12}-$$.dump"
-compose exec -T postgres pg_dump -U lms -d lms -Fc > "$backup.tmp"
+timeout --kill-after=15s 300 docker compose --project-name lms-dtq --env-file "$env_file" \
+  -f "$repo_dir/compose.production.yml" exec -T postgres pg_dump -U lms -d lms -Fc > "$backup.tmp"
+[[ -s "$backup.tmp" ]] || die 'Database backup is empty; refusing rollout.'
 mv -- "$backup.tmp" "$backup"
 rollout_started=true
 compose up -d --wait --wait-timeout 180

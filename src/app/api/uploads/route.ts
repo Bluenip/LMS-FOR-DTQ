@@ -14,34 +14,34 @@ import {
   storage,
   validateUpload,
 } from '@/lib/server/storage';
+import { readUploadBody, reserveUpload, uploadGate } from '@/lib/server/upload-policy';
+import { consumeSharedRateLimit } from '@/lib/server/rate-limit';
 export const runtime = 'nodejs';
 export async function POST(request: Request) {
+  let release: (() => void) | undefined;
   try {
     assertOrigin(request);
     const userId = await sessionUserId();
-    await withDatabase((db) => requireUser(db, userId));
-    storage();
-    const cap = MAX_DOCUMENT + 1024 * 1024;
-    const reader = request.body?.getReader();
-    if (!reader) throw new HttpError(400, 'Thiếu tệp tải lên.');
-    const parts: Uint8Array[] = [];
-    let length = 0;
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      length += value.length;
-      if (length > cap) {
-        await reader.cancel();
-        throw new HttpError(413, 'Tệp bài tập tối đa 25 MB.');
-      }
-      parts.push(value);
-    }
+    const user = await withDatabase((db) => requireUser(db, userId));
+    release = uploadGate.acquire(user.id);
+    await consumeSharedRateLimit(
+      `uploads:${user.id}`,
+      60,
+      3600000,
+      'Bạn đã tải quá nhiều tệp. Vui lòng thử lại sau một giờ.',
+    );
+    storage().destroy();
     const parsed = new Request(request.url, {
       method: 'POST',
       headers: { 'content-type': request.headers.get('content-type') || '' },
-      body: Buffer.concat(parts),
+      body: await readUploadBody(request, MAX_DOCUMENT + 1024 * 1024),
     });
-    const form = await parsed.formData();
+    let form: FormData;
+    try {
+      form = await parsed.formData();
+    } catch {
+      throw new HttpError(400, 'Dữ liệu tải tệp không hợp lệ.');
+    }
     const f = form.get('file');
     if (!(f instanceof File)) throw new HttpError(400, 'Vui lòng chọn tệp.');
     const v = validateUpload({
@@ -55,15 +55,18 @@ export async function POST(request: Request) {
       const user = requireUser(db, userId);
       const classroom = accessClass(db, user, v.classId);
       if (classroom.status === 'ARCHIVED') throw new HttpError(409, 'Lớp học đã lưu trữ.');
-      return fileRecord(user.id, v);
-    });
+      const record = fileRecord(user.id, v);
+      reserveUpload(db, record);
+      return record;
+    }, true);
     await putDocument(record, Buffer.from(await f.arrayBuffer()));
-    record.verified = true;
     await withDatabase((db) => {
       const user = requireUser(db, userId);
       const classroom = accessClass(db, user, v.classId);
       if (classroom.status === 'ARCHIVED') throw new HttpError(409, 'Lớp học đã lưu trữ.');
-      db.files.push(record);
+      const stored = db.files.find((entry) => entry.id === record.id && entry.ownerId === user.id);
+      if (!stored) throw new HttpError(409, 'Tệp đã thay đổi. Vui lòng tải lại.');
+      stored.verified = true;
     }, true);
     return Response.json({
       id: record.id,
@@ -74,5 +77,7 @@ export async function POST(request: Request) {
     });
   } catch (e) {
     return errorResponse(e);
+  } finally {
+    release?.();
   }
 }

@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { versionedAction } from './versioned-action';
 import { mkdir } from 'node:fs/promises';
 import { expect, test, type APIRequestContext, type Page } from '@playwright/test';
 import type { AdminState, AdminUser, Classroom, Role } from '../src/lib/types';
@@ -452,7 +453,13 @@ test('an administrator manages teacher and student accounts while preserving cla
           });
         }
         const response = await teacher.post('/api/actions', {
-          data: { action: 'deleteClass', classId: classroom.id, code: classroom.code },
+          data: {
+            action: 'deleteClass',
+            ...(await versionedAction(teacher, 'deleteClass', {
+              classId: classroom.id,
+              code: classroom.code,
+            })),
+          },
         });
         expect(response.ok(), await response.text()).toBeTruthy();
       }

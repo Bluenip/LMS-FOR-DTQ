@@ -2,7 +2,9 @@
 
 Ứng dụng quản lý lớp học trực tuyến bằng tiếng Việt: giáo viên tổ chức bài giảng và bài tập, học viên học và nộp bài, quản trị viên cấp tài khoản. Frontend và API cùng chạy trong một ứng dụng Next.js; PostgreSQL lưu dữ liệu vận hành, kho S3 tương thích lưu tệp và video.
 
-**Cập nhật ngày 03/11/2026:** đã sửa các lỗi về quyền riêng tư, video, thu hồi/chấm bài, JSON đầu vào và giới hạn đăng nhập; 90 kiểm thử backend/vận hành, 17 kiểm thử trình duyệt và build production đều đạt. Có Docker/Compose, healthcheck PostgreSQL và Bash tự cập nhật GitHub bằng systemd timer khi server bật/reboot. Xem [báo cáo kiểm tra](docs/CODE_REVIEW.md) và [hướng dẫn triển khai](docs/DEPLOYMENT.md) để biết kết quả xác minh và giới hạn còn lại.
+**Cập nhật kiểm thử 03/11/2026:** xem [kết quả xử lý báo cáo](docs/REPORT_FIXES_2026-11-03.md) cho các sửa lỗi mới về bản nháp, công bố, xung đột giữa phiên, tải tệp, phiên đăng nhập và sao lưu.
+
+**Lượt rà soát trước:** đã sửa các lỗi về quyền riêng tư, video, thu hồi/chấm bài, JSON đầu vào và giới hạn đăng nhập; 90 kiểm thử backend/vận hành, 17 kiểm thử trình duyệt và build production đều đạt. Có Docker/Compose, healthcheck PostgreSQL và Bash tự cập nhật GitHub bằng systemd timer khi server bật/reboot. Xem [báo cáo kiểm tra](docs/CODE_REVIEW.md) và [hướng dẫn triển khai](docs/DEPLOYMENT.md) để biết kết quả xác minh và giới hạn còn lại.
 
 **Địa chỉ triển khai:** https://zimaos.click — Cloudflare Tunnel nối tới app ở `127.0.0.1:3000`. Chưa cấu hình bucket vận hành vì R2 của tài khoản chưa bật; YouTube/bài viết hoạt động, tải tệp cần bổ sung S3/R2.
 
@@ -95,7 +97,7 @@ Tài khoản mới hoặc được reset nhận mật khẩu tạm ngẫu nhiên
 
 Quyền quản trị (`isAdmin`) tách biệt với vai trò `TEACHER` / `STUDENT`. Giáo viên thông thường không được quản trị tài khoản. Không có tài khoản quản trị demo được cấp sẵn. Bảng quản trị không cho khóa hoặc reset tài khoản có quyền quản trị.
 
-Khóa, reset hoặc đổi mật khẩu làm mất hiệu lực các phiên cũ. Khi tự đổi mật khẩu, trình duyệt hiện tại nhận phiên mới. Cookie phiên có thời hạn 7 ngày, HttpOnly, SameSite=Lax và Secure trong production; mật khẩu được băm bằng scrypt với salt riêng.
+Khóa, reset hoặc đổi mật khẩu làm mất hiệu lực các phiên cũ. Khi tự đổi mật khẩu, trình duyệt hiện tại nhận phiên mới. Đăng xuất thu hồi mọi bản sao cookie và các thiết bị khác của cùng tài khoản; thiết bị khác cần đăng nhập lại. Cookie phiên có thời hạn 7 ngày, HttpOnly, SameSite=Lax và Secure trong production; mật khẩu được băm bằng scrypt với salt riêng.
 
 Chi tiết thao tác: [docs/ACCOUNTS.md](docs/ACCOUNTS.md).
 

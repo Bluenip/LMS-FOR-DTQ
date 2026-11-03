@@ -38,6 +38,73 @@ export async function findSessionUser(userId: string): Promise<StoredUser | unde
   return row ? cleanRow<StoredUser>(row) : undefined;
 }
 
+export async function findLoginUser(email: string): Promise<StoredUser | undefined> {
+  if (!process.env.DATABASE_URL)
+    return withDatabase((db) =>
+      db.users.find((u) => u.email.toLowerCase() === email.toLowerCase()),
+    );
+  const row = await (
+    await client()
+  ).user.findFirst({ where: { email: { equals: email, mode: 'insensitive' } } });
+  return row ? cleanRow<StoredUser>(row) : undefined;
+}
+
+/** Revoke all copies of this session version, including cookies on other devices. */
+export async function revokeSession(session: { id: string; version: number }) {
+  if (process.env.DATABASE_URL) {
+    return (await client()).$transaction(
+      async (tx) => {
+        // Use the same lock as snapshot writers so an in-flight user update cannot
+        // write an older session version back after revocation.
+        await tx.$executeRaw`SELECT pg_advisory_xact_lock(42719823)`;
+        await tx.user.updateMany({
+          where: { id: session.id, sessionVersion: session.version },
+          data: { sessionVersion: { increment: 1 } },
+        });
+      },
+      { maxWait: 10000, timeout: 30000 },
+    );
+  }
+  await withDatabase((db) => {
+    const user = db.users.find((u) => u.id === session.id);
+    if (user && (user.sessionVersion ?? 0) === session.version)
+      user.sessionVersion = session.version + 1;
+  }, true);
+}
+
+/** A bounded, atomic counter shared by every application process. */
+export async function consumeRequestLimit(
+  key: string,
+  limit: number,
+  windowMs: number,
+  now = Date.now(),
+) {
+  const pg = await client();
+  return pg.$transaction(
+    async (tx) => {
+      // Serializes only these tiny counter transactions, independently of LMS writes.
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(42719824)`;
+      await tx.$executeRaw`DELETE FROM "RequestLimit" WHERE "resetAt" <= ${BigInt(now)}`;
+      const rows = await tx.$queryRaw<{ count: number }[]>`
+      INSERT INTO "RequestLimit" ("key", "count", "resetAt")
+      SELECT ${key}, 1, ${BigInt(now + windowMs)}
+      WHERE EXISTS (SELECT 1 FROM "RequestLimit" WHERE "key" = ${key})
+        OR (SELECT count(*) FROM "RequestLimit") < 10000
+      ON CONFLICT ("key") DO UPDATE SET "count" = "RequestLimit"."count" + 1
+      WHERE "RequestLimit"."count" < ${limit}
+      RETURNING "count"`;
+      return rows.length > 0;
+    },
+    { maxWait: 5000, timeout: 10000 },
+  );
+}
+
+export async function resetRequestLimit(key: string) {
+  await (
+    await client()
+  ).$executeRaw`DELETE FROM "RequestLimit" WHERE "key" = ${key}`;
+}
+
 /** Build the state from only the caller's classes; writes continue to use the locked snapshot. */
 export async function withScopedState<T>(
   userId: string | null,

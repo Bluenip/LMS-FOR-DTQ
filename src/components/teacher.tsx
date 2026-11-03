@@ -460,7 +460,13 @@ export function TeacherClasses() {
           <form
             onSubmit={async (e) => {
               e.preventDefault();
-              if (await run('deleteClass', { classId: confirmDelete.id, code: deleteCode }))
+              if (
+                await run('deleteClass', {
+                  classId: confirmDelete.id,
+                  code: deleteCode,
+                  expectedRevision: confirmDelete.revision || '',
+                })
+              )
                 setConfirmDelete(null);
             }}
             className="stack"
@@ -599,7 +605,10 @@ export function TeacherClasses() {
                                     `Đưa ${u?.name || 'học viên'} ra khỏi lớp? Bài làm và lịch sử vẫn được giữ lại.`,
                                   )
                                 )
-                                  void run('removeEnrollment', { enrollmentId: e.id });
+                                  void run('removeEnrollment', {
+                                    enrollmentId: e.id,
+                                    expectedJoinedAt: e.joinedAt,
+                                  });
                               }}
                             >
                               Đưa ra khỏi lớp
@@ -1065,12 +1074,12 @@ export function TeacherLessons() {
                 busy={busy}
                 error={error}
                 onSave={save}
-                onDelete={async () => {
+                onDelete={async (expectedRevision) => {
                   if (!selected) return false;
                   setBusy(true);
                   setError('');
                   try {
-                    await action('deleteLesson', { lessonId: selected.id });
+                    await action('deleteLesson', { lessonId: selected.id, expectedRevision });
                     setCreating(false);
                     setDefaultSelection(null);
                     setEditorDirty(false);
@@ -1130,7 +1139,7 @@ function LessonEditor({
   busy: boolean;
   error: string;
   onSave: (data: Record<string, unknown>) => Promise<{ id?: string; revision?: string } | null>;
-  onDelete: () => Promise<boolean>;
+  onDelete: (expectedRevision: string) => Promise<boolean>;
 }) {
   const { state } = useLms();
   const [title, setTitle] = useState(lesson?.title || '');
@@ -1585,8 +1594,10 @@ function LessonEditor({
       <Dialog open={deleting} title="Xóa bài giảng?" onClose={() => setDeleting(false)}>
         <p>
           Xóa bài giảng sẽ xóa tiến độ, ghi chép và thảo luận gắn với bài; các bài tập liên quan sẽ
-          bị gỡ liên kết. Thao tác này không thể hoàn tác.
+          bị gỡ liên kết. Bài tập đang ẩn sẽ tiếp tục ẩn cho đến khi giáo viên chủ động công bố.
+          Thao tác này không thể hoàn tác.
         </p>
+        <ErrorLine error={error} />
         <div className="dialog-footer">
           <Button variant="secondary" onClick={() => setDeleting(false)}>
             Giữ lại
@@ -1595,7 +1606,7 @@ function LessonEditor({
             variant="danger"
             disabled={busy}
             onClick={() => {
-              void onDelete().then((deleted) => {
+              void onDelete(revision).then((deleted) => {
                 if (deleted) {
                   removeSessionDraft(draftKey);
                   setDirty(false);
@@ -1753,6 +1764,11 @@ export function TeacherAssignments() {
     return () => window.removeEventListener('popstate', onPopState);
   }, [gradingDirty]);
 
+  const assignmentVisible =
+    !!assignment &&
+    assignment.published !== false &&
+    (!assignment.lessonId ||
+      !!state.lessons.find((lesson) => lesson.id === assignment.lessonId)?.published);
   const allRows = assignment ? assignmentRows(state, assignment) : [];
   const stats = assignmentStats(allRows);
   const rows = allRows.filter(
@@ -1900,6 +1916,12 @@ export function TeacherAssignments() {
             />
           )}
           {classSelector}
+          {assignment && !assignmentVisible && (
+            <p className="notice">
+              Bài tập đang ẩn; hãy công bố bài tập và bài giảng liên quan trước khi nhắc học viên
+              nộp.
+            </p>
+          )}
           {assignment && (
             <p className="assignment-details muted">
               {state.lessons.find((l) => l.id === assignment.lessonId)?.title ||
@@ -2154,7 +2176,7 @@ export function TeacherAssignments() {
                                     ) : (
                                       <Button
                                         variant="secondary"
-                                        disabled={busy}
+                                        disabled={busy || !assignmentVisible}
                                         onClick={() => remind(studentId)}
                                       >
                                         Nhắc nộp
@@ -2339,6 +2361,7 @@ export function TeacherAssignments() {
                     await action('deleteAssignment', {
                       assignmentId: deleting.id,
                       confirmTitle: deleteTitle.trim(),
+                      expectedRevision: deleting.revision || '',
                     });
                     setDeleting(null);
                     setNotice({ classId, text: `Đã xóa bài tập “${deleting.title}”.` });
@@ -2600,6 +2623,12 @@ function AssignmentForm({
     : '';
   const [title, setTitle] = useState(assignment?.title || '');
   const [lessonId, setLessonId] = useState(assignment?.lessonId || '');
+  const [published, setPublished] = useState(assignment?.published !== false);
+  const initiallyVisible =
+    !!assignment &&
+    assignment.published !== false &&
+    (!assignment.lessonId ||
+      !!lessons.find((lesson) => lesson.id === assignment.lessonId)?.published);
   const [instructions, setInstructions] = useState(assignment?.instructions || '');
   const [dueDate, setDueDate] = useState(localDueAt.slice(0, 10));
   const [dueTime, setDueTime] = useState(localDueAt.slice(11, 16) || '23:59');
@@ -2628,6 +2657,7 @@ function AssignmentForm({
             classId,
             title,
             lessonId: lessonId || null,
+            published,
             instructions,
             dueAt: new Date(`${dueDate}T${dueTime}:00+07:00`).toISOString(),
             allowLate,
@@ -2653,7 +2683,14 @@ function AssignmentForm({
           />
         </Field>
         <Field label="Bài học liên quan">
-          <select value={lessonId} onChange={(e) => setLessonId(e.target.value)}>
+          <select
+            value={lessonId}
+            onChange={(e) => {
+              setLessonId(e.target.value);
+              if (assignment && !initiallyVisible && e.target.value !== (assignment.lessonId || ''))
+                setPublished(false);
+            }}
+          >
             <option value="">Không gắn bài học</option>
             {lessons.map((l) => (
               <option key={l.id} value={l.id}>
@@ -2663,8 +2700,17 @@ function AssignmentForm({
           </select>
         </Field>
         <p className="small muted">
-          Nếu gắn bài giảng nháp, học viên sẽ thấy bài tập sau khi bài giảng được xuất bản.
+          Bài tập chỉ hiện khi được công bố và bài giảng liên quan đã xuất bản. Khi tạm ẩn, học viên
+          đã nộp vẫn xem được bài làm và điểm; những học viên khác không thể nộp bài.
         </p>
+        <label className="check-label">
+          <input
+            type="checkbox"
+            checked={published}
+            onChange={(event) => setPublished(event.target.checked)}
+          />
+          Công bố bài tập
+        </label>
         <Field label="Hướng dẫn đề bài">
           <textarea
             rows={4}

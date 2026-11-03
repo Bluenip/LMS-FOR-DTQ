@@ -1,9 +1,8 @@
 import { cookies } from 'next/headers';
 import { z } from 'zod';
-import { createHash } from 'node:crypto';
 import { emailSchema } from '@/lib/server/accounts';
 import { readJsonObject } from '@/lib/server/request';
-import { clientIp, RateLimit } from '@/lib/server/rate-limit';
+import { clientIp, consumeSharedRateLimit, resetSharedRateLimit } from '@/lib/server/rate-limit';
 import {
   assertOrigin,
   COOKIE,
@@ -14,22 +13,20 @@ import {
   verifyPassword,
   accountEnabled,
 } from '@/lib/server/auth';
-import { withDatabase } from '@/lib/server/repository';
+import { findLoginUser } from '@/lib/server/repository';
 export const runtime = 'nodejs';
-const attempts = new RateLimit(20, 15 * 60 * 1000);
 export async function POST(request: Request) {
   try {
     assertOrigin(request);
     const v = z
       .object({ email: emailSchema, password: z.string().min(1).max(200) })
       .parse(await readJsonObject(request));
-    const key = createHash('sha256')
-      .update(`${clientIp(request)}:${v.email}`)
-      .digest('hex');
-    attempts.consume(key);
-    const user = await withDatabase((db) =>
-      db.users.find((u) => u.email.toLowerCase() === v.email.toLowerCase()),
-    );
+    const ip = clientIp(request);
+    const windowMs = 15 * 60 * 1000;
+    await consumeSharedRateLimit(`login:ip:${ip}`, 300, windowMs);
+    await consumeSharedRateLimit(`login:account:${v.email.toLowerCase()}`, 100, windowMs);
+    await consumeSharedRateLimit(`login:pair:${ip}:${v.email.toLowerCase()}`, 20, windowMs);
+    const user = await findLoginUser(v.email);
     if (!user || !verifyPassword(v.password, user.passwordHash)) {
       throw new HttpError(401, 'Email hoặc mật khẩu không đúng.');
     }
@@ -48,7 +45,7 @@ export async function POST(request: Request) {
         403,
         'Tài khoản mẫu đã tắt trên hệ thống chính thức. Vui lòng dùng tài khoản được quản trị viên cấp.',
       );
-    attempts.reset(key);
+    await resetSharedRateLimit(`login:pair:${ip}:${v.email.toLowerCase()}`);
     (await cookies()).set(COOKIE, await signSession(user.id, user.sessionVersion ?? 0), {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
