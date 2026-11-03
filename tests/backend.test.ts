@@ -372,6 +372,37 @@ test('late submission permission never extends the withdrawal deadline', () => {
     assert.equal(db.submissions[0].status, 'SUBMITTED');
   }
 });
+test('a stale grading form cannot grade a later submission attempt', () => {
+  const { db, teacher } = fixture();
+  const student = db.users[2];
+  const submission = db.submissions[0];
+  const opened = {
+    expectedAttempt: submission.attempt,
+    expectedSubmittedAt: submission.submittedAt,
+  };
+  runAction(db, student, { action: 'withdrawSubmission', assignmentId: submission.assignmentId });
+  runAction(db, student, {
+    action: 'submitAssignment',
+    assignmentId: submission.assignmentId,
+    content: Array(301).fill('hiếu').join(' '),
+    pledge: true,
+  });
+  const grade = {
+    action: 'gradeSubmission',
+    submissionId: submission.id,
+    rubric: { understanding: 35, application: 37, presentation: 18 },
+    returnGrade: true,
+  };
+  assert.throws(() => runAction(db, teacher, { ...grade, ...opened }), { status: 409 });
+  assert.equal(submission.status, 'SUBMITTED');
+  assert.equal(submission.score, undefined);
+  runAction(db, teacher, {
+    ...grade,
+    expectedAttempt: submission.attempt,
+    expectedSubmittedAt: submission.submittedAt,
+  });
+  assert.equal(submission.score, 90);
+});
 test('file metadata rejects extension spoofing and oversized documents', () => {
   assert.throws(
     () =>

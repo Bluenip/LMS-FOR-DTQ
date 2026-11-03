@@ -591,11 +591,18 @@ export function runAction(db: Database, user: StoredUser, input: Record<string, 
           }),
           feedback: text.default(''),
           returnGrade: z.boolean().default(false),
+          expectedAttempt: z.number().int().positive().optional(),
+          expectedSubmittedAt: z.string().datetime().optional(),
         })
         .parse(input);
       const s = needed(db.submissions.find((s) => s.id === v.submissionId));
       const a = needed(db.assignments.find((a) => a.id === s.assignmentId));
       teacherClass(db, user, a.classId);
+      if (
+        (v.expectedAttempt !== undefined && v.expectedAttempt !== s.attempt) ||
+        (v.expectedSubmittedAt !== undefined && v.expectedSubmittedAt !== s.submittedAt)
+      )
+        throw new HttpError(409, 'Bài nộp đã thay đổi. Vui lòng đóng và mở lại bài chấm.');
       if (s.status === 'DRAFT') throw new HttpError(400, 'Học viên chưa nộp bài.');
       if (s.status === 'GRADED' && !v.returnGrade)
         throw new HttpError(409, 'Bài đã trả điểm cần xác nhận trả lại điểm mới khi chỉnh sửa.');

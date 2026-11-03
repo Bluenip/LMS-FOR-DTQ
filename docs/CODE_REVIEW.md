@@ -15,9 +15,17 @@ Nguồn chính: [nghiệp vụ và phân quyền](../src/lib/server/actions.ts),
 
 Điểm nháp cũ trên bản ghi DRAFT do phiên bản trước tạo ra cũng được xóa khi học viên lưu hoặc nộp lại. Giáo viên không tiếp tục dùng điểm nháp của lần nộp trước cho bài đã sửa. Khi học viên thu hồi bài đang mở trong cửa sổ chấm, giao diện thông báo bài không còn khả dụng.
 
+## Sửa thêm trước khi mở tên miền
+
+- JSON đăng nhập/quản trị/tải tệp được giới hạn 8.000 byte; actions 200.000 byte. Bộ đọc giới hạn ngay trên stream, kiểm tra JSON là object và trả 400/413 thay vì lỗi 500 hoặc đọc body không giới hạn.
+- Đăng nhập giữ lượt thử trước khi truy vấn bất đồng bộ, tránh bỏ lọt nhiều yêu cầu đồng thời; bộ nhớ giới hạn số khóa. Header IP chỉ được tin khi cấu hình proxy rõ ràng.
+- Form chấm gửi lần nộp/mốc nộp đang mở; backend trả 409 nếu học viên đã nộp lại, tránh chấm nhầm bài mới từ cửa sổ cũ.
+- Hoàn tất video kiểm tra lại quyền lớp/tài khoản trước khi ghi dữ liệu. CLI cấp giáo viên nhận mật khẩu khởi tạo riêng cho quản trị production.
+- Healthcheck thật qua PostgreSQL và Bash deploy có kiểm thử build lỗi, rollout lỗi/khôi phục image, lịch sử Git lệch, giữ cấu hình, khóa triển khai, giới hạn backup và tự thay script khi cập nhật.
+
 ## Phạm vi rà soát
 
-Đã đối chiếu các trang và Route Handlers trong `src/app`, giao diện/provider đồng bộ trong `src/components`, nghiệp vụ/xác thực/kho tệp trong `src/lib`, schema và ba migration, năm script vận hành/kiểm thử, tám file test, cấu hình và tài liệu. Các font/giấy phép cùng 34 bản xuất Stitch được kiểm tra về vai trò tài nguyên và tài liệu tham chiếu.
+Đã đối chiếu các trang và Route Handlers trong `src/app`, giao diện/provider đồng bộ trong `src/components`, nghiệp vụ/xác thực/kho tệp trong `src/lib`, schema và ba migration, sáu script vận hành/kiểm thử, mười file test, cấu hình và tài liệu. Các font/giấy phép cùng 34 bản xuất Stitch được kiểm tra về vai trò tài nguyên và tài liệu tham chiếu.
 
 Đã đọc hướng dẫn Next.js đóng gói cùng phiên bản đang cài trong `node_modules/next/dist/docs/`. Mười chín dependency trực tiếp trên máy phát triển khớp lockfile. Image Docker cũng cài mới bằng `npm ci` và build thành công trên server, không dùng `node_modules` hoặc `.next` của máy phát triển.
 
@@ -29,13 +37,13 @@ Nguồn chính: [nghiệp vụ và phân quyền](../src/lib/server/actions.ts),
 | ------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
 | TypeScript                                  | Đạt                                                                                                   |
 | Prettier mã nguồn                           | Đạt                                                                                                   |
-| Backend                                     | **55/55 đạt**, gồm 7 ca hồi quy mới                                                                   |
-| Playwright                                  | **11/11 đạt**, không bỏ qua ca nào; gồm 2 ca mới qua HTTP/giao diện                                   |
+| Backend                                     | **72/72 đạt**, gồm backend, request, rate limit và Bash deploy                                        |
+| Playwright                                  | **12/12 đạt**, không bỏ qua ca nào; gồm giới hạn JSON/login đồng thời                                 |
 | Build production trên máy phát triển        | Đạt, Turbopack mặc định                                                                               |
 | Docker build trên server đích               | Đạt; Node.js 22.23.4, Next.js 16.4.4, Prisma 6.19.0                                                   |
 | Migration PostgreSQL trên server            | Ba migration chạy thành công trên PostgreSQL **17.11**                                                |
 | Bootstrap quản trị bằng CLI trong container | Tạo giáo viên, cấp quản trị và tạo học viên qua API thành công                                        |
-| PostgreSQL + S3 qua HTTP                    | **50/50 kiểm tra đạt**, gồm PDF, video, quyền tệp nháp, xóa điểm nháp, chống ghi đè video đã xác thực |
+| PostgreSQL + S3 qua HTTP                    | **52/52 kiểm tra đạt**, gồm PDF, video, quyền tệp nháp, xóa điểm nháp, chống ghi đè video đã xác thực |
 | User chạy ứng dụng                          | UID 1000, không phải root                                                                             |
 | Cookie production                           | Có Secure và HttpOnly trong kiểm tra HTTP nội bộ                                                      |
 | Dependency ứng dụng                         | `npm ci` trong Docker báo 0 lỗ hổng đã biết tại thời điểm chạy                                        |
@@ -76,9 +84,8 @@ Build và các thao tác thực tế ở trên xác nhận khả năng chạy �
 
 - Tài khoản mới/reset vẫn dùng mật khẩu mặc định chung `123@123aA`; chưa bắt buộc đổi ở lần đăng nhập đầu. Đổi mật khẩu quản trị và chốt cách cấp tài khoản trước khi mở cho người dùng thật.
 - Repository đọc toàn bộ snapshot và upsert toàn bộ dữ liệu khi ghi; advisory lock tuần tự hóa các lần ghi. Polling 3 giây còn hạn chế khi dữ liệu/phiên đồng thời tăng.
-- `/api/actions` đọc toàn bộ body rồi mới kiểm tra độ dài; cần đánh giá giới hạn request/bộ nhớ ở proxy và ứng dụng cho tải công khai.
 - Rate limit trong bộ nhớ không chia sẻ giữa nhiều instance; cấu hình proxy/IP client phải phù hợp môi trường thực tế.
 - Chưa có quét mã độc, dọn object mồ côi, vòng đời tệp chờ xác thực hoặc tự xóa object khi xóa lớp.
-- Chưa có công cụ chuyển JSON demo sang PostgreSQL hay lịch backup tự động. Hướng dẫn backup và triển khai ở [DEPLOYMENT.md](DEPLOYMENT.md).
+- Chưa có công cụ chuyển JSON demo sang PostgreSQL. Updater sao lưu trước deploy, giữ ba bản trên cùng server; chưa có backup định kỳ ra nơi khác. Hướng dẫn ở [DEPLOYMENT.md](DEPLOYMENT.md).
 
 Các hàm đăng ký/xác minh/khôi phục email cũ vẫn còn và được một phần test backend kiểm tra. Website hiện chặn các API công khai đó; các test đạt không có nghĩa chúng đã được mở lại.

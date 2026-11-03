@@ -9,3 +9,4 @@ playwright-report/
 *.tsbuildinfo
 .hallmark/screens/
 backups/
+.deploy/

@@ -8,13 +8,14 @@ import {
 import { accessClass, teacherClass } from '@/lib/server/actions';
 import { withDatabase } from '@/lib/server/repository';
 import { fileRecord, presign, storage, validateUpload } from '@/lib/server/storage';
+import { readJsonObject } from '@/lib/server/request';
 export const runtime = 'nodejs';
 export async function POST(request: Request) {
   try {
     assertOrigin(request);
     storage();
     const userId = await sessionUserId();
-    const v = validateUpload(await request.json());
+    const v = validateUpload(await readJsonObject(request));
     const file = await withDatabase((db) => {
       const user = requireUser(db, userId);
       if (v.kind === 'video') teacherClass(db, user, v.classId);

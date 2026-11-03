@@ -1676,7 +1676,13 @@ function GradeForm({
     setBusy(true);
     setError('');
     try {
-      await onSave({ rubric, feedback, returnGrade: publish });
+      await onSave({
+        rubric,
+        feedback,
+        returnGrade: publish,
+        expectedAttempt: openedAttempt.attempt,
+        expectedSubmittedAt: openedAttempt.submittedAt,
+      });
       setDirty(false);
     } catch (e) {
       setError((e as Error).message);

@@ -122,3 +122,6 @@ export async function seedPostgres() {
     Object.assign(db, seedData());
   }, true);
 }
+export async function checkDatabaseConnection() {
+  if (process.env.DATABASE_URL) await (await client()).$queryRaw`SELECT 1`;
+}

@@ -50,6 +50,10 @@ async function state(who) {
   checks++;
   return r.data;
 }
+const health = await request('/api/health');
+assert.equal(health.status, 200);
+assert.equal(health.data.status, 'ok');
+checks++;
 await login(
   teacher,
   process.env.INTEGRATION_TEACHER_EMAIL || 'teacher@detuquy.vn',
@@ -193,6 +197,20 @@ assert(freshSubmission);
 assert(!('score' in freshSubmission));
 assert(!('rubric' in freshSubmission));
 assert.equal(freshSubmission.feedback, '');
+checks++;
+const staleGrade = await request('/api/actions', {
+  who: teacher,
+  method: 'POST',
+  body: {
+    action: 'gradeSubmission',
+    submissionId: s.id,
+    rubric: { understanding: 35, application: 37, presentation: 18 },
+    returnGrade: true,
+    expectedAttempt: s.attempt,
+    expectedSubmittedAt: s.submittedAt,
+  },
+});
+assert.equal(staleGrade.status, 409, 'a stale form must not grade a newer submission');
 checks++;
 const submittedDownload = await request(`/api/files/${file.id}`, { who: teacher, raw: true });
 assert.equal(submittedDownload.status, 302);

@@ -1,6 +1,6 @@
 # Kiểm thử PostgreSQL và kho tệp
 
-`scripts/integration-test.mjs` chạy 50 bước kiểm tra HTTP trên một ứng dụng có PostgreSQL và kho S3 tương thích đang hoạt động. Chỉ dùng cơ sở dữ liệu và bucket dành riêng cho kiểm thử. Script tạo một lớp, thêm dữ liệu, rồi xóa lớp đó. Nếu một bước lỗi, lớp kiểm thử có thể còn lại để kiểm tra nguyên nhân. Tệp trong bucket kiểm thử có thể còn lại sau khi lớp bị xóa.
+`scripts/integration-test.mjs` chạy 52 bước kiểm tra HTTP trên một ứng dụng có PostgreSQL và kho S3 tương thích đang hoạt động. Chỉ dùng cơ sở dữ liệu và bucket dành riêng cho kiểm thử. Script tạo một lớp, thêm dữ liệu, rồi xóa lớp đó. Nếu một bước lỗi, lớp kiểm thử có thể còn lại để kiểm tra nguyên nhân. Tệp trong bucket kiểm thử có thể còn lại sau khi lớp bị xóa.
 
 ## Chuẩn bị
 
@@ -36,7 +36,7 @@ Fixture PDF/MP4 chỉ có byte nhận dạng tối thiểu để kiểm tra vi�
 
 ## Kết quả chạy lại ngày 03/11/2026
 
-Toàn bộ **50 kiểm tra đạt** trên ứng dụng production trong Docker của server đích, với Node.js 22.23.4, Next.js 16.4.4, Prisma 6.19.0, PostgreSQL 17.11 và S3rver 3.7.1. Database và bucket riêng cho kiểm thử; tài khoản giáo viên/học viên được cấp qua CLI/API, không bật tài khoản demo. Ứng dụng chạy UID 1000. Các kiểm tra mới bao gồm quyền đọc tệp/bài nháp, thu hồi/nộp lại và xóa điểm nháp thực sự trong PostgreSQL.
+Toàn bộ **52 kiểm tra đạt** trên ứng dụng production trong Docker của server đích, với Node.js 22.23.4, Next.js 16.4.4, Prisma 6.19.0, PostgreSQL 17.11 và S3rver 3.7.1. Database và bucket riêng cho kiểm thử; tài khoản giáo viên/học viên được cấp qua CLI/API, không bật tài khoản demo. Ứng dụng chạy UID 1000. Các kiểm tra mới bao gồm readiness, quyền đọc tệp/bài nháp, thu hồi/nộp lại, xóa điểm nháp thực sự trong PostgreSQL và từ chối chấm từ phiên bản bài nộp cũ.
 
 Bộ giả lập dùng truy cập bucket theo đường dẫn (`vhostBuckets: false`) để hoạt động qua hostname service Docker. Bucket/IAM/CORS của AWS hoặc R2 thật và đường HTTPS công khai chưa được kiểm tra trong lượt này.
 

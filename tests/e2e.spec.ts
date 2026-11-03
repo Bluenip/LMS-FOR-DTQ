@@ -53,6 +53,48 @@ function actionResponse(page: Page, name: string) {
   });
 }
 
+test('API rejects malformed and oversized JSON and rate limits concurrent login attempts', async ({
+  request,
+  playwright,
+  baseURL,
+}) => {
+  const headers = { 'Content-Type': 'application/json' };
+  for (const data of ['{', 'null', '[]']) {
+    const response = await request.post('/api/auth/login', { data, headers });
+    expect(response.status()).toBe(400);
+  }
+  const oversized = await request.post('/api/auth/login', {
+    data: JSON.stringify({ email: 'large@example.invalid', password: 'x'.repeat(9000) }),
+    headers,
+  });
+  expect(oversized.status()).toBe(413);
+  const email = `rate-${Date.now()}@example.invalid`;
+  const responses = await Promise.all(
+    Array.from({ length: 24 }, (_, index) =>
+      request.post('/api/auth/login', {
+        data: { email, password: 'incorrect-password' },
+        headers: { 'X-Forwarded-For': `203.0.113.${index + 1}` },
+      }),
+    ),
+  );
+  expect(responses.filter((r) => r.status() === 401)).toHaveLength(20);
+  expect(responses.filter((r) => r.status() === 429)).toHaveLength(4);
+  const student = await playwright.request.newContext({ baseURL });
+  try {
+    await apiLogin(student, 'student');
+    const invalidAction = await student.post('/api/actions', { data: 'null', headers });
+    expect(invalidAction.status()).toBe(400);
+    const invalidFile = await student.post('/api/uploads/complete', { data: { fileId: null } });
+    expect(invalidFile.status()).toBe(400);
+    const health = await student.get('/api/health');
+    expect(health.status()).toBe(200);
+    expect(await health.json()).toEqual({ status: 'ok' });
+    expect(health.headers()['cache-control']).toContain('no-store');
+  } finally {
+    await student.dispose();
+  }
+});
+
 test('drafts and unreturned grades stay private across the submission API lifecycle', async ({
   playwright,
   baseURL,

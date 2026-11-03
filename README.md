@@ -2,7 +2,7 @@
 
 Ứng dụng quản lý lớp học trực tuyến bằng tiếng Việt: giáo viên tổ chức bài giảng và bài tập, học viên học và nộp bài, quản trị viên cấp tài khoản. Frontend và API cùng chạy trong một ứng dụng Next.js; PostgreSQL lưu dữ liệu vận hành, kho S3 tương thích lưu tệp và video.
 
-**Cập nhật ngày 03/11/2026:** đã sửa 4 lỗi về quyền riêng tư, xác thực video và thu hồi bài; 55 kiểm thử backend, 11 kiểm thử trình duyệt và build production đều đạt. Đã bổ sung Docker/Compose để chạy ứng dụng và migration cùng PostgreSQL. Xem [báo cáo kiểm tra](docs/CODE_REVIEW.md) và [hướng dẫn triển khai](docs/DEPLOYMENT.md) để biết kết quả chạy thử trên server và các giới hạn còn lại.
+**Cập nhật ngày 03/11/2026:** đã sửa các lỗi về quyền riêng tư, video, thu hồi/chấm bài, JSON đầu vào và giới hạn đăng nhập; 72 kiểm thử backend/vận hành, 12 kiểm thử trình duyệt và build production đều đạt. Có Docker/Compose, healthcheck PostgreSQL và Bash tự cập nhật GitHub bằng systemd timer khi server bật/reboot. Xem [báo cáo kiểm tra](docs/CODE_REVIEW.md) và [hướng dẫn triển khai](docs/DEPLOYMENT.md) để biết kết quả xác minh và giới hạn còn lại.
 
 ## Công nghệ
 
@@ -86,6 +86,7 @@ Sao chép từ [.env.example](.env.example); không commit `.env` hoặc dữ li
 | `DATABASE_URL`         | Trống: JSON demo; có giá trị: kết nối PostgreSQL                                                                                    |
 | `SESSION_SECRET`       | Khóa ký phiên; tối thiểu 32 ký tự khi dùng PostgreSQL; đặt riêng cho môi trường vận hành                                            |
 | `APP_URL`              | Origin chính xác của ứng dụng, ví dụ `http://localhost:3000` hoặc `https://lms.example.com`; không thêm đường dẫn hoặc dấu `/` cuối |
+| `TRUST_PROXY_HEADERS`  | Mặc định `false`; chỉ bật khi app nhận kết nối qua proxy đáng tin cậy, ưu tiên IP do Cloudflare cung cấp                            |
 | `ALLOW_DEMO_ACCOUNTS`  | Mặc định `false`; chỉ bật `true` cho kiểm thử riêng nếu cần tài khoản mẫu ngoài localhost/JSON                                      |
 | `S3_ENDPOINT`          | Endpoint kho tương thích S3; với AWS S3 có thể để trống                                                                             |
 | `S3_REGION`            | Region của kho; R2 thường dùng `auto`, kho S3 cục bộ dùng `us-east-1`                                                               |
@@ -129,7 +130,7 @@ npm run account:grant-admin -- owner@example.com
 npm run dev
 ```
 
-Đăng nhập bằng email vừa cấp và mật khẩu mặc định, sau đó đổi mật khẩu tại `/profile`. Từ `/admin`, tạo các tài khoản còn lại. Nếu tài khoản thật đã có sẵn và đang hoạt động, chỉ cần chạy `account:grant-admin`.
+CLI có thể nhận `ACCOUNT_INITIAL_PASSWORD` từ môi trường để đặt mật khẩu riêng ngay khi cấp tài khoản; không in mật khẩu riêng ra log. Nếu không đặt biến này thì dùng mật khẩu mặc định. Đổi mật khẩu tại `/profile` khi cần. Từ `/admin`, tạo các tài khoản còn lại. Nếu tài khoản thật đã có sẵn và đang hoạt động, chỉ cần chạy `account:grant-admin`.
 
 ### Dữ liệu minh họa trên PostgreSQL
 
@@ -229,11 +230,11 @@ Kết quả chạy lại ngày **03/11/2026**, với dependency khớp lockfile 
 | ------------------------------------------------------------ | --------------------------------------------------------------- |
 | TypeScript                                                   | Đạt                                                             |
 | Prettier trên mã nguồn                                       | Đạt                                                             |
-| Backend                                                      | 55/55 đạt                                                       |
+| Backend                                                      | 72/72 đạt                                                       |
 | Build production mặc định với Turbopack                      | Đạt                                                             |
-| Playwright trên bản sao dữ liệu riêng, đủ tài khoản quản trị | 11/11 đạt, không bỏ qua ca nào                                  |
+| Playwright trên bản sao dữ liệu riêng, đủ tài khoản quản trị | 12/12 đạt, không bỏ qua ca nào                                  |
 | `npm audit`                                                  | 0 lỗ hổng đã biết được báo về tại thời điểm chạy                |
-| PostgreSQL + S3 qua HTTP                                     | 50/50 đạt với PostgreSQL và S3 giả lập trong Docker trên server |
+| PostgreSQL + S3 qua HTTP                                     | 52/52 đạt với PostgreSQL và S3 giả lập trong Docker trên server |
 | Chạy ứng dụng trên server đích / qua tên miền thật           | Đã chạy thử Docker nội bộ; chưa cấu hình tên miền HTTPS         |
 
 Playwright lần rà soát dùng dev server Webpack trên bản sao tạm để dùng chung dependency mà không sửa dữ liệu gốc; build production được kiểm tra riêng bằng cấu hình Turbopack mặc định. Đây không phải kiểm thử chịu tải hoặc kiểm thử production qua HTTPS.
@@ -249,11 +250,11 @@ File [Dockerfile](Dockerfile) build trên Node.js 22/Debian, chạy app bằng u
 ```bash
 cp .env.production.example .env.production
 # Điền POSTGRES_PASSWORD, SESSION_SECRET và APP_URL trong .env.production.
-docker compose --env-file .env.production -f compose.production.yml build app
-docker compose --env-file .env.production -f compose.production.yml up -d --wait
+bash scripts/auto-deploy.sh --once
+bash scripts/auto-deploy.sh --install-systemd
 ```
 
-Sau đó cấp giáo viên/quản trị đầu tiên theo [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md). Mật khẩu mặc định cần được đổi trước khi mở cho học viên thật. Production Compose luôn tắt tài khoản demo. Kho S3 cục bộ trong Compose phát triển không được đưa vào cấu hình production.
+Script kiểm tra `origin/main` khoảng mỗi phút, sao lưu database trước deploy, chạy migration và kiểm tra app healthy. Bật user lingering để timer chạy khi reboot mà không cần SSH; app/PostgreSQL cũng tự khởi động cùng Docker. Sau đó cấp giáo viên/quản trị đầu tiên với mật khẩu riêng theo [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md). Production Compose luôn tắt tài khoản demo. Kho S3 cục bộ trong Compose phát triển không được đưa vào cấu hình production.
 
 Nếu chạy trực tiếp bằng Node.js với PostgreSQL và tài khoản đã cấu hình:
 

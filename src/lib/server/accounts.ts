@@ -3,6 +3,7 @@ import { z } from 'zod';
 import type { AuthToken, Database, StoredUser } from '@/lib/types';
 import { hashPassword, HttpError, isDemoAccount } from './auth';
 import { emailMode, sendAccountMail, type AccountMail } from './mail';
+import { readJsonObject } from './request';
 
 export const passwordSchema = z
   .string()
@@ -46,33 +47,7 @@ export function accountRateLimit(request: Request) {
   });
   if (attempts.size > 10000) for (const [k, v] of attempts) if (v.reset <= now) attempts.delete(k);
 }
-export async function accountInput(request: Request): Promise<Record<string, unknown>> {
-  const reader = request.body?.getReader();
-  const parts: Uint8Array[] = [];
-  let size = 0;
-  if (reader)
-    try {
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        size += value.byteLength;
-        if (size > 8000) {
-          await reader.cancel();
-          throw new HttpError(413, 'Nội dung yêu cầu quá lớn.');
-        }
-        parts.push(value);
-      }
-    } finally {
-      reader.releaseLock();
-    }
-  const body = Buffer.concat(parts).toString('utf8');
-  try {
-    return z.record(z.string(), z.unknown()).parse(JSON.parse(body));
-  } catch (error) {
-    if (error instanceof SyntaxError) throw new HttpError(400, 'Dữ liệu JSON không hợp lệ.');
-    throw error;
-  }
-}
+export const accountInput = readJsonObject;
 function passwordInput(input: unknown) {
   const v = z
     .object({ password: passwordSchema, confirmPassword: z.string().optional() })

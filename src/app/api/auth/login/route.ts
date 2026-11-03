@@ -1,5 +1,9 @@
 import { cookies } from 'next/headers';
 import { z } from 'zod';
+import { createHash } from 'node:crypto';
+import { emailSchema } from '@/lib/server/accounts';
+import { readJsonObject } from '@/lib/server/request';
+import { clientIp, RateLimit } from '@/lib/server/rate-limit';
 import {
   assertOrigin,
   COOKIE,
@@ -12,28 +16,23 @@ import {
 } from '@/lib/server/auth';
 import { withDatabase } from '@/lib/server/repository';
 export const runtime = 'nodejs';
-const attempts = new Map<string, { count: number; reset: number }>();
+const attempts = new RateLimit(20, 15 * 60 * 1000);
 export async function POST(request: Request) {
   try {
     assertOrigin(request);
-    const key = request.headers.get('x-forwarded-for')?.split(',')[0] || 'local';
-    const rate = attempts.get(key);
-    if (rate && rate.reset > Date.now() && rate.count >= 20)
-      throw new HttpError(429, 'Đăng nhập quá nhiều lần. Vui lòng thử lại sau 15 phút.');
     const v = z
-      .object({ email: z.string().email().max(200), password: z.string().min(1).max(200) })
-      .parse(await request.json());
+      .object({ email: emailSchema, password: z.string().min(1).max(200) })
+      .parse(await readJsonObject(request));
+    const key = createHash('sha256')
+      .update(`${clientIp(request)}:${v.email}`)
+      .digest('hex');
+    attempts.consume(key);
     const user = await withDatabase((db) =>
       db.users.find((u) => u.email.toLowerCase() === v.email.toLowerCase()),
     );
     if (!user || !verifyPassword(v.password, user.passwordHash)) {
-      attempts.set(key, {
-        count: (rate && rate.reset > Date.now() ? rate.count : 0) + 1,
-        reset: rate?.reset && rate.reset > Date.now() ? rate.reset : Date.now() + 900000,
-      });
       throw new HttpError(401, 'Email hoặc mật khẩu không đúng.');
     }
-    attempts.delete(key);
     if (user.disabled)
       throw new HttpError(
         403,
@@ -47,8 +46,9 @@ export async function POST(request: Request) {
     if (!accountEnabled(user, request))
       throw new HttpError(
         403,
-        'Tài khoản mẫu đã tắt trên hệ thống chính thức. Vui lòng dùng tài khoản được cấp hoặc đăng ký học viên.',
+        'Tài khoản mẫu đã tắt trên hệ thống chính thức. Vui lòng dùng tài khoản được quản trị viên cấp.',
       );
+    attempts.reset(key);
     (await cookies()).set(COOKIE, await signSession(user.id, user.sessionVersion ?? 0), {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
