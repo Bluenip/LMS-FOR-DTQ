@@ -121,6 +121,7 @@ export interface Discussion {
   lessonId: string;
   content: string;
   createdAt: string;
+  updatedAt?: string;
 }
 export interface Notification {
   id: string;

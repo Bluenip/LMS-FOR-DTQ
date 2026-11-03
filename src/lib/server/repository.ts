@@ -63,6 +63,7 @@ async function writePostgres(tx: unknown, db: Database) {
         lesson: ['videoFileId'],
         assignment: ['lessonId', 'maxWords'],
         notification: ['assignmentId'],
+        discussion: ['updatedAt'],
         submission: ['submittedAt', 'score', 'gradedAt'],
       };
       for (const field of optional[model] || []) if (!(field in data)) data[field] = null;

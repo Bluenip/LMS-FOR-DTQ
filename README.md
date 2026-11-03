@@ -2,7 +2,7 @@
 
 Ứng dụng quản lý lớp học trực tuyến bằng tiếng Việt: giáo viên tổ chức bài giảng và bài tập, học viên học và nộp bài, quản trị viên cấp tài khoản. Frontend và API cùng chạy trong một ứng dụng Next.js; PostgreSQL lưu dữ liệu vận hành, kho S3 tương thích lưu tệp và video.
 
-**Cập nhật ngày 03/11/2026:** đã sửa các lỗi về quyền riêng tư, video, thu hồi/chấm bài, JSON đầu vào và giới hạn đăng nhập; 81 kiểm thử backend/vận hành, 15 kiểm thử trình duyệt và build production đều đạt. Có Docker/Compose, healthcheck PostgreSQL và Bash tự cập nhật GitHub bằng systemd timer khi server bật/reboot. Xem [báo cáo kiểm tra](docs/CODE_REVIEW.md) và [hướng dẫn triển khai](docs/DEPLOYMENT.md) để biết kết quả xác minh và giới hạn còn lại.
+**Cập nhật ngày 03/11/2026:** đã sửa các lỗi về quyền riêng tư, video, thu hồi/chấm bài, JSON đầu vào và giới hạn đăng nhập; 90 kiểm thử backend/vận hành, 17 kiểm thử trình duyệt và build production đều đạt. Có Docker/Compose, healthcheck PostgreSQL và Bash tự cập nhật GitHub bằng systemd timer khi server bật/reboot. Xem [báo cáo kiểm tra](docs/CODE_REVIEW.md) và [hướng dẫn triển khai](docs/DEPLOYMENT.md) để biết kết quả xác minh và giới hạn còn lại.
 
 **Địa chỉ triển khai:** https://zimaos.click — Cloudflare Tunnel nối tới app ở `127.0.0.1:3000`. Chưa cấu hình bucket vận hành vì R2 của tài khoản chưa bật; YouTube/bài viết hoạt động, tải tệp cần bổ sung S3/R2.
 
@@ -76,6 +76,12 @@ Khi tạo hoặc sửa bài, giáo viên đặt **Số từ tối thiểu** và 
 Nhắc nộp và trả điểm tạo thông báo trong ứng dụng: chuông có số chưa đọc, trang hiển thị nội dung thông báo mới và hộp thông báo có liên kết tới bài tập. Mở chuông không tự đánh dấu đã đọc; người dùng chọn đánh dấu hoặc mở bài liên quan. Dữ liệu cập nhật theo polling khoảng 3 giây khi trang đang hiển thị.
 
 Ở **Lớp giảng dạy → Cài đặt → Người giảng nội dung**, nhập tên riêng cho từng lớp hoặc để trống để ẩn dòng này trên thẻ lớp. Chương mục của bài giảng mới để trống và chỉ gợi ý những chương đã có trong chính lớp đang chọn; không gán tên người giảng hoặc chương mẫu cho lớp thật.
+
+## Thảo luận trong bài học
+
+Người viết sửa hoặc xóa thảo luận của mình bằng nút **Sửa** / **Xóa** cạnh nội dung. Giáo viên phụ trách lớp có quyền xóa thảo luận trong lớp; không được sửa lời của học viên. Xóa có hộp xác nhận. Bài đã sửa giữ ngày đăng và có nhãn **Đã chỉnh sửa**.
+
+Giáo viên có thể vào **Kho bài giảng → chọn bài → Xem thảo luận** để trao đổi hoặc quản lý. Bản đang soạn được giữ khi đổi tab trong bài học hoặc nhận cập nhật. Nếu nội dung bị sửa/xóa từ phiên khác, giao diện báo thay đổi và backend chặn thao tác từ bản cũ; bản soạn chưa lưu vẫn có thể sao chép.
 
 ## Chính sách tài khoản
 
@@ -242,14 +248,14 @@ Kết quả chạy lại ngày **03/11/2026**, với dependency khớp lockfile 
 | ------------------------------------------------------------ | -------------------------------------------------------------------- |
 | TypeScript                                                   | Đạt                                                                  |
 | Prettier trên mã nguồn                                       | Đạt                                                                  |
-| Backend                                                      | 81/81 đạt                                                            |
+| Backend                                                      | 90/90 đạt                                                            |
 | Build production mặc định với Turbopack                      | Đạt                                                                  |
-| Playwright trên bản sao dữ liệu riêng, đủ tài khoản quản trị | 15/15 đạt, không bỏ qua ca nào                                       |
+| Playwright trên bản sao dữ liệu riêng, đủ tài khoản quản trị | 17/17 đạt, không bỏ qua ca nào                                       |
 | `npm audit`                                                  | 0 lỗ hổng đã biết được báo về tại thời điểm chạy                     |
-| PostgreSQL + S3 qua HTTP                                     | 72/72 đạt với PostgreSQL và S3 giả lập trong Docker trên server      |
+| PostgreSQL + S3 qua HTTP                                     | 90/90 đạt với PostgreSQL và S3 giả lập trong Docker trên server      |
 | Chạy ứng dụng trên server đích / qua tên miền thật           | Đã triển khai tại `https://zimaos.click`; đăng nhập/health HTTPS đạt |
 
-Playwright lần rà soát dùng dev server Webpack trên bản sao tạm để dùng chung dependency mà không sửa dữ liệu gốc; build production được kiểm tra riêng bằng cấu hình Turbopack mặc định. Bộ 15 ca này không kiểm thử chịu tải hoặc production qua HTTPS. Ngoài bộ đó, đăng nhập quản trị, cookie, trang/API quản trị và healthcheck đã được xác minh riêng bằng Chromium qua tên miền HTTPS thật.
+Playwright lần rà soát dùng dev server Webpack trên bản sao tạm để dùng chung dependency mà không sửa dữ liệu gốc; build production được kiểm tra riêng bằng cấu hình Turbopack mặc định. Bộ 17 ca này không kiểm thử chịu tải hoặc production qua HTTPS. Ngoài bộ đó, đăng nhập quản trị, cookie, trang/API quản trị và healthcheck đã được xác minh riêng bằng Chromium qua tên miền HTTPS thật.
 
 Hướng dẫn kiểm thử PostgreSQL/S3 và kết quả lịch sử: [docs/INTEGRATION.md](docs/INTEGRATION.md). Các kết quả lịch sử trong tài liệu không thay thế lần chạy mới.
 

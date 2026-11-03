@@ -15,6 +15,7 @@ import { HttpError, publicUser } from './auth';
 import { acceptsWordCount, wordRequirement } from '../assignment-policy';
 const id = z.string().min(1).max(120);
 const text = z.string().max(50000);
+const commentContent = z.string().trim().min(1, 'Vui lòng nhập nội dung thảo luận.').max(5000);
 const title = z.string().trim().min(2).max(200);
 const time = () => new Date().toISOString();
 const uid = () => randomUUID();
@@ -504,13 +505,51 @@ export function runAction(db: Database, user: StoredUser, input: Record<string, 
       return n;
     }
     case 'comment': {
-      const v = z
-        .object({ lessonId: id, content: z.string().trim().min(1).max(5000) })
-        .parse(input);
+      const v = z.object({ lessonId: id, content: commentContent }).parse(input);
       accessLesson(db, user, v.lessonId);
       const d = { id: uid(), userId: user.id, ...v, createdAt: time() };
       db.discussions.push(d);
       return d;
+    }
+    case 'updateComment': {
+      const v = z
+        .object({
+          discussionId: id,
+          content: commentContent,
+          expectedContent: z.string().max(5000),
+        })
+        .parse(input);
+      const d = needed(
+        db.discussions.find((d) => d.id === v.discussionId),
+        'Thảo luận đã bị xóa hoặc không còn tồn tại.',
+      );
+      accessLesson(db, user, d.lessonId);
+      if (d.userId !== user.id)
+        throw new HttpError(403, 'Bạn chỉ có thể sửa thảo luận do mình viết.');
+      if (d.content !== v.expectedContent)
+        throw new HttpError(
+          409,
+          'Thảo luận đã được thay đổi. Hủy chỉnh sửa và mở lại để xem nội dung mới.',
+        );
+      if (d.content !== v.content) Object.assign(d, { content: v.content, updatedAt: time() });
+      return d;
+    }
+    case 'deleteComment': {
+      const v = z.object({ discussionId: id, expectedContent: z.string().max(5000) }).parse(input);
+      const d = needed(
+        db.discussions.find((d) => d.id === v.discussionId),
+        'Thảo luận đã bị xóa hoặc không còn tồn tại.',
+      );
+      const l = accessLesson(db, user, d.lessonId);
+      if (d.userId !== user.id && db.classes.find((c) => c.id === l.classId)?.teacherId !== user.id)
+        throw new HttpError(403, 'Chỉ người viết hoặc giáo viên phụ trách lớp được xóa thảo luận.');
+      if (d.content !== v.expectedContent)
+        throw new HttpError(
+          409,
+          'Thảo luận đã được thay đổi. Đóng xác nhận và kiểm tra nội dung mới trước khi xóa.',
+        );
+      db.discussions = db.discussions.filter((entry) => entry.id !== d.id);
+      return null;
     }
     case 'createAssignment': {
       const v = assignmentValues(db, input);

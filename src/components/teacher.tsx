@@ -1224,6 +1224,21 @@ function LessonEditor({
             <Button variant="ghost" type="button" onClick={() => setPreview(true)}>
               Xem trước
             </Button>
+            {lesson && (
+              <Link
+                className="button ghost"
+                href={`/classes/${classId}/lessons/${lesson.id}?tab=discussion`}
+                onClick={(e) => {
+                  if (
+                    dirty &&
+                    !window.confirm('Bài giảng có thay đổi chưa lưu. Bạn muốn rời trang?')
+                  )
+                    e.preventDefault();
+                }}
+              >
+                Xem thảo luận
+              </Link>
+            )}
             <Button
               type="button"
               disabled={

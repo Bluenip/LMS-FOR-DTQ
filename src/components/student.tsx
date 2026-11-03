@@ -32,6 +32,7 @@ import {
   Settings,
 } from 'lucide-react';
 import { useLms } from './lms-provider';
+import { DiscussionPanel } from './discussion';
 import { Button, IconButton, Badge, Empty, Dialog, Field, PageHeading, Search, Tabs } from './ui';
 import { dateTime, fold, initials, uploadFile, words, youtubeId } from '@/lib/client';
 import { acceptsWordCount, wordRequirement } from '@/lib/assignment-policy';
@@ -743,7 +744,6 @@ export function LessonPage({ classId, lessonId }: { classId: string; lessonId: s
   const c = state.classes.find((c) => c.id === classId);
   const lesson = state.lessons.find((l) => l.id === lessonId && l.classId === classId);
   const [note, setNote] = useState('');
-  const [comment, setComment] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -890,48 +890,7 @@ export function LessonPage({ classId, lessonId }: { classId: string; lessonId: s
                   </Button>
                 </div>
               </div>
-            ) : tab === 'discussion' ? (
-              <div>
-                <form
-                  className="stack"
-                  onSubmit={async (e) => {
-                    e.preventDefault();
-                    if (await run('comment', { lessonId, content: comment })) setComment('');
-                  }}
-                >
-                  <Field label="Chia sẻ cùng lớp">
-                    <textarea
-                      value={comment}
-                      onChange={(e) => setComment(e.target.value)}
-                      required
-                      maxLength={3000}
-                      placeholder="Đặt câu hỏi hoặc chia sẻ trải nghiệm thực hành…"
-                    />
-                  </Field>
-                  <div>
-                    <Button type="submit" disabled={busy}>
-                      <Send size={15} />
-                      Gửi thảo luận
-                    </Button>
-                  </div>
-                </form>
-                {state.discussions
-                  .filter((d) => d.lessonId === lessonId)
-                  .map((d) => {
-                    const u = state.users.find((u) => u.id === d.userId);
-                    return (
-                      <div className="discussion-item" key={d.id}>
-                        <span className="avatar">{initials(u?.name || 'HV')}</span>
-                        <div>
-                          <strong>{u?.name || 'Học viên'}</strong>
-                          <time>{dateTime(d.createdAt)}</time>
-                          <p>{d.content}</p>
-                        </div>
-                      </div>
-                    );
-                  })}
-              </div>
-            ) : (
+            ) : tab === 'discussion' ? null : (
               <div className="stack">
                 <div>
                   <h2>Điều tâm đắc từ bài học</h2>
@@ -967,6 +926,9 @@ export function LessonPage({ classId, lessonId }: { classId: string; lessonId: s
                 </div>
               </div>
             )}
+            <div hidden={tab !== 'discussion'}>
+              <DiscussionPanel key={lessonId} lessonId={lessonId} classId={classId} />
+            </div>
           </section>
           {related && <AssignmentCard assignment={related} />}
         </div>

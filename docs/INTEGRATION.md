@@ -1,6 +1,6 @@
 # Kiểm thử PostgreSQL và kho tệp
 
-`scripts/integration-test.mjs` chạy 72 bước kiểm tra HTTP trên một ứng dụng có PostgreSQL và kho S3 tương thích đang hoạt động. Chỉ dùng cơ sở dữ liệu và bucket dành riêng cho kiểm thử. Script tạo một lớp, thêm dữ liệu, rồi xóa lớp đó. Nếu một bước lỗi, lớp kiểm thử có thể còn lại để kiểm tra nguyên nhân. Tệp trong bucket kiểm thử có thể còn lại sau khi lớp bị xóa.
+`scripts/integration-test.mjs` chạy 90 bước kiểm tra HTTP trên một ứng dụng có PostgreSQL và kho S3 tương thích đang hoạt động. Chỉ dùng cơ sở dữ liệu và bucket dành riêng cho kiểm thử. Script tạo một lớp, thêm dữ liệu, rồi xóa lớp đó. Nếu một bước lỗi, lớp kiểm thử có thể còn lại để kiểm tra nguyên nhân. Tệp trong bucket kiểm thử có thể còn lại sau khi lớp bị xóa.
 
 ## Chuẩn bị
 
@@ -30,17 +30,17 @@ node scripts/integration-test.mjs
 
 Hai người dùng phải có quyền giáo viên/học viên tương ứng; dữ liệu trả về phải dùng PostgreSQL (`demo: false`). Không đặt các giá trị bí mật vào mã nguồn hoặc commit tệp `.env`.
 
-Các bước kiểm tra gồm sửa yêu cầu số từ và bỏ mức tối đa, nhắc nộp/đánh dấu thông báo, cấu hình người giảng nội dung, xóa một bài tập và dữ liệu gắn với nó mà giữ bài khác/bài giảng, đăng nhập, phân quyền, tạo/sửa/tham gia lớp, lưu bài giảng, hoàn thành bài và ghi chú/thảo luận, tạo bài tập, từ chối tệp giả định dạng, tải PDF và đọc lại đúng byte qua URL ký, nộp bài, giữ riêng bài/tệp nháp, thu hồi và nộp lại không lộ hoặc tái sử dụng điểm nháp, trả điểm, tải video bằng URL ký và xác thực, chống ghi đè video đã xác thực bằng URL tải cũ, lưu trữ/khôi phục/xóa lớp cùng dữ liệu liên quan.
+Các bước kiểm tra gồm sửa/xóa thảo luận theo quyền người viết/giáo viên, giữ thời điểm đăng và hiển thị dấu chỉnh sửa, chặn thao tác từ bản cũ, sửa yêu cầu số từ và bỏ mức tối đa, nhắc nộp/đánh dấu thông báo, cấu hình người giảng nội dung, xóa một bài tập và dữ liệu gắn với nó mà giữ bài khác/bài giảng, đăng nhập, phân quyền, tạo/sửa/tham gia lớp, lưu bài giảng, hoàn thành bài và ghi chú/thảo luận, tạo bài tập, từ chối tệp giả định dạng, tải PDF và đọc lại đúng byte qua URL ký, nộp bài, giữ riêng bài/tệp nháp, thu hồi và nộp lại không lộ hoặc tái sử dụng điểm nháp, trả điểm, tải video bằng URL ký và xác thực, chống ghi đè video đã xác thực bằng URL tải cũ, lưu trữ/khôi phục/xóa lớp cùng dữ liệu liên quan.
 
 Fixture PDF/MP4 chỉ có byte nhận dạng tối thiểu để kiểm tra việc vận chuyển và xác thực tệp; chúng không phải tài liệu/video mẫu để phát trong giao diện.
 
 ## Kết quả chạy lại ngày 03/11/2026
 
-Toàn bộ **72 kiểm tra đạt** trên ứng dụng production trong Docker của server đích, với Node.js 22.23.4, Next.js 16.4.4, Prisma 6.19.0, PostgreSQL 17.11 và S3rver 3.7.1. Database và bucket riêng cho kiểm thử; tài khoản giáo viên/học viên được cấp qua CLI/API, không bật tài khoản demo. Ứng dụng chạy UID 1000. Các kiểm tra mới bao gồm readiness, quyền đọc tệp/bài nháp, thu hồi/nộp lại, xóa điểm nháp thực sự trong PostgreSQL và từ chối chấm từ phiên bản bài nộp cũ.
+Toàn bộ **90 kiểm tra đạt** trên ứng dụng production trong Docker của server đích, với Node.js 22.23.4, Next.js 16.4.4, Prisma 6.19.0, PostgreSQL 17.11 và S3rver 3.7.1. Database và bucket riêng cho kiểm thử; tài khoản giáo viên/học viên được cấp qua CLI/API, không bật tài khoản demo. Ứng dụng chạy UID 1000. Các kiểm tra mới bao gồm readiness, quyền đọc tệp/bài nháp, thu hồi/nộp lại, xóa điểm nháp thực sự trong PostgreSQL và từ chối chấm từ phiên bản bài nộp cũ.
 
-Bộ giả lập dùng truy cập bucket theo đường dẫn (`vhostBuckets: false`) để hoạt động qua hostname service Docker. Bucket/IAM/CORS của AWS hoặc R2 thật chưa được kiểm tra. Bộ 72 bước dùng HTTP trong network Docker; HTTPS của ứng dụng được xác minh riêng sau triển khai, xem [CODE_REVIEW.md](CODE_REVIEW.md).
+Bộ giả lập dùng truy cập bucket theo đường dẫn (`vhostBuckets: false`) để hoạt động qua hostname service Docker. Bucket/IAM/CORS của AWS hoặc R2 thật chưa được kiểm tra. Bộ 90 bước dùng HTTP trong network Docker; HTTPS của ứng dụng được xác minh riêng sau triển khai, xem [CODE_REVIEW.md](CODE_REVIEW.md).
 
-Đã nâng cấp riêng từ image production trước bản sửa lên schema mới với lớp/bài nộp/điểm mẫu. Bài đã trả 90 điểm, yêu cầu cũ và cookie đăng nhập vẫn dùng được; tắt PostgreSQL thử nghiệm làm healthcheck trả 503 và khởi động lại trả 200.
+Đã nâng cấp riêng từ image production trước bản sửa lên schema mới với lớp/bài nộp/điểm mẫu. Bài đã trả 90 điểm, yêu cầu cũ, bình luận có trước migration và cookie đăng nhập vẫn dùng được; tắt PostgreSQL thử nghiệm làm healthcheck trả 503 và khởi động lại trả 200.
 
 ## Kết quả lịch sử
 

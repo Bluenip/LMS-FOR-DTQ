@@ -117,7 +117,99 @@ assert.equal(unverifiedLesson.status, 400);
 checks++;
 await action(student, 'completeLesson', { lessonId: l.id });
 await action(student, 'saveNote', { lessonId: l.id, content: 'Persisted note' });
-await action(student, 'comment', { lessonId: l.id, content: 'Persisted discussion' });
+const discussion = await action(student, 'comment', {
+  lessonId: l.id,
+  content: 'Persisted discussion',
+});
+const editedDiscussion = await action(student, 'updateComment', {
+  discussionId: discussion.id,
+  expectedContent: discussion.content,
+  content: 'Edited discussion persisted in PostgreSQL',
+});
+st = await state(teacher);
+assert.equal(st.discussions.find((d) => d.id === discussion.id).content, editedDiscussion.content);
+assert.equal(editedDiscussion.createdAt, discussion.createdAt);
+assert(st.discussions.find((d) => d.id === discussion.id).updatedAt);
+checks++;
+const deniedEdit = await request('/api/actions', {
+  who: teacher,
+  method: 'POST',
+  body: {
+    action: 'updateComment',
+    discussionId: discussion.id,
+    expectedContent: editedDiscussion.content,
+    content: 'Unauthorized teacher edit',
+  },
+});
+assert.equal(deniedEdit.status, 403);
+checks++;
+const staleEdit = await request('/api/actions', {
+  who: student,
+  method: 'POST',
+  body: {
+    action: 'updateComment',
+    discussionId: discussion.id,
+    expectedContent: discussion.content,
+    content: 'Stale edit',
+  },
+});
+assert.equal(staleEdit.status, 409);
+checks++;
+const staleDelete = await request('/api/actions', {
+  who: teacher,
+  method: 'POST',
+  body: {
+    action: 'deleteComment',
+    discussionId: discussion.id,
+    expectedContent: discussion.content,
+  },
+});
+assert.equal(staleDelete.status, 409);
+checks++;
+const teacherReply = await action(teacher, 'comment', {
+  lessonId: l.id,
+  content: 'Teacher discussion reply',
+});
+const deniedDelete = await request('/api/actions', {
+  who: student,
+  method: 'POST',
+  body: {
+    action: 'deleteComment',
+    discussionId: teacherReply.id,
+    expectedContent: teacherReply.content,
+  },
+});
+assert.equal(deniedDelete.status, 403);
+checks++;
+const temporaryDiscussion = await action(student, 'comment', {
+  lessonId: l.id,
+  content: 'Student deletes their own discussion',
+});
+await action(student, 'deleteComment', {
+  discussionId: temporaryDiscussion.id,
+  expectedContent: temporaryDiscussion.content,
+});
+st = await state(student);
+assert(!st.discussions.some((d) => d.id === temporaryDiscussion.id));
+assert(st.discussions.some((d) => d.id === discussion.id));
+checks++;
+await action(teacher, 'deleteComment', {
+  discussionId: discussion.id,
+  expectedContent: editedDiscussion.content,
+});
+st = await state(student);
+assert(!st.discussions.some((d) => d.id === discussion.id));
+assert(st.discussions.some((d) => d.id === teacherReply.id));
+checks++;
+const updatedReply = await action(teacher, 'updateComment', {
+  discussionId: teacherReply.id,
+  expectedContent: teacherReply.content,
+  content: 'Teacher edited their own reply',
+});
+st = await state(student);
+assert.equal(st.discussions.find((d) => d.id === teacherReply.id).content, updatedReply.content);
+assert(st.discussions.find((d) => d.id === teacherReply.id).updatedAt);
+checks++;
 const a = await action(teacher, 'createAssignment', {
   classId: c.id,
   lessonId: l.id,
