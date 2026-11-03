@@ -1,6 +1,6 @@
 # Kết quả rà soát và sửa lỗi LMS
 
-Cập nhật **03/11/2026**. Bốn lỗi được phát hiện trong lượt rà soát đầu đã được sửa trong mã nguồn và có kiểm thử hồi quy. Ứng dụng cũng đã được build/chạy thử bằng Docker trên server đích với PostgreSQL và kho S3 giả lập riêng.
+Cập nhật **03/11/2026**. Bốn lỗi được phát hiện trong lượt rà soát đầu đã được sửa trong mã nguồn và có kiểm thử hồi quy. Ứng dụng đã được triển khai thường trực tại https://zimaos.click bằng Docker với PostgreSQL riêng. Kiểm thử kho S3 dùng một stack tạm biệt lập; production chưa có bucket vì R2 của tài khoản chưa bật.
 
 ## Những lỗi đã sửa
 
@@ -52,11 +52,11 @@ Playwright dùng bản sao mã nguồn/dữ liệu JSON trong thư mục tạm, 
 
 Kiểm thử server dùng project Compose, database, bucket và cổng loopback riêng. Tài khoản kiểm thử là các tài khoản được cấp thật trong database thử, không bật đăng nhập demo. Các bước S3 chạy với S3rver 3.7.1 trong network Docker; chưa dùng thông tin xác thực AWS/R2 thật.
 
-Fixture PDF/MP4 chỉ có byte nhận dạng tối thiểu để kiểm tra đường truyền và validation; không chứng minh video phát được hoặc xác thực được tài liệu hoàn chỉnh. Lượt này chưa kiểm thử file video 2 GiB, bucket/IAM/CORS thật, hostname HTTPS thật hoặc tải đồng thời nhiều học viên.
+Fixture PDF/MP4 chỉ có byte nhận dạng tối thiểu để kiểm tra đường truyền và validation; không chứng minh video phát được hoặc xác thực được tài liệu hoàn chỉnh. Lượt này chưa kiểm thử file video 2 GiB, bucket/IAM/CORS thật hoặc tải đồng thời nhiều học viên. HTTPS thật được xác minh riêng bằng trình duyệt sau triển khai.
 
 Đã khởi động lại app/PostgreSQL và xác nhận tài khoản cùng phiên đăng nhập đã ký vẫn dùng được. Bản sao lưu `pg_dump` định dạng custom đã được khôi phục vào một database thử riêng và giữ nguyên hai tài khoản kiểm thử.
 
-Sau kiểm tra, project Compose thử nghiệm, volume, image gắn tag thử và thư mục nguồn/khóa tạm trên server đã được dọn. Các dịch vụ hiện hữu vẫn chạy; chưa cấu hình route/DNS công khai cho LMS.
+Project Compose và volume kiểm thử đã được dọn riêng. Project production `lms-dtq` tiếp tục chạy ở `/home/bluenip/apps/lms-dtq`, app mở `127.0.0.1:3000`. Chỉ route gốc `zimaos.click` chuyển từ AdGuard sang LMS theo phép chủ server; route Anki/Home Assistant và AdGuard trên LAN được giữ nguyên.
 
 ## Cấu hình triển khai đã bổ sung
 
@@ -76,9 +76,16 @@ Compose phát triển dùng volume `local_s3_data` riêng cho bộ giả lập, 
 | Dung lượng trước thử nghiệm | Còn khoảng 85 GiB                                                               |
 | Docker / Compose            | Docker 29.1.3, Compose 2.40.3                                                   |
 | Node.js/npm trên host       | Chưa có trong PATH; cấu hình Docker đã chạy được mà không cần cài Node lên host |
-| Tunnel                      | Có dịch vụ `cloudflared` đang hoạt động; chưa sửa route/DNS của hostname LMS    |
+| Tunnel                      | `cloudflared` đang hoạt động; `zimaos.click` → `http://127.0.0.1:3000`          |
 
-Build và các thao tác thực tế ở trên xác nhận khả năng chạy ứng dụng trên server. Chưa có phép đo để cam kết số học viên đồng thời hoặc băng thông phát video. Khi dùng tên miền thật, còn cần cấu hình hostname HTTPS và kho tệp vận hành, rồi kiểm tra từ mạng ngoài server.
+Build và các thao tác thực tế ở trên xác nhận khả năng chạy ứng dụng trên server. Chưa có phép đo để cam kết số học viên đồng thời hoặc băng thông phát video. Tên miền HTTPS đã được kiểm tra đăng nhập quản trị, API quản trị, cookie Secure/HttpOnly và healthcheck từ trình duyệt qua Cloudflare. Còn cần bucket vận hành và kiểm thử video thật/CORS.
+
+## Vận hành sau triển khai
+
+- Mã đã đẩy lên GitHub; Bash fetch `origin/main`, triển khai commit mới và giữ cấu hình thật. Healthcheck đã trả 503 khi tắt PostgreSQL thử nghiệm và 200 sau khi khởi động lại.
+- User timer `lms-dtq-update.timer` được bật; `Linger=yes`, Docker và cloudflared đều enabled. App/PostgreSQL dùng `restart: unless-stopped`. Chưa reboot toàn máy để tránh gián đoạn các dịch vụ khác.
+- Quản trị đầu tiên `admin@zimaos.click` có mật khẩu riêng ngẫu nhiên; đăng nhập bằng mật khẩu mặc định bị từ chối. Bản cấp mật khẩu ban đầu nằm ở `.deploy/admin-credentials.json` trên server, quyền 600; không commit hoặc in vào log.
+- Đăng nhập qua HTTPS thật, trang quản trị/API và cookie Secure/HttpOnly đã được kiểm tra bằng Chromium. Không có tài khoản/lớp demo trong production.
 
 ## Giới hạn còn lại
 

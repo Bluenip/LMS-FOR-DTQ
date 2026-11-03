@@ -38,7 +38,7 @@ Fixture PDF/MP4 chỉ có byte nhận dạng tối thiểu để kiểm tra vi�
 
 Toàn bộ **52 kiểm tra đạt** trên ứng dụng production trong Docker của server đích, với Node.js 22.23.4, Next.js 16.4.4, Prisma 6.19.0, PostgreSQL 17.11 và S3rver 3.7.1. Database và bucket riêng cho kiểm thử; tài khoản giáo viên/học viên được cấp qua CLI/API, không bật tài khoản demo. Ứng dụng chạy UID 1000. Các kiểm tra mới bao gồm readiness, quyền đọc tệp/bài nháp, thu hồi/nộp lại, xóa điểm nháp thực sự trong PostgreSQL và từ chối chấm từ phiên bản bài nộp cũ.
 
-Bộ giả lập dùng truy cập bucket theo đường dẫn (`vhostBuckets: false`) để hoạt động qua hostname service Docker. Bucket/IAM/CORS của AWS hoặc R2 thật và đường HTTPS công khai chưa được kiểm tra trong lượt này.
+Bộ giả lập dùng truy cập bucket theo đường dẫn (`vhostBuckets: false`) để hoạt động qua hostname service Docker. Bucket/IAM/CORS của AWS hoặc R2 thật chưa được kiểm tra. Bộ 52 bước dùng HTTP trong network Docker; HTTPS của ứng dụng được xác minh riêng sau triển khai, xem [CODE_REVIEW.md](CODE_REVIEW.md).
 
 ## Kết quả lịch sử
 

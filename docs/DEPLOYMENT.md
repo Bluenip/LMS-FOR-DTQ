@@ -141,3 +141,13 @@ Khôi phục vào database thử trước khi dùng backup để phục hồi h�
 ## Xác minh sau triển khai
 
 Kiểm tra HTTPS `/api/health`, đăng nhập quản trị và cookie Secure/HttpOnly, API quản trị, bài giảng/bài tập, timer và chính sách restart. Kiểm thử PostgreSQL/S3 dùng stack riêng theo [INTEGRATION.md](INTEGRATION.md), không trỏ script tích hợp vào dữ liệu thật. Kiểm tra video thật từ mạng ngoài khi có bucket. Chưa có số đo để cam kết số học viên đồng thời; xem [CODE_REVIEW.md](CODE_REVIEW.md).
+
+## Trạng thái triển khai ngày 03/11/2026
+
+Bản production nằm ở `/home/bluenip/apps/lms-dtq`, URL https://zimaos.click, cổng `127.0.0.1:3000`. App/PostgreSQL healthy; migration hoàn tất. Tunnel đã đổi riêng route tên miền gốc theo phép chủ server; các route khác được giữ nguyên.
+
+Timer `lms-dtq-update.timer` enabled và user lingering đã bật. Docker/cloudflared enabled cùng hệ thống, app/PostgreSQL có restart policy. Chưa reboot toàn server trong lượt này vì còn các dịch vụ khác đang chạy.
+
+Quản trị đầu tiên là `admin@zimaos.click`. Mật khẩu ngẫu nhiên ban đầu chỉ nằm tại `/home/bluenip/apps/lms-dtq/.deploy/admin-credentials.json` trên server (quyền 600); đọc qua SSH rồi đổi tại `/profile`. File này không tự cập nhật khi đổi mật khẩu, có thể xóa sau khi bàn giao an toàn. Không đưa file lên GitHub.
+
+Đã xác minh đăng nhập bằng mật khẩu riêng, cookie Secure/HttpOnly, trang/API quản trị và healthcheck qua HTTPS thật. Production chỉ có quản trị thật, không seed demo. Kho tệp vận hành chưa được cấp; cần bật/cấu hình R2 hoặc S3 trước khi dùng tính năng tải tệp.

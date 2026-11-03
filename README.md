@@ -4,6 +4,8 @@
 
 **Cập nhật ngày 03/11/2026:** đã sửa các lỗi về quyền riêng tư, video, thu hồi/chấm bài, JSON đầu vào và giới hạn đăng nhập; 72 kiểm thử backend/vận hành, 12 kiểm thử trình duyệt và build production đều đạt. Có Docker/Compose, healthcheck PostgreSQL và Bash tự cập nhật GitHub bằng systemd timer khi server bật/reboot. Xem [báo cáo kiểm tra](docs/CODE_REVIEW.md) và [hướng dẫn triển khai](docs/DEPLOYMENT.md) để biết kết quả xác minh và giới hạn còn lại.
 
+**Địa chỉ triển khai:** https://zimaos.click — Cloudflare Tunnel nối tới app ở `127.0.0.1:3000`. Chưa cấu hình bucket vận hành vì R2 của tài khoản chưa bật; YouTube/bài viết hoạt động, tải tệp cần bổ sung S3/R2.
+
 ## Công nghệ
 
 | Thành phần             | Phiên bản trong `package-lock.json` / cách sử dụng              |
@@ -226,18 +228,18 @@ Hai ca quản trị/hồ sơ cần `ADMIN_E2E_EMAIL` và `ADMIN_E2E_PASSWORD` c�
 
 Kết quả chạy lại ngày **03/11/2026**, với dependency khớp lockfile và bản cài mới trong Docker:
 
-| Kiểm tra                                                     | Kết quả                                                         |
-| ------------------------------------------------------------ | --------------------------------------------------------------- |
-| TypeScript                                                   | Đạt                                                             |
-| Prettier trên mã nguồn                                       | Đạt                                                             |
-| Backend                                                      | 72/72 đạt                                                       |
-| Build production mặc định với Turbopack                      | Đạt                                                             |
-| Playwright trên bản sao dữ liệu riêng, đủ tài khoản quản trị | 12/12 đạt, không bỏ qua ca nào                                  |
-| `npm audit`                                                  | 0 lỗ hổng đã biết được báo về tại thời điểm chạy                |
-| PostgreSQL + S3 qua HTTP                                     | 52/52 đạt với PostgreSQL và S3 giả lập trong Docker trên server |
-| Chạy ứng dụng trên server đích / qua tên miền thật           | Đã chạy thử Docker nội bộ; chưa cấu hình tên miền HTTPS         |
+| Kiểm tra                                                     | Kết quả                                                              |
+| ------------------------------------------------------------ | -------------------------------------------------------------------- |
+| TypeScript                                                   | Đạt                                                                  |
+| Prettier trên mã nguồn                                       | Đạt                                                                  |
+| Backend                                                      | 72/72 đạt                                                            |
+| Build production mặc định với Turbopack                      | Đạt                                                                  |
+| Playwright trên bản sao dữ liệu riêng, đủ tài khoản quản trị | 12/12 đạt, không bỏ qua ca nào                                       |
+| `npm audit`                                                  | 0 lỗ hổng đã biết được báo về tại thời điểm chạy                     |
+| PostgreSQL + S3 qua HTTP                                     | 52/52 đạt với PostgreSQL và S3 giả lập trong Docker trên server      |
+| Chạy ứng dụng trên server đích / qua tên miền thật           | Đã triển khai tại `https://zimaos.click`; đăng nhập/health HTTPS đạt |
 
-Playwright lần rà soát dùng dev server Webpack trên bản sao tạm để dùng chung dependency mà không sửa dữ liệu gốc; build production được kiểm tra riêng bằng cấu hình Turbopack mặc định. Đây không phải kiểm thử chịu tải hoặc kiểm thử production qua HTTPS.
+Playwright lần rà soát dùng dev server Webpack trên bản sao tạm để dùng chung dependency mà không sửa dữ liệu gốc; build production được kiểm tra riêng bằng cấu hình Turbopack mặc định. Bộ 12 ca này không kiểm thử chịu tải hoặc production qua HTTPS. Ngoài bộ đó, đăng nhập quản trị, cookie, trang/API quản trị và healthcheck đã được xác minh riêng bằng Chromium qua tên miền HTTPS thật.
 
 Hướng dẫn kiểm thử PostgreSQL/S3 và kết quả lịch sử: [docs/INTEGRATION.md](docs/INTEGRATION.md). Các kết quả lịch sử trong tài liệu không thay thế lần chạy mới.
 
