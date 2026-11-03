@@ -1,0 +1,209 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id             String         @id
+  name           String
+  email          String         @unique
+  role           String
+  avatar         String?
+  passwordHash   String
+  emailVerified  Boolean        @default(true)
+  sessionVersion Int            @default(0)
+  isDemo         Boolean        @default(false)
+  isAdmin        Boolean        @default(false)
+  disabled       Boolean        @default(false)
+  authTokens     AuthToken[]
+  classes        Classroom[]
+  enrollments    Enrollment[]
+  submissions    Submission[]
+  progress       Progress[]
+  notes          Note[]
+  discussions    Discussion[]
+  notifications  Notification[]
+  files          StoredFile[]
+}
+
+model AuthToken {
+  id                  String  @id
+  userId              String
+  user                User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash           String  @unique
+  purpose             String
+  createdAt           String
+  expiresAt           String
+  consumedAt          String?
+  pendingPasswordHash String?
+  pendingName         String?
+
+  @@index([userId, purpose])
+  @@index([expiresAt])
+}
+
+model Classroom {
+  id             String       @id
+  title          String
+  description    String
+  code           String       @unique
+  teacherId      String
+  teacher        User         @relation(fields: [teacherId], references: [id], onDelete: Restrict)
+  status         String       @default("ACTIVE")
+  capacity       Int          @default(50)
+  enrollmentOpen Boolean      @default(true)
+  autoApprove    Boolean      @default(false)
+  schedule       String
+  cover          String
+  createdAt      String
+  enrollments    Enrollment[]
+  lessons        Lesson[]
+  assignments    Assignment[]
+  files          StoredFile[]
+
+  @@index([teacherId])
+}
+
+model Enrollment {
+  id        String    @id
+  classId   String
+  classroom Classroom @relation(fields: [classId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  status    String
+  group     Int       @default(1)
+  joinedAt  String
+
+  @@unique([classId, userId])
+}
+
+model Lesson {
+  id          String       @id
+  classId     String
+  classroom   Classroom    @relation(fields: [classId], references: [id], onDelete: Cascade)
+  title       String
+  chapter     String
+  order       Int
+  description String
+  videoType   String
+  videoUrl    String
+  videoFileId String?
+  duration    String
+  published   Boolean      @default(false)
+  timestamps  Json         @default("[]")
+  documents   Json         @default("[]")
+  createdAt   String
+  assignments Assignment[]
+  progress    Progress[]
+  notes       Note[]
+  discussions Discussion[]
+
+  @@index([classId, order])
+}
+
+model Assignment {
+  id            String       @id
+  classId       String
+  classroom     Classroom    @relation(fields: [classId], references: [id], onDelete: Cascade)
+  lessonId      String?
+  lesson        Lesson?      @relation(fields: [lessonId], references: [id], onDelete: SetNull)
+  title         String
+  instructions  String
+  dueAt         String
+  allowLate     Boolean
+  allowResubmit Boolean
+  maxAttempts   Int
+  minWords      Int
+  maxWords      Int
+  createdAt     String
+  submissions   Submission[]
+
+  @@index([classId])
+}
+
+model Submission {
+  id           String     @id
+  assignmentId String
+  assignment   Assignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  studentId    String
+  student      User       @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  content      String
+  link         String
+  attachments  Json       @default("[]")
+  status       String
+  attempt      Int
+  submittedAt  String?
+  score        Float?
+  rubric       Json?
+  feedback     String
+  gradedAt     String?
+
+  @@unique([assignmentId, studentId])
+}
+
+model Progress {
+  id         String  @id
+  userId     String
+  user       User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lessonId   String
+  lesson     Lesson  @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  completed  Boolean
+  bookmarked Boolean
+
+  @@unique([userId, lessonId])
+}
+
+model Note {
+  id        String @id
+  userId    String
+  user      User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lessonId  String
+  lesson    Lesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  content   String
+  updatedAt String
+
+  @@unique([userId, lessonId])
+}
+
+model Discussion {
+  id        String @id
+  userId    String
+  user      User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lessonId  String
+  lesson    Lesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  content   String
+  createdAt String
+
+  @@index([lessonId])
+}
+
+model Notification {
+  id        String  @id
+  userId    String
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  content   String
+  createdAt String
+  read      Boolean @default(false)
+
+  @@index([userId])
+}
+
+model StoredFile {
+  id        String    @id
+  ownerId   String
+  owner     User      @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  classId   String
+  classroom Classroom @relation(fields: [classId], references: [id], onDelete: Cascade)
+  key       String    @unique
+  name      String
+  size      Float
+  mimeType  String
+  verified  Boolean   @default(false)
+  createdAt String
+
+  @@index([classId, ownerId])
+}

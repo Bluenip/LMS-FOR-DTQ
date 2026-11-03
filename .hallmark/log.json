@@ -1,0 +1,21 @@
+[
+  {
+    "date": "2026-11-02",
+    "scope": "app",
+    "shape": "app screen",
+    "theme": "Vietnamese Moral Education LMS (locked DESIGN.md)",
+    "genre": "modern-minimal",
+    "nav": "existing academic topbar with role-specific destinations and mobile menu",
+    "footer": "quiet academic colophon",
+    "imagery": "no stock photography; truthful missing lecture state and neutral video poster",
+    "photos": [],
+    "entry": "src/app/layout.tsx",
+    "signature": "lesson curriculum and reflection workspace",
+    "sections": ["classes", "class overview", "lesson", "submission", "members", "teacher classes", "lesson editor", "gradebook"],
+    "waived": ["23: supplied terracotta banners and login surface"],
+    "prompt": "Implement every Stitch design as a full TypeScript LMS using Hallmark",
+    "sweep": {"floorFails":0,"openReflex":0,"waived":1,"warns":1,"warnDisposition":"F4 neutral/secondary/destructive semantics reviewed"},
+    "finishReview": {"reviewer":"subagent","findings":6,"resolved":6},
+    "validation": {"build":"pass","backendTests":13,"browserTests":3,"integrationHttpAssertions":36,"auditVulnerabilities":0}
+  }
+]

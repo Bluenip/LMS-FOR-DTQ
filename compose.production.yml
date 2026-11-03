@@ -1,0 +1,68 @@
+name: lms-dtq
+
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: '10m'
+    max-file: '3'
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: lms
+      POSTGRES_USER: lms
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env.production}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U lms -d lms']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+    stop_grace_period: 30s
+    logging: *logging
+
+  migrate:
+    image: ${LMS_IMAGE:-lms-dtq:local}
+    command: ['npm', 'run', 'db:migrate']
+    healthcheck:
+      disable: true
+    environment:
+      DATABASE_URL: postgresql://lms:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env.production}@postgres:5432/lms?schema=public
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: 'no'
+    logging: *logging
+
+  app:
+    image: ${LMS_IMAGE:-lms-dtq:local}
+    build:
+      context: .
+      target: runtime
+    environment:
+      DATABASE_URL: postgresql://lms:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env.production}@postgres:5432/lms?schema=public
+      SESSION_SECRET: ${SESSION_SECRET:?Set SESSION_SECRET in .env.production}
+      APP_URL: ${APP_URL:?Set APP_URL in .env.production}
+      ALLOW_DEMO_ACCOUNTS: 'false'
+      S3_ENDPOINT: ${S3_ENDPOINT:-}
+      S3_REGION: ${S3_REGION:-auto}
+      S3_BUCKET: ${S3_BUCKET:-}
+      S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID:-}
+      S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY:-}
+    ports:
+      - '127.0.0.1:${LMS_PORT:-3000}:3000'
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    init: true
+    restart: unless-stopped
+    stop_grace_period: 30s
+    logging: *logging
+
+volumes:
+  postgres_data:

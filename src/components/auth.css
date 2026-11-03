@@ -1,0 +1,134 @@
+/* Hallmark · shape: app screen · theme: Vietnamese Moral Education LMS (locked DESIGN.md) · signature: accessible account forms · v2.0.0 */
+/* Critique: reuse the academic login system, keep account recovery readable and password visibility keyboard accessible. */
+.auth-layout .login-main {
+  padding-block: var(--space-xl);
+}
+.auth-layout .login-form form {
+  gap: 20px;
+}
+.auth-label-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  min-height: 20px;
+}
+.auth-label-row label {
+  font-weight: 500;
+}
+.auth-label-row a {
+  font-size: 11px;
+  color: var(--color-accent);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.auth-password-control {
+  position: relative;
+}
+.auth-password-control input {
+  padding-right: 48px;
+}
+.auth-password-control .icon-button {
+  position: absolute;
+  right: 2px;
+  top: 1px;
+  width: 40px;
+  height: 40px;
+  color: var(--color-ink-2);
+  background: var(--color-clear);
+}
+.auth-password-control .icon-button:hover {
+  background: var(--color-paper-2);
+}
+.auth-password-control .icon-button:focus-visible {
+  outline-offset: -3px;
+}
+.auth-footer {
+  padding-top: var(--space-lg);
+  text-align: center;
+  font-size: 12px;
+  color: var(--color-ink-2);
+}
+.auth-footer a {
+  font-weight: 500;
+  color: var(--color-accent);
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+.auth-result {
+  margin-bottom: var(--space-lg);
+}
+.auth-result .notice {
+  align-items: flex-start;
+}
+.auth-preview {
+  border: 1px solid var(--color-line);
+  padding: var(--space-md);
+  border-radius: 8px;
+  background: var(--color-paper-2);
+  font-size: 12px;
+}
+.auth-preview strong {
+  display: block;
+  font-size: 12px;
+  margin-bottom: var(--space-xs);
+}
+.auth-preview p {
+  margin-bottom: 12px;
+  color: var(--color-ink-2);
+}
+.auth-preview a {
+  overflow-wrap: anywhere;
+}
+.auth-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.auth-actions .button {
+  width: 100%;
+}
+.auth-help {
+  font-size: 11px;
+  color: var(--color-ink-2);
+  margin: 0;
+}
+.auth-unverified {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+.auth-unverified a {
+  font-size: 12px;
+}
+.auth-password-rules {
+  font-size: 11px;
+  color: var(--color-ink-2);
+  margin-top: calc(-1 * var(--space-sm));
+}
+.auth-layout .login-demo .auth-help {
+  margin-top: 12px;
+  margin-bottom: 0;
+}
+@media (max-width: 600px) {
+  .auth-layout .login-main {
+    padding-block: 32px;
+  }
+  .auth-label-row {
+    align-items: baseline;
+  }
+  .auth-label-row a {
+    font-size: 11px;
+  }
+  .auth-layout .login-story {
+    min-height: 224px;
+  }
+}
+
+.auth-password-control .icon-button:active:not(:disabled) {
+  transform: translateY(1px);
+}
+.auth-password-control .icon-button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}

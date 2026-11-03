@@ -1,0 +1,878 @@
+<!DOCTYPE html>
+
+<html lang="vi"><head><meta charset="utf-8"/><meta content="width=device-width, initial-scale=1.0" name="viewport"/><meta content="web_standard" name="shell-type"/><title>Đệ Tử Quy - Giảng Đường Trực Tuyến</title><link href="https://fonts.googleapis.com" rel="preconnect"/><link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/><link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:ital,wght@0,400;0,500;0,600;0,700;1,400&amp;family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,600;1,6..72,400&amp;display=swap" rel="stylesheet"/><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/><style>@layer base{html,body{margin:0;padding:0;}body{overscroll-behavior:none;}main>:first-child{margin-top:0!important;}main>:last-child{margin-bottom:0!important;}}::-webkit-scrollbar{display:none;}
+#membersModal.opacity-0, #createModal.opacity-0, #deleteModal.opacity-0, #classSettingsDrawer.opacity-0, #drawerSettings.opacity-0, #modalMembers.opacity-0 {
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+#membersModal.opacity-0 *, #createModal.opacity-0 *, #deleteModal.opacity-0 *, #classSettingsDrawer.opacity-0 *, #drawerSettings.opacity-0 *, #modalMembers.opacity-0 * {
+  pointer-events: none !important;
+}
+#drawerBackdrop.opacity-0, #modalBackdrop.opacity-0 {
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+</style><script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script><script id="tailwind-config">tailwind.config={darkMode:"class",theme:{extend:{colors:{"primary":"#781f00","surface-bright":"#fff8f4","on-surface":"#1e1b18","inverse-on-surface":"#f7efe9","on-secondary-fixed":"#331200","on-primary-container":"#ffbda9","surface-dim":"#e0d9d3","outline-variant":"#dec0b7","on-primary-fixed-variant":"#842503","on-primary-fixed":"#3a0a00","on-tertiary":"#ffffff","surface-tint":"#a53c19","on-secondary":"#ffffff","secondary-fixed-dim":"#ffb68e","surface-container-lowest":"#ffffff","surface-container-high":"#eee7e1","outline":"#8b716a","on-surface-variant":"#57423c","secondary":"#9b4500","surface-container-low":"#faf2ec","on-tertiary-fixed-variant":"#005323","on-secondary-container":"#682c00","primary-fixed":"#ffdbd1","inverse-primary":"#ffb59f","primary-container":"#9a3412","on-tertiary-fixed":"#00210a","inverse-surface":"#33302c","surface-variant":"#e9e1db","on-background":"#1e1b18","surface-container-highest":"#e9e1db","secondary-container":"#fd8a42","surface":"#fff8f4","primary-fixed-dim":"#ffb59f","tertiary":"#004a1e","error":"#ba1a1a","background":"#fff8f4","error-container":"#ffdad6","tertiary-container":"#00642c","tertiary-fixed-dim":"#79db8d","tertiary-fixed":"#95f8a7","surface-container":"#f4ece7","on-error":"#ffffff","on-tertiary-container":"#7ee092","on-secondary-fixed-variant":"#763300","on-error-container":"#93000a","on-primary":"#ffffff","secondary-fixed":"#ffdbca"},borderRadius:{"DEFAULT":"0.25rem","lg":"0.5rem","xl":"0.75rem","full":"9999px"},spacing:{"gutter-desktop":"1.75rem","space-xl":"2.5rem","space-sm":"0.5rem","space-md":"1rem","margin":"1rem","gutter":"1.25rem","margin-desktop":"2.5rem","space-xs":"0.25rem","space-lg":"1.5rem"},fontFamily:{"body-md":["Be Vietnam Pro"],"display-lg":["Newsreader"],"label-sm":["Be Vietnam Pro"],"body-sm":["Be Vietnam Pro"],"headline-md":["Newsreader"],"label-md":["Be Vietnam Pro"],"headline-lg":["Newsreader"],"label-lg":["Be Vietnam Pro"],"body-lg":["Be Vietnam Pro"],"headline-sm":["Newsreader"],"display-lg-mobile":["Newsreader"]},fontSize:{"body-md":["14px",{lineHeight:"22px",fontWeight:"400"}],"display-lg":["40px",{lineHeight:"48px",fontWeight:"600"}],"label-sm":["11px",{lineHeight:"14px",fontWeight:"500"}],"body-sm":["12px",{lineHeight:"18px",fontWeight:"400"}],"headline-md":["22px",{lineHeight:"30px",fontWeight:"600"}],"label-md":["12px",{lineHeight:"16px",fontWeight:"600"}],"headline-lg":["28px",{lineHeight:"36px",fontWeight:"600"}],"label-lg":["14px",{lineHeight:"20px",fontWeight:"600"}],"body-lg":["16px",{lineHeight:"26px",fontWeight:"400"}],"headline-sm":["18px",{lineHeight:"26px",fontWeight:"600"}],"display-lg-mobile":["30px",{lineHeight:"38px",fontWeight:"600"}]}}}};</script></head><body class="bg-background font-body-md text-on-surface antialiased min-h-[1024px] flex flex-col justify-between" data-mode="connect"><div class="fixed top-5 right-5 z-[100] transform transition-all duration-300 translate-y-[-150%] opacity-0 pointer-events-none" id="toastNotification"><div class="flex items-center gap-3 px-4 py-3 rounded-xl bg-inverse-surface text-inverse-on-surface shadow-xl text-body-sm font-medium"><span class="material-symbols-outlined text-[20px] text-tertiary-fixed" id="toastIcon">check_circle</span><span id="toastMessage">Thông báo thao tác</span></div></div><header class="fixed top-0 left-0 right-0 z-50 bg-surface/90 backdrop-blur-xl shadow-[0_1px_8px_rgba(0,0,0,0.04)]"><div class="h-20 w-full px-4 lg:px-margin-desktop flex items-center justify-between gap-space-md"><div class="flex items-center gap-space-md min-w-0"><div class="flex items-center gap-3 shrink-0"><div class="w-10 h-10 rounded-xl bg-primary-container text-on-primary flex items-center justify-center shadow-[0_2px_6px_rgba(120,31,0,0.2)]"><span class="material-symbols-outlined text-[24px]">menu_book</span></div><div><div class="font-headline-sm text-headline-sm text-primary leading-tight tracking-tight">Đệ Tử Quy</div><div class="font-label-sm text-label-sm text-on-surface-variant truncate hidden sm:block">Giảng Đường Trực Tuyến • Đức Hạnh &amp; Tri Thức</div></div></div><nav class="hidden md:flex items-center gap-1.5 ml-space-md p-1 bg-surface-container rounded-xl"><a class="px-3.5 py-1.5 rounded-lg font-label-md text-label-md bg-primary text-on-primary shadow-sm transition-all" href="#" id="navClassManagement">Lớp Giảng Dạy</a><a class="px-3.5 py-1.5 rounded-lg font-label-md text-label-md text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all" href="#" id="navLectures">Kho Bài Giảng</a><a class="px-3.5 py-1.5 rounded-lg font-label-md text-label-md text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all" href="#" id="navGrading">Bài Cần Chấm</a></nav></div><div class="flex items-center gap-space-sm shrink-0"><div class="relative flex items-center justify-center w-9 h-9 rounded-full bg-surface-container hover:bg-surface-container-high transition-colors cursor-pointer text-on-surface-variant" id="btnNotifications" title="Thông báo"><span class="material-symbols-outlined text-[20px]">notifications</span><span class="absolute top-1 right-1 w-2.5 h-2.5 rounded-full bg-primary ring-2 ring-surface"></span></div><div class="flex items-center gap-2 pl-2"><div class="hidden text-right lg:block"><div class="font-label-md text-label-md text-on-surface leading-tight font-semibold">Giáo viên Tuệ Tâm</div><div class="font-label-sm text-label-sm text-primary font-medium flex items-center justify-end gap-1"><span class="w-1.5 h-1.5 rounded-full bg-tertiary"></span><span>Giáo viên phụ trách</span></div></div><div class="w-9 h-9 rounded-full bg-primary-container text-on-primary flex items-center justify-center shadow-sm font-semibold text-sm">TT</div></div></div></div></header><main class="w-full pt-20 bg-background flex-1"><div class="flex flex-col w-full"><div class="relative w-full px-4 lg:px-margin-desktop py-space-md"><div class="flex flex-col md:flex-row md:items-end justify-between gap-space-md mb-space-lg"><div class="space-y-1"><div class="flex flex-wrap items-center gap-2 font-label-sm text-label-sm text-secondary"><span class="material-symbols-outlined text-[15px]">school</span><span>Giảng đường</span><span class="text-outline-variant">/</span><span class="text-primary font-semibold">Quản lý lớp giảng dạy</span><span class="text-outline-variant">•</span><span class="px-2 py-0.5 rounded-full bg-surface-container-high text-on-surface-variant text-[11px] font-medium border border-outline-variant/40">Bản thử nghiệm · Dữ liệu minh họa</span></div><h1 class="font-headline-lg text-headline-lg text-primary tracking-tight">Lớp Học Của Tôi (Giảng Dạy)</h1><p class="font-body-md text-body-md text-on-surface-variant max-w-3xl">Quản lý giảng đường trực tuyến, theo dõi danh sách học viên và cập nhật tiến trình 40 bài giảng Đệ Tử Quy.</p></div><div class="flex items-center gap-2.5 shrink-0"><button class="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-primary-container text-on-primary font-label-md text-label-md hover:bg-primary shadow-md hover:shadow-lg transition-all" id="btnOpenCreateClass" type="button"><span class="material-symbols-outlined text-[20px]">add_circle</span><span>+ Tạo Lớp Học Mới</span></button></div></div><div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-space-lg"><div class="p-3.5 rounded-xl bg-surface-container-low shadow-sm flex items-center gap-3"><div class="w-10 h-10 rounded-lg bg-primary-fixed flex items-center justify-center text-primary shrink-0"><span class="material-symbols-outlined text-[22px]">auto_stories</span></div><div><div class="font-headline-sm text-headline-sm text-primary leading-tight font-semibold">1</div><div class="font-label-sm text-label-sm text-on-surface-variant">Lớp Đang Giảng Dạy</div></div></div><div class="p-3.5 rounded-xl bg-surface-container-low shadow-sm flex items-center gap-3 cursor-pointer hover:bg-surface-container transition-colors group" id="statCardOfficial"><div class="w-10 h-10 rounded-lg bg-surface-container-highest flex items-center justify-center text-tertiary shrink-0 group-hover:scale-105 transition-transform"><span class="material-symbols-outlined text-[22px]">groups</span></div><div><div class="font-headline-sm text-headline-sm text-tertiary leading-tight font-semibold" id="statOfficialCount">42</div><div class="font-label-sm text-label-sm text-on-surface-variant">Học Viên Chính Thức <span class="text-[10px] text-primary block underline">Xem chi tiết</span></div></div></div><div class="p-3.5 rounded-xl bg-surface-container-low shadow-sm flex items-center gap-3 cursor-pointer hover:bg-surface-container transition-colors group" id="statCardPending"><div class="w-10 h-10 rounded-lg bg-secondary-fixed flex items-center justify-center text-secondary shrink-0 group-hover:scale-105 transition-transform"><span class="material-symbols-outlined text-[22px]">pending_actions</span></div><div><div class="font-headline-sm text-headline-sm text-secondary leading-tight font-semibold" id="statPendingCount">2</div><div class="font-label-sm text-label-sm text-on-surface-variant">Chờ Phê Duyệt <span class="text-[10px] text-secondary font-medium block underline">Xem &amp; Phê duyệt</span></div></div></div><div class="p-3.5 rounded-xl bg-surface-container-low shadow-sm flex items-center gap-3"><div class="w-10 h-10 rounded-lg bg-surface-container flex items-center justify-center text-on-surface-variant shrink-0"><span class="material-symbols-outlined text-[22px]">smart_display</span></div><div><div class="font-headline-sm text-headline-sm text-on-surface leading-tight font-semibold">40 Bài</div><div class="font-label-sm text-label-sm text-on-surface-variant font-medium">11 đã xuất bản · 29 bản nháp</div><div class="text-[10px] text-error font-medium">Bài 12 chưa có video / bản nháp</div></div></div></div><div class="p-3.5 rounded-xl bg-surface-container mb-space-lg shadow-sm flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3"><div class="relative flex-1 min-w-[260px]"><span class="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-on-surface-variant text-[20px]">search</span><input class="w-full pl-10 pr-4 py-2 rounded-lg bg-surface text-on-surface font-body-md text-body-md placeholder:text-outline focus:outline-none focus:ring-2 focus:ring-primary shadow-inner" id="classSearchInput" placeholder="Tìm theo tên hoặc mã lớp học (DTQ-2026)..." type="text"/></div><div class="flex items-center gap-2"><div class="flex items-center p-1 rounded-lg bg-surface shadow-inner"><button class="px-3.5 py-1.5 rounded-md font-label-md text-label-md bg-[#9A3412] text-white shadow-sm transition-all" id="btnFilterActive" type="button">Đang mở giảng dạy (1)</button><button class="px-3.5 py-1.5 rounded-md font-label-md text-label-md bg-transparent text-[#5c3f33] border border-[#e0d9d3] hover:text-on-surface transition-colors" id="btnFilterArchived" type="button">Đã lưu trữ (0)</button></div></div></div><div class="p-10 rounded-2xl bg-surface-container-lowest border border-outline-variant/30 text-center space-y-3 mb-space-lg hidden" id="emptyStateSearch"><div class="w-14 h-14 mx-auto rounded-full bg-surface-container flex items-center justify-center text-on-surface-variant"><span class="material-symbols-outlined text-[32px]">search_off</span></div><div class="font-headline-sm text-headline-sm text-primary">Không tìm thấy lớp học nào</div><p class="font-body-md text-body-md text-on-surface-variant max-w-md mx-auto">Không tìm thấy lớp học nào phù hợp với từ khóa tìm kiếm. Vui lòng kiểm tra lại tên hoặc mã lớp học.</p></div><div class="p-10 rounded-2xl bg-surface-container-lowest border border-outline-variant/30 text-center space-y-3 mb-space-lg hidden" id="emptyStateArchived"><div class="w-14 h-14 mx-auto rounded-full bg-surface-container flex items-center justify-center text-on-surface-variant"><span class="material-symbols-outlined text-[32px]">inventory_2</span></div><div class="font-headline-sm text-headline-sm text-primary">Danh mục lưu trữ trống</div><p class="font-body-md text-body-md text-on-surface-variant max-w-md mx-auto">Chưa có lớp học nào được lưu trữ trong danh mục này.</p></div><div class="grid grid-cols-1 xl:grid-cols-12 gap-space-lg items-start" id="mainClassSection"><div class="xl:col-span-8 space-y-space-md" id="mainClassCardContainer"><div class="rounded-2xl bg-surface-container-lowest shadow-md overflow-hidden transition-all hover:shadow-xl"><div class="relative h-44 w-full bg-cover bg-center p-space-md flex flex-col justify-between" data-alt="Traditional Vietnamese wooden academy lecture hall, warm bamboo scrolls, ancient ink stones, soft morning sunlight illuminating calligraphy hanging scrolls in terracotta and sandalwood tones." id="cardBannerCover" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuBj3_Xq2ovuyLTETgfDzrtCg_SgbVEKibCp780eqcyt7WthWZQXtnnYFK_WFKU4m3uVUpl9kxKSv-xLmvLdaXOxHw7n75-i-9un4aTanBRJ7JCwC6Efm5fvroMMJzdDZHLerB1IBzg550-pb722OS-HK_LEGEiZ8F3XQeEA9-5UYLDKGbZmBaO1LHgq91L7RERzuPFNwK-7eLbmBptwCFR8JJmMMS03xrZtgcQ58ls')"><div class="absolute inset-0 bg-gradient-to-t from-black/85 via-black/45 to-black/20"></div><div class="relative z-10 flex items-center justify-between"><div class="flex items-center gap-2"><span class="px-2.5 py-1 rounded-full bg-tertiary text-on-tertiary font-label-sm text-label-sm shadow flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-tertiary-fixed"></span>Đang Mở Giảng Dạy</span><span class="px-2.5 py-1 rounded-full bg-surface-bright/90 backdrop-blur text-primary font-label-sm text-label-sm shadow font-medium">Căn Bản Đạo Đức</span></div><div class="flex items-center gap-1 bg-surface-bright/90 backdrop-blur rounded-lg p-1"><button class="w-7 h-7 rounded flex items-center justify-center text-on-surface hover:bg-surface-container transition-colors" id="btnCardGearSetting" title="Cài đặt &amp; Thiết lập lớp" type="button"><span class="material-symbols-outlined text-[18px]">settings</span></button></div></div><div class="relative z-10 text-on-primary"><div class="font-label-sm text-label-sm text-secondary-fixed-dim uppercase tracking-wider mb-0.5">Khóa Học Đạo Học Thu 2026</div><h2 class="font-headline-lg text-headline-lg text-surface-bright leading-tight drop-shadow-sm" id="mainCardTitle">Đệ Tử Quy – Nhập Tắc Hiếu (Đạo Làm Con)</h2></div></div><div class="p-space-md space-y-space-md"><div class="p-3 rounded-xl bg-surface-container-low flex flex-wrap items-center justify-between gap-3"><div class="flex items-center gap-2"><span class="font-label-sm text-label-sm text-on-surface-variant font-medium">Mã Tham Gia (Code):</span><div class="flex items-center gap-1 px-3 py-1 rounded-md bg-secondary-fixed text-on-secondary-fixed font-headline-sm text-headline-sm font-bold tracking-widest shadow-sm"><span id="mainCardCode">DTQ-2026</span><button class="ml-1 text-secondary hover:text-primary transition-colors" id="btnCopyMainCardCode" title="Sao chép mã" type="button"><span class="material-symbols-outlined text-[18px]">content_copy</span></button></div></div><div class="flex items-center gap-2 bg-surface px-3 py-1.5 rounded-lg shadow-sm"><span class="font-label-sm text-label-sm text-on-surface font-medium">Trạng thái nhận học viên:</span><span class="px-2 py-0.5 rounded bg-tertiary-fixed text-on-tertiary-fixed font-label-sm text-label-sm font-semibold">Đang mở</span><span class="text-outline-variant">•</span><span class="font-label-sm text-label-sm text-on-surface-variant">Tự động duyệt:</span><span class="font-label-sm text-label-sm text-outline font-semibold" id="autoApprovalBadge">Tắt (Duyệt thủ công)</span></div></div><div class="grid grid-cols-2 sm:grid-cols-4 gap-3 py-1"><div><div class="font-label-sm text-label-sm text-on-surface-variant">Sĩ Số Học Viên</div><div class="font-headline-sm text-headline-sm text-primary font-semibold flex items-center gap-1"><span id="cardOfficialCount">42</span><span class="font-body-sm text-body-sm text-outline" id="cardCapacityMaxDisplay">/ 50</span></div><div class="w-full bg-surface-container rounded-full h-1.5 mt-1.5 overflow-hidden"><div class="bg-primary h-1.5 rounded-full transition-all duration-500" id="cardCapacityBar" style="width: 84%"></div></div><div class="font-label-sm text-label-sm text-on-surface-variant mt-1" id="cardCapacityPercent">Đã dùng 42/50 chỗ (84%)</div></div><div><div class="font-label-sm text-label-sm text-on-surface-variant">Tiến Trình Bài Giảng</div><div class="font-headline-sm text-headline-sm text-on-surface font-semibold flex items-center gap-1"><span class="material-symbols-outlined text-secondary text-[20px]">smart_display</span><span>40 Bài</span></div><div class="font-label-sm text-label-sm text-on-surface-variant">11 xuất bản · 29 nháp</div><div class="font-label-sm text-label-sm text-error font-medium">Bài 12: Chưa có video</div></div><div><div class="font-label-sm text-label-sm text-on-surface-variant">Thời Gian Khóa Học</div><div class="font-label-md text-label-md text-on-surface font-medium mt-1" id="cardScheduleDisplay">15/09/2026 – 30/12/2026</div><div class="font-label-sm text-label-sm text-outline" id="cardScheduleSubDisplay">Tối Chủ nhật 19:30 hàng tuần (15/09/2026 - 30/12/2026)</div></div><div><div class="font-label-sm text-label-sm text-on-surface-variant">Giáo viên phụ trách</div><div class="font-label-md text-label-md text-primary font-semibold mt-1">Giáo viên Tuệ Tâm</div><div class="font-label-sm text-label-sm text-on-surface-variant">Giáo viên phụ trách</div></div></div><div class="flex flex-wrap items-center justify-between gap-3 pt-space-xs border-t border-outline-variant/20"><div class="flex items-center gap-2 max-w-md"><span class="font-body-sm text-body-sm text-on-surface-variant" id="mainCardDescription">Khóa học bồi dưỡng nền tảng nhân cách và đạo hiếu gia đình.</span></div><div class="flex flex-wrap items-center gap-2"><button class="px-3.5 py-1.5 rounded-lg bg-surface-container text-on-surface font-label-md text-label-md hover:bg-surface-container-high transition-colors flex items-center gap-1.5 relative" id="btnCardMembers" type="button"><span class="material-symbols-outlined text-[18px]">group</span><span>Thành Viên (<span id="btnOfficialCount">42</span>)</span><span class="px-1.5 py-0.5 rounded-full bg-secondary text-on-secondary text-[11px] font-semibold" id="cardPendingBadge">+2 chờ duyệt</span></button><button class="px-3.5 py-1.5 rounded-lg bg-surface-container text-on-surface font-label-md text-label-md hover:bg-surface-container-high transition-colors flex items-center gap-1" id="btnCardSettings" type="button"><span class="material-symbols-outlined text-[18px]">settings</span><span>Cài đặt &amp; Thiết lập</span></button><button class="px-3.5 py-1.5 rounded-lg bg-surface-container-high text-primary font-label-md text-label-md hover:bg-primary hover:text-on-primary transition-all flex items-center gap-1.5" id="btnPreviewStudent" title="Xem thử giao diện phía học viên" type="button"><span class="material-symbols-outlined text-[18px]">visibility</span><span>Xem trước lớp học</span><span class="text-[11px] opacity-80">(Giao diện học viên)</span></button></div></div></div></div></div><div class="xl:col-span-4 space-y-space-md" id="sidebarSection"><div class="rounded-2xl bg-surface-container-lowest p-space-md shadow-md space-y-4"><div class="flex items-center justify-between"><div class="flex items-center gap-2"><div class="w-8 h-8 rounded-lg bg-secondary-fixed flex items-center justify-center text-secondary"><span class="material-symbols-outlined text-[20px]">person_add</span></div><div><h3 class="font-headline-sm text-headline-sm text-primary leading-tight">Yêu Cầu Xin Nhập Lớp</h3><div class="font-label-sm text-label-sm text-on-surface-variant"><span id="sidebarPendingText">2</span> học viên chờ duyệt</div></div></div><span class="px-2 py-0.5 rounded-full bg-secondary text-on-secondary font-label-sm text-label-sm font-semibold" id="sidebarBadgeCount">2 mới</span></div><div class="space-y-2.5" id="sidebarPendingList"></div><div class="pt-1"><button class="w-full py-2.5 rounded-lg bg-primary-container text-on-primary hover:bg-primary font-label-md text-label-md transition-all text-center flex items-center justify-center gap-1.5 shadow-sm" id="btnSidebarManagePending" type="button"><span class="material-symbols-outlined text-[18px]">how_to_reg</span><span>Quản lý &amp; Duyệt yêu cầu</span></button></div></div><div class="rounded-2xl bg-surface-container-low p-space-md shadow-sm space-y-3 relative overflow-hidden"><div class="flex items-center gap-2 text-primary font-semibold"><span class="material-symbols-outlined text-[20px]">info</span><span class="font-headline-sm text-headline-sm">Lưu Ý Quản Trị</span></div><ul class="space-y-2 font-body-sm text-body-sm text-on-surface-variant leading-relaxed"><li class="flex items-start gap-2"><span class="material-symbols-outlined text-[16px] text-secondary shrink-0 mt-1">vpn_key</span><span><strong>Mã lớp DTQ-2026:</strong> Cung cấp mã cho học viên tự ghi danh vào lớp.</span></li><li class="flex items-start gap-2"><span class="material-symbols-outlined text-[16px] text-secondary shrink-0 mt-1">how_to_reg</span><span><strong>Cơ chế duyệt thủ công:</strong> Giáo viên kiểm tra thông tin và duyệt trực tiếp tại danh sách thành viên.</span></li><li class="flex items-start gap-2"><span class="material-symbols-outlined text-[16px] text-secondary shrink-0 mt-1">videocam_off</span><span><strong>Tình trạng bài 12:</strong> Đang để chế độ bản nháp và chưa gắn link video bài giảng.</span></li></ul></div></div></div></div><div class="fixed inset-0 z-50 overflow-hidden pointer-events-none transition-opacity duration-300 opacity-0" id="classSettingsDrawer"><div class="absolute inset-0 bg-inverse-surface/40 backdrop-blur-sm transition-opacity" id="drawerOverlay"></div><div class="fixed inset-y-0 right-0 max-w-full flex pl-10"><div class="w-screen max-w-xl bg-surface-bright shadow-2xl p-6 overflow-y-auto flex flex-col justify-between pointer-events-auto transform translate-x-full transition-transform duration-300 ease-in-out" id="settingsDrawerContent"><div class="space-y-4"><div class="flex items-center justify-between pb-3 border-b-0"><button class="inline-flex items-center gap-1.5 text-primary hover:text-primary-container font-label-md text-label-md transition-colors" id="btnDrawerBack" type="button"><span class="material-symbols-outlined text-[18px]">arrow_back</span><span>Quay lại danh sách lớp</span></button><button class="w-8 h-8 rounded-full bg-surface-container hover:bg-surface-container-high flex items-center justify-center text-on-surface-variant" id="btnDrawerCloseIcon" type="button"><span class="material-symbols-outlined text-[20px]">close</span></button></div><div><h2 class="font-headline-md text-headline-md text-primary leading-tight">Cài Đặt &amp; Thiết Lập Lớp Học</h2><span class="font-label-sm text-label-sm text-on-surface-variant" id="drawerClassSubtitle">Lớp hiện tại: DTQ-2026 (Đệ Tử Quy – Nhập Tắc Hiếu)</span></div><form class="space-y-4" id="classSettingsForm"><div class="space-y-1"><label class="font-label-md text-label-md text-on-surface font-semibold" for="settingNameInput">Tên Lớp Học <span class="text-error">*</span></label><input class="w-full px-3.5 py-2.5 rounded-lg bg-surface-container-low text-on-surface font-body-md text-body-md focus:bg-surface focus:outline-none focus:ring-2 focus:ring-primary shadow-inner" id="settingNameInput" required="" type="text" value="Đệ Tử Quy – Nhập Tắc Hiếu (Đạo Làm Con)"/></div><div class="space-y-1"><label class="font-label-md text-label-md text-on-surface font-semibold" for="settingDescInput">Mô Tả Ngắn Lớp Học</label><textarea class="w-full px-3.5 py-2 rounded-lg bg-surface-container-low text-on-surface font-body-md text-body-md focus:bg-surface focus:outline-none focus:ring-2 focus:ring-primary shadow-inner leading-relaxed" id="settingDescInput" rows="2">Khóa học bồi dưỡng nền tảng nhân cách và đạo hiếu gia đình.</textarea></div><div class="grid grid-cols-2 gap-3"><div class="space-y-1"><label class="font-label-md text-label-md text-on-surface font-semibold" for="settingCapacityInput">Sĩ Số Tối Đa (Sức chứa) <span class="text-error">*</span></label><input class="w-full px-3.5 py-2 rounded-lg bg-surface-container-low text-on-surface font-body-md text-body-md focus:bg-surface focus:outline-none focus:ring-2 focus:ring-primary shadow-inner transition-colors" id="settingCapacityInput" max="500" min="42" required="" type="number" value="50"/><div class="text-[11px] text-error font-medium hidden mt-1" id="capacityErrorText"></div></div><div class="space-y-1"><label class="font-label-md text-label-md text-on-surface font-semibold" for="settingScheduleInput">Lịch Học Cố Định</label><input class="w-full px-3.5 py-2 rounded-lg bg-surface-container-low text-on-surface font-body-md text-body-md focus:bg-surface focus:outline-none focus:ring-2 focus:ring-primary shadow-inner" id="settingScheduleInput" type="text" value="Tối Chủ nhật 19:30 hàng tuần (15/09/2026 - 30/12/2026)"/></div></div><div class="space-y-1"><label class="font-label-md text-label-md text-on-surface font-semibold">Ảnh Bìa Giảng Đường</label><div class="h-24 w-full rounded-xl bg-cover bg-center relative overflow-hidden flex items-end p-2.5 shadow-inner" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuBj3_Xq2ovuyLTETgfDzrtCg_SgbVEKibCp780eqcyt7WthWZQXtnnYFK_WFKU4m3uVUpl9kxKSv-xLmvLdaXOxHw7n75-i-9un4aTanBRJ7JCwC6Efm5fvroMMJzdDZHLerB1IBzg550-pb722OS-HK_LEGEiZ8F3XQeEA9-5UYLDKGbZmBaO1LHgq91L7RERzuPFNwK-7eLbmBptwCFR8JJmMMS03xrZtgcQ58ls')"><div class="absolute inset-0 bg-black/40"></div><div class="relative z-10 flex items-center justify-between w-full"><span class="text-on-primary font-label-sm text-label-sm">Ảnh bìa hiện tại</span><button class="px-2 py-0.5 rounded bg-surface/90 backdrop-blur text-primary font-label-sm text-label-sm font-semibold hover:bg-surface transition-colors" id="btnChangeCoverMock" type="button">Đổi Ảnh Bìa</button></div></div></div><div class="p-3.5 rounded-xl bg-surface-container space-y-3 shadow-inner"><div class="flex items-center justify-between"><div><label class="font-label-md text-label-md text-primary font-semibold" id="settingCodeLabel">Mã Tham Gia (DTQ-2026)</label><p class="font-label-sm text-label-sm text-on-surface-variant">Học viên dùng mã này để gia nhập lớp học</p></div><button class="px-2.5 py-1 rounded bg-surface hover:bg-surface-container-high text-secondary font-label-sm text-label-sm shadow-sm flex items-center gap-1 transition-colors" id="btnChangeCode" type="button"><span class="material-symbols-outlined text-[15px]">refresh</span><span>Đổi Mã Mới</span></button></div><div class="flex items-center gap-2"><input class="flex-1 px-3.5 py-2 font-headline-sm text-headline-sm font-bold tracking-widest text-primary uppercase rounded-lg bg-surface focus:outline-none focus:ring-2 focus:ring-primary shadow-sm" id="settingCodeInput" readonly="" type="text" value="DTQ-2026"/><button class="p-2 rounded-lg bg-secondary text-on-secondary hover:bg-primary transition-colors" id="btnCopyDrawerCode" title="Sao chép mã" type="button"><span class="material-symbols-outlined text-[20px]">content_copy</span></button></div><div class="p-2.5 rounded-lg bg-surface-container-low text-xs text-on-surface-variant flex items-center gap-1.5"><span class="material-symbols-outlined text-[15px] text-error">warning</span><span>Lưu ý: Mã cũ sẽ hết hiệu lực ngay lập tức khi đổi mã mới!</span></div></div><div class="space-y-3 p-3.5 rounded-xl bg-surface-container-low shadow-sm"><div class="flex items-center justify-between"><span class="font-label-md text-label-md text-on-surface font-medium">Mở nhận thêm học viên mới</span><label class="relative inline-flex items-center cursor-pointer"><input checked="" class="sr-only peer" id="toggleOpenEnrollment" type="checkbox"/><div class="w-9 h-5 bg-surface-container-highest peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-surface peer-checked:bg-tertiary after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-surface after:rounded-full after:h-4 after:w-4 after:transition-all"></div></label></div><div class="flex items-center justify-between"><div><span class="font-label-md text-label-md text-on-surface font-medium block">Tự động phê duyệt học viên khi nhập mã</span><span class="font-label-sm text-label-sm text-on-surface-variant">Mặc định tắt: Thầy cô duyệt thủ công</span></div><label class="relative inline-flex items-center cursor-pointer"><input class="sr-only peer" id="toggleAutoApprove" type="checkbox"/><div class="w-9 h-5 bg-surface-container-highest peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-surface peer-checked:bg-tertiary after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-surface after:rounded-full after:h-4 after:w-4 after:transition-all"></div></label></div></div><div class="p-3.5 rounded-xl bg-surface-container-low space-y-2 border border-outline-variant/30"><div class="flex items-center gap-1.5 text-secondary font-semibold font-label-md text-label-md"><span class="material-symbols-outlined text-[18px]">archive</span><span>Lưu Trữ Giảng Đường (Khuyến nghị)</span></div><p class="font-body-sm text-body-sm text-on-surface-variant leading-relaxed">Lưu trữ lớp học khi kết thúc khóa. Toàn bộ thông tin điểm danh và học tập của các học viên được bảo lưu an toàn.</p><button class="px-3.5 py-1.5 rounded-lg bg-surface text-secondary hover:bg-surface-container font-label-md text-label-md transition-colors shadow-sm inline-flex items-center gap-1.5" id="btnArchiveClass" type="button"><span class="material-symbols-outlined text-[16px]">inventory_2</span><span>Lưu Trữ Lớp Học Này</span></button></div><div class="p-3.5 rounded-xl bg-error-container/40 space-y-2 border border-error/20"><div class="flex items-center gap-1.5 text-error font-semibold font-label-md text-label-md"><span class="material-symbols-outlined text-[18px]">report</span><span>Khu Vực Nguy Hiểm</span></div><p class="font-body-sm text-body-sm text-on-surface-variant leading-relaxed">Xóa lớp học sẽ hủy liên kết giảng đường. Hành động này không thể hoàn tác.</p><button class="px-3.5 py-1.5 rounded-lg bg-error-container text-error hover:bg-error hover:text-on-error font-label-md text-label-md transition-colors shadow-sm inline-flex items-center gap-1" id="btnOpenDeleteModal" type="button"><span class="material-symbols-outlined text-[16px]">delete</span><span>Xóa Lớp Học</span></button></div></form></div><div class="pt-4 mt-4 border-t border-outline-variant/20 flex items-center justify-between gap-3"><button class="px-4 py-2 rounded-lg bg-surface-container hover:bg-surface-container-high text-on-surface font-label-md text-label-md transition-colors" id="btnCancelDrawer" type="button">Hủy Bỏ</button><button class="px-5 py-2 rounded-lg bg-primary-container text-on-primary hover:bg-primary font-label-md text-label-md shadow-md hover:shadow-lg transition-all flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed" id="btnSaveDrawer" type="button"><span class="material-symbols-outlined text-[18px]">save</span><span>Lưu Thay Đổi</span></button></div></div></div></div><div class="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none opacity-0 transition-opacity duration-200" id="createModal"><div class="absolute inset-0 bg-inverse-surface/50 backdrop-blur-xs" id="createModalOverlay"></div><div class="relative z-10 max-w-lg w-full rounded-2xl bg-surface-bright p-space-md shadow-2xl space-y-4 pointer-events-auto"><div class="flex items-center justify-between"><div class="flex items-center gap-2"><div class="w-9 h-9 rounded-lg bg-primary-container text-on-primary flex items-center justify-center"><span class="material-symbols-outlined text-[20px]">add_circle</span></div><div><h3 class="font-headline-sm text-headline-sm text-primary">Tạo Lớp Học Mới</h3><span class="font-label-sm text-label-sm text-on-surface-variant">Khởi tạo giảng đường Đệ Tử Quy</span></div></div><button class="w-8 h-8 rounded-full bg-surface-container flex items-center justify-center text-on-surface-variant hover:bg-surface-container-high" id="btnCloseCreateModalIcon" type="button"><span class="material-symbols-outlined text-[18px]">close</span></button></div><form class="space-y-3" id="createClassForm"><div class="space-y-1"><label class="font-label-md text-label-md text-on-surface font-semibold" for="newClassName">Tên Lớp Học <span class="text-error">*</span></label><input class="w-full px-3 py-2 rounded-lg bg-surface-container-low text-on-surface font-body-md text-body-md focus:bg-surface focus:outline-none focus:ring-2 focus:ring-primary shadow-inner" id="newClassName" placeholder="Ví dụ: Đệ Tử Quy – Xuất Tắc Đễ..." required="" type="text"/></div><div class="space-y-1"><label class="font-label-md text-label-md text-on-surface font-semibold" for="newClassDesc">Mô Tả Lớp</label><textarea class="w-full px-3 py-1.5 rounded-lg bg-surface-container-low text-on-surface font-body-md text-body-md focus:bg-surface focus:outline-none focus:ring-2 focus:ring-primary shadow-inner" id="newClassDesc" placeholder="Mô tả mục tiêu khóa học..." rows="2">Khóa học bồi dưỡng nền tảng nhân cách và đạo hiếu gia đình.</textarea></div><div class="grid grid-cols-2 gap-3"><div class="space-y-1"><label class="font-label-md text-label-md text-on-surface font-semibold" for="newClassCapacity">Giới Hạn Sĩ Số (1 - 500)</label><input class="w-full px-3 py-1.5 rounded-lg bg-surface-container-low text-on-surface font-body-md text-body-md focus:bg-surface focus:outline-none focus:ring-2 focus:ring-primary shadow-inner" id="newClassCapacity" max="500" min="1" required="" type="number" value="50"/></div><div class="space-y-1"><label class="font-label-md text-label-md text-on-surface font-semibold" for="newClassSchedule">Thời Gian / Lịch Học</label><input class="w-full px-3 py-1.5 rounded-lg bg-surface-container-low text-on-surface font-body-md text-body-md focus:bg-surface focus:outline-none focus:ring-2 focus:ring-primary shadow-inner" id="newClassSchedule" placeholder="Tối CN 19:30 hàng tuần" type="text" value="Tối Chủ nhật 19:30 hàng tuần (15/09/2026 - 30/12/2026)"/></div></div><div class="space-y-1"><label class="font-label-md text-label-md text-on-surface font-semibold" for="newClassApproval">Phương Thức Xét Duyệt</label><select class="w-full px-3 py-2 rounded-lg bg-surface-container-low text-on-surface font-body-md text-body-md focus:bg-surface focus:outline-none focus:ring-2 focus:ring-primary shadow-inner" id="newClassApproval"><option selected="" value="manual">Giáo viên duyệt thủ công từng học viên (Khuyến nghị)</option><option value="auto">Tự động phê duyệt khi nhập đúng mã</option></select></div><div class="pt-2 flex items-center justify-end gap-2"><button class="px-4 py-2 rounded-lg bg-surface-container text-on-surface font-label-md text-label-md hover:bg-surface-container-high transition-colors" id="btnCancelCreateModal" type="button">Hủy Bỏ</button><button class="px-5 py-2 rounded-lg bg-primary text-on-primary font-label-md text-label-md hover:bg-primary-container shadow transition-all" id="btnSubmitCreateModal" type="submit">Tạo Lớp Học</button></div></form></div></div><div class="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none opacity-0 transition-opacity duration-200" id="deleteModal"><div class="absolute inset-0 bg-inverse-surface/50 backdrop-blur-xs" id="deleteModalOverlay"></div><div class="relative z-10 max-w-md w-full rounded-2xl bg-surface-bright p-space-md shadow-2xl space-y-4 pointer-events-auto"><div class="flex items-start gap-3"><div class="w-11 h-11 rounded-full bg-error-container text-error flex items-center justify-center shrink-0"><span class="material-symbols-outlined text-[24px]">warning</span></div><div class="space-y-1"><h3 class="font-headline-sm text-headline-sm text-primary">Cảnh Báo: Xóa Lớp Học</h3><p class="font-body-sm text-body-sm text-on-surface-variant leading-relaxed">Hành động này sẽ xóa dữ liệu lớp và bài nộp của học viên. Để xác nhận, vui lòng nhập chính xác mã lớp <span class="font-bold text-primary" id="deleteConfirmCodeLabel">DTQ-2026</span> bên dưới:</p></div></div><div class="space-y-1"><input class="w-full px-3 py-2 rounded-lg bg-surface-container-low text-on-surface font-headline-sm text-headline-sm tracking-widest text-center uppercase focus:bg-surface focus:outline-none focus:ring-2 focus:ring-error shadow-inner" id="confirmDeleteCodeInput" placeholder="Nhập DTQ-2026" type="text"/></div><div class="p-2.5 rounded-lg bg-surface-container text-on-surface-variant font-label-sm text-label-sm flex items-center gap-2"><span class="material-symbols-outlined text-[16px] text-secondary">info</span><span>Lưu ý mô phỏng: Thao tác mô phỏng trong phiên thử nghiệm, chưa thực hiện thay đổi trên hệ thống.</span></div><div class="flex items-center justify-end gap-2 pt-2"><button class="px-3.5 py-2 rounded-lg bg-surface-container-high text-on-surface font-label-md text-label-md hover:bg-surface-variant transition-colors" id="btnCancelDeleteModal" type="button">Hủy Bỏ</button><button class="px-4 py-2 rounded-lg bg-error text-on-error font-label-md text-label-md hover:opacity-90 transition-all shadow-sm" id="btnConfirmDeleteAction" type="button">Xác Nhận Xóa</button></div></div></div><div class="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 transition-opacity duration-200 opacity-0 pointer-events-none" id="membersModal"><div class="absolute inset-0 bg-inverse-surface/50 backdrop-blur-xs" id="membersModalOverlay"></div><div class="relative z-10 max-w-4xl w-full max-h-[92vh] flex flex-col rounded-2xl bg-surface-bright shadow-2xl overflow-hidden pointer-events-auto border border-outline-variant/30"><div class="p-5 border-b border-outline-variant/30 flex items-center justify-between gap-3 bg-surface"><div class="flex items-center gap-3"><div class="w-10 h-10 rounded-xl bg-primary text-on-primary flex items-center justify-center shadow-sm shrink-0"><span class="material-symbols-outlined text-[24px]">groups</span></div><div><div class="flex items-center gap-2"><h2 class="font-headline-md text-headline-md text-primary leading-tight" id="modalClassHeading">Quản Lý Thành Viên · DTQ-2026</h2><span class="px-2 py-0.5 rounded bg-tertiary-fixed text-on-tertiary-fixed font-label-sm text-label-sm font-semibold">Đang hoạt động</span></div><div class="font-body-sm text-body-sm text-on-surface-variant" id="modalClassSub">Lớp: Đệ Tử Quy – Nhập Tắc Hiếu • Giáo viên phụ trách: Giáo viên Tuệ Tâm</div></div></div><button class="w-9 h-9 rounded-full bg-surface-container flex items-center justify-center text-on-surface-variant hover:bg-surface-container-high transition-colors" id="btnCloseMembersModalIcon" title="Đóng modal" type="button"><span class="material-symbols-outlined text-[20px]">close</span></button></div><div class="flex border-b border-outline-variant/30 bg-surface-container-low px-5"><button class="py-3 px-4 font-label-md text-label-md border-b-2 font-semibold transition-colors flex items-center gap-2 border-primary text-primary" id="tabBtnOfficial" type="button"><span>Chính Thức</span><span class="px-2 py-0.5 rounded-full bg-primary-fixed text-primary text-[11px] font-bold" id="badgeModalOfficial">42</span></button><button class="py-3 px-4 font-label-md text-label-md border-b-2 font-medium transition-colors flex items-center gap-2 hover:text-on-surface border-transparent text-on-surface-variant" id="tabBtnPending" type="button"><span>Chờ Duyệt</span><span class="px-2 py-0.5 rounded-full bg-secondary-fixed text-secondary text-[11px] font-bold" id="badgeModalPending">2</span></button></div><div class="flex-1 overflow-y-auto p-5 space-y-4"><div class="space-y-4" id="viewOfficial"><div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3"><div class="relative flex-1"><span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-[18px]">search</span><input class="w-full pl-9 pr-4 py-2 rounded-lg bg-surface border border-outline-variant/40 text-on-surface font-body-md text-body-md placeholder:text-outline focus:outline-none focus:ring-2 focus:ring-primary shadow-inner" id="officialSearchInput" placeholder="Tìm kiếm theo họ tên học viên (có dấu hoặc không dấu)..." type="text"/></div><div class="text-label-sm text-label-sm text-on-surface-variant flex items-center gap-1.5 self-end sm:self-center"><span class="material-symbols-outlined text-[16px] text-tertiary">check_circle</span><span>Tổng sĩ số: <strong class="text-on-surface" id="modalOfficialTotalText">42</strong> / <span id="modalCapacityText">50</span></span></div></div><div class="rounded-xl border border-outline-variant/40 overflow-hidden bg-surface shadow-sm"><div class="overflow-x-auto"><table class="w-full text-left border-collapse"><thead class="bg-surface-container-low border-b border-outline-variant/30 text-on-surface-variant font-label-sm text-label-sm"><tr><th class="py-2.5 px-4 w-16 text-center">STT</th><th class="py-2.5 px-4">Họ Và Tên Học Viên</th><th class="py-2.5 px-4">Ngày Tham Gia</th><th class="py-2.5 px-4 text-center">Trạng Thái</th></tr></thead><tbody class="divide-y divide-outline-variant/20 font-body-sm text-body-sm" id="officialTableBody"></tbody></table></div></div><div class="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2 font-label-sm text-label-sm text-on-surface-variant"><div id="officialPaginationRange">Hiển thị 1-10 / 42 học viên</div><div class="flex items-center gap-2"><button class="px-3 py-1 rounded bg-surface border border-outline-variant/40 text-on-surface hover:bg-surface-container disabled:opacity-40 disabled:cursor-not-allowed transition-colors" disabled="" id="btnPrevPage" type="button">Trước</button><span class="font-semibold text-on-surface px-2" id="officialPageIndicator">Trang 1 / 5</span><button class="px-3 py-1 rounded bg-surface border border-outline-variant/40 text-on-surface hover:bg-surface-container disabled:opacity-40 disabled:cursor-not-allowed transition-colors" id="btnNextPage" type="button">Sau</button></div></div></div><div class="space-y-4 hidden" id="viewPending"><div class="p-3 rounded-xl bg-surface-container-low border border-outline-variant/30 text-body-sm text-on-surface-variant flex items-start gap-2.5"><span class="material-symbols-outlined text-[18px] text-secondary shrink-0 mt-0.5">info</span><p>Học viên tham gia bằng mã lớp <strong class="text-primary font-semibold" id="modalPendingCodeDisplay">DTQ-2026</strong>. Giáo viên duyệt để chính thức bổ sung vào danh sách lớp.</p></div><div class="rounded-xl border border-outline-variant/40 overflow-hidden bg-surface shadow-sm"><div class="overflow-x-auto"><table class="w-full text-left border-collapse" id="pendingTable"><thead class="bg-surface-container-low border-b border-outline-variant/30 text-on-surface-variant font-label-sm text-label-sm"><tr><th class="py-2.5 px-4 w-16 text-center">STT</th><th class="py-2.5 px-4">Họ Và Tên Học Viên</th><th class="py-2.5 px-4">Thời Gian Yêu Cầu</th><th class="py-2.5 px-4">Trạng Thái</th><th class="py-2.5 px-4 text-center">Hành Động</th></tr></thead><tbody class="divide-y divide-outline-variant/20 font-body-sm text-body-sm" id="pendingTableBody"></tbody></table></div></div></div></div><div class="p-4 bg-surface-container-low border-t border-outline-variant/30 flex items-center justify-between"><div class="text-body-sm text-on-surface-variant italic">Nền tảng Quản trị Giảng đường Đệ Tử Quy</div><button class="px-4 py-2 rounded-lg bg-surface border border-outline-variant/40 text-on-surface font-label-md text-label-md hover:bg-surface-container transition-colors" id="btnFooterCloseMembers" type="button">Đóng</button></div></div></div></div></main><footer class="w-full bg-surface-container-low py-space-xl mt-space-xl"><div class="w-full px-4 lg:px-margin-desktop mx-auto flex flex-col md:flex-row items-center justify-between gap-space-md text-on-surface-variant"><div class="flex items-center gap-3"><div class="w-8 h-8 rounded-lg bg-primary-container text-on-primary flex items-center justify-center"><span class="material-symbols-outlined text-[18px]">menu_book</span></div><div><div class="font-headline-sm text-headline-sm text-primary">Đệ Tử Quy</div><div class="font-body-sm text-body-sm text-on-surface-variant">Nền tảng Giáo dục Đạo đức &amp; Nhân cách Truyền thống</div></div></div><div class="flex items-center gap-space-lg font-label-md text-label-md"><a class="hover:text-primary transition-colors" href="#" id="footerLinkRules">Nội Quy Giảng Đường</a><a class="hover:text-primary transition-colors" href="#" id="footerLinkDocs">Tài Liệu Đệ Tử Quy</a><a class="hover:text-primary transition-colors" href="#" id="footerLinkSupport">Hỗ Trợ Học Tập</a></div><div class="font-body-sm text-body-sm text-on-surface-variant text-center md:text-right">© 2026 detuquy.com. Nền tảng Giáo dục Đạo đức &amp; Nhân cách Truyền thống.</div></div></footer><script>
+let classData = {
+  name: "Đệ Tử Quy – Nhập Tắc Hiếu (Đạo Làm Con)",
+  desc: "Khóa học bồi dưỡng nền tảng nhân cách và đạo hiếu gia đình.",
+  capacity: 50,
+  schedule: "Tối Chủ nhật 19:30 hàng tuần (15/09/2026 - 30/12/2026)",
+  code: "DTQ-2026",
+  autoApprove: false,
+  openEnrollment: true,
+  official: 42,
+  pending: 2
+};
+
+let officialMembers = [
+  { id: 1, name: "Nguyễn Văn An", date: "15/09/2026", status: "Chính thức" },
+  { id: 2, name: "Trần Thị Mai", date: "15/09/2026", status: "Chính thức" },
+  { id: 3, name: "Lê Hoàng Long", date: "15/09/2026", status: "Chính thức" },
+  { id: 4, name: "Phạm Bảo Ngọc", date: "16/09/2026", status: "Chính thức" },
+  { id: 5, name: "Võ Minh Khang", date: "16/09/2026", status: "Chính thức" },
+  { id: 6, name: "Vũ Thanh Trúc", date: "16/09/2026", status: "Chính thức" },
+  { id: 7, name: "Đặng Thùy Dương", date: "17/09/2026", status: "Chính thức" },
+  { id: 8, name: "Hoàng Đức Trọng", date: "17/09/2026", status: "Chính thức" },
+  { id: 9, name: "Bùi Quang Huy", date: "17/09/2026", status: "Chính thức" },
+  { id: 10, name: "Trịnh Ánh Nguyệt", date: "18/09/2026", status: "Chính thức" },
+  { id: 11, name: "Đỗ Minh Tú", date: "18/09/2026", status: "Chính thức" },
+  { id: 12, name: "Ngô Phương Thảo", date: "18/09/2026", status: "Chính thức" },
+  { id: 13, name: "Dương Gia Huy", date: "19/09/2026", status: "Chính thức" },
+  { id: 14, name: "Bùi Thúy Kiều", date: "19/09/2026", status: "Chính thức" },
+  { id: 15, name: "Phan Văn Khang", date: "19/09/2026", status: "Chính thức" },
+  { id: 16, name: "Tạ Minh Châu", date: "20/09/2026", status: "Chính thức" },
+  { id: 17, name: "Lâm Trường Sơn", date: "20/09/2026", status: "Chính thức" },
+  { id: 18, name: "Đinh Thục Quyên", date: "20/09/2026", status: "Chính thức" },
+  { id: 19, name: "Trương Vĩnh Hưng", date: "21/09/2026", status: "Chính thức" },
+  { id: 20, name: "Mai Mỹ Uyên", date: "21/09/2026", status: "Chính thức" },
+  { id: 21, name: "Đoàn Kiến Quốc", date: "21/09/2026", status: "Chính thức" },
+  { id: 22, name: "Lương Bảo Trâm", date: "22/09/2026", status: "Chính thức" },
+  { id: 23, name: "Lý Gia Hân", date: "22/09/2026", status: "Chính thức" },
+  { id: 24, name: "Chu Đình Trọng", date: "22/09/2026", status: "Chính thức" },
+  { id: 25, name: "Hà Diệu Linh", date: "23/09/2026", status: "Chính thức" },
+  { id: 26, name: "Cao Nhật Minh", date: "23/09/2026", status: "Chính thức" },
+  { id: 27, name: "Phùng Khánh An", date: "23/09/2026", status: "Chính thức" },
+  { id: 28, name: "Lưu Quốc Toàn", date: "24/09/2026", status: "Chính thức" },
+  { id: 29, name: "Vương Bích Hạnh", date: "24/09/2026", status: "Chính thức" },
+  { id: 30, name: "Trương Đình Nam", date: "24/09/2026", status: "Chính thức" },
+  { id: 31, name: "Nghiêm Xuân Phúc", date: "25/09/2026", status: "Chính thức" },
+  { id: 32, name: "Dương Tuệ Nghi", date: "25/09/2026", status: "Chính thức" },
+  { id: 33, name: "Tô Thanh Sơn", date: "25/09/2026", status: "Chính thức" },
+  { id: 34, name: "Quách Tú Oanh", date: "26/09/2026", status: "Chính thức" },
+  { id: 35, name: "Liễu Ngọc Mai", date: "26/09/2026", status: "Chính thức" },
+  { id: 36, name: "Châu Đức Thành", date: "26/09/2026", status: "Chính thức" },
+  { id: 37, name: "Lục Gia Bảo", date: "27/09/2026", status: "Chính thức" },
+  { id: 38, name: "Mạc Đăng Khoa", date: "27/09/2026", status: "Chính thức" },
+  { id: 39, name: "Đào Phương Vy", date: "27/09/2026", status: "Chính thức" },
+  { id: 40, name: "Khổng Vĩnh Khang", date: "28/09/2026", status: "Chính thức" },
+  { id: 41, name: "Từ Cẩm Nhung", date: "28/09/2026", status: "Chính thức" },
+  { id: 42, name: "Diệp Thiên Kim", date: "28/09/2026", status: "Chính thức" }
+];
+
+let pendingMembers = [
+  { id: "req-1", name: "Trần Minh Quân", time: "12 phút trước", status: "Chờ duyệt", initial: "TM" },
+  { id: "req-2", name: "Lê Hoàng Lan (Phụ Huynh)", time: "45 phút trước", status: "Chờ duyệt", initial: "LH" }
+];
+
+let currentPage = 1;
+const pageSize = 10;
+let filteredMembers = [...officialMembers];
+let toastTimer = null;
+let currentFilterTab = 'active';
+
+const boundListeners = new WeakMap();
+
+function bindEvent(el, eventType, handler) {
+  if (!el) return;
+  let events = boundListeners.get(el);
+  if (!events) {
+    events = new Set();
+    boundListeners.set(el, events);
+  }
+  if (!events.has(eventType)) {
+    el.addEventListener(eventType, handler);
+    events.add(eventType);
+  }
+}
+
+function normalizeVietnamese(str) {
+  if (!str) return '';
+  return str
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/đ/g, 'd')
+    .replace(/Đ/g, 'D')
+    .trim();
+}
+
+function showToast(msg, icon = 'check_circle') {
+  const toast = document.getElementById('toastNotification');
+  const toastMsg = document.getElementById('toastMessage');
+  const toastIco = document.getElementById('toastIcon');
+  if (!toast || !toastMsg) return;
+  toastMsg.textContent = msg;
+  if (toastIco) toastIco.textContent = icon;
+  toast.classList.remove('translate-y-[-150%]', 'opacity-0', 'pointer-events-none');
+  toast.classList.add('translate-y-0', 'opacity-100');
+  if (toastTimer) clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => {
+    toast.classList.remove('translate-y-0', 'opacity-100');
+    toast.classList.add('translate-y-[-150%]', 'opacity-0', 'pointer-events-none');
+  }, 3500);
+}
+
+function updateUI() {
+  const studentCount = officialMembers.length;
+  const pendCount = pendingMembers.length;
+  classData.official = studentCount;
+  classData.pending = pendCount;
+  const capacity = classData.capacity;
+  const percent = Math.min(100, Math.round((studentCount / capacity) * 100));
+
+  const statOff = document.getElementById('statOfficialCount');
+  if (statOff) statOff.textContent = studentCount;
+  const statPend = document.getElementById('statPendingCount');
+  if (statPend) statPend.textContent = pendCount;
+
+  const cardOff = document.getElementById('cardOfficialCount');
+  if (cardOff) cardOff.textContent = studentCount;
+  const cardCapMax = document.getElementById('cardCapacityMaxDisplay');
+  if (cardCapMax) cardCapMax.textContent = `/ ${capacity}`;
+
+  const cardCapPct = document.getElementById('cardCapacityPercent');
+  if (cardCapPct) {
+    cardCapPct.textContent = `Đã dùng ${studentCount}/${capacity} chỗ (${percent}%)`;
+  }
+
+  const cardCapBar = document.getElementById('cardCapacityBar');
+  if (cardCapBar) cardCapBar.style.width = `${percent}%`;
+
+  const btnOff = document.getElementById('btnOfficialCount');
+  if (btnOff) btnOff.textContent = studentCount;
+
+  const cardPendingBadge = document.getElementById('cardPendingBadge');
+  if (cardPendingBadge) {
+    if (pendCount > 0) {
+      cardPendingBadge.textContent = `+${pendCount} chờ duyệt`;
+      cardPendingBadge.classList.remove('hidden');
+    } else {
+      cardPendingBadge.classList.add('hidden');
+    }
+  }
+
+  const sbPendText = document.getElementById('sidebarPendingText');
+  if (sbPendText) sbPendText.textContent = pendCount;
+  const sbBadge = document.getElementById('sidebarBadgeCount');
+  if (sbBadge) {
+    if (pendCount > 0) {
+      sbBadge.textContent = `${pendCount} mới`;
+      sbBadge.classList.remove('opacity-50');
+    } else {
+      sbBadge.textContent = '0 mới';
+      sbBadge.classList.add('opacity-50');
+    }
+  }
+
+  const mainCardTitle = document.getElementById('mainCardTitle');
+  if (mainCardTitle) mainCardTitle.textContent = classData.name;
+
+  const mainCardDesc = document.getElementById('mainCardDescription');
+  if (mainCardDesc) mainCardDesc.textContent = classData.desc;
+
+  const mainCardCode = document.getElementById('mainCardCode');
+  if (mainCardCode) mainCardCode.textContent = classData.code;
+
+  const cardScheduleSub = document.getElementById('cardScheduleSubDisplay');
+  if (cardScheduleSub) cardScheduleSub.textContent = classData.schedule;
+
+  const autoBadge = document.getElementById('autoApprovalBadge');
+  if (autoBadge) {
+    if (classData.autoApprove) {
+      autoBadge.textContent = 'Bật (Tự động duyệt)';
+      autoBadge.className = 'font-label-sm text-label-sm text-tertiary font-semibold';
+    } else {
+      autoBadge.textContent = 'Tắt (Duyệt thủ công)';
+      autoBadge.className = 'font-label-sm text-label-sm text-outline font-semibold';
+    }
+  }
+
+  const badgeModOff = document.getElementById('badgeModalOfficial');
+  if (badgeModOff) badgeModOff.textContent = studentCount;
+  const badgeModPend = document.getElementById('badgeModalPending');
+  if (badgeModPend) badgeModPend.textContent = pendCount;
+  const modalOffTotal = document.getElementById('modalOfficialTotalText');
+  if (modalOffTotal) modalOffTotal.textContent = studentCount;
+  const modalCapText = document.getElementById('modalCapacityText');
+  if (modalCapText) modalCapText.textContent = capacity;
+
+  const modalClassHeading = document.getElementById('modalClassHeading');
+  if (modalClassHeading) modalClassHeading.textContent = `Quản Lý Thành Viên · ${classData.code}`;
+  const modalClassSub = document.getElementById('modalClassSub');
+  if (modalClassSub) modalClassSub.textContent = `Lớp: ${classData.name} • Giáo viên phụ trách: Giáo viên Tuệ Tâm`;
+  const modalPendingCode = document.getElementById('modalPendingCodeDisplay');
+  if (modalPendingCode) modalPendingCode.textContent = classData.code;
+
+  renderSidebarPending();
+}
+
+function renderSidebarPending() {
+  const list = document.getElementById('sidebarPendingList');
+  if (!list) return;
+  if (pendingMembers.length === 0) {
+    list.innerHTML = `
+      <div class="p-3.5 rounded-xl bg-surface-container-low text-center text-on-surface-variant font-body-sm italic">
+        Không còn yêu cầu nào chờ duyệt.
+      </div>
+    `;
+    return;
+  }
+  list.innerHTML = pendingMembers.map(item => `
+    <div class="p-3 rounded-xl bg-surface-container-low flex items-center justify-between gap-3">
+      <div class="flex items-center gap-2.5 min-w-0">
+        <div class="w-9 h-9 rounded-full bg-secondary-fixed text-secondary font-bold flex items-center justify-center text-sm shrink-0">
+          ${item.initial || 'HV'}
+        </div>
+        <div class="min-w-0">
+          <div class="font-label-md text-label-md text-on-surface truncate font-medium">${item.name}</div>
+          <div class="font-label-sm text-label-sm text-on-surface-variant truncate">${classData.code} • ${item.time}</div>
+        </div>
+      </div>
+      <span class="font-label-sm text-label-sm text-secondary bg-surface px-2 py-1 rounded shadow-inner shrink-0">Chờ duyệt</span>
+    </div>
+  `).join('');
+}
+
+function renderOfficialTable() {
+  const tbody = document.getElementById('officialTableBody');
+  if (!tbody) return;
+
+  const total = filteredMembers.length;
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  if (currentPage > totalPages) currentPage = totalPages;
+  if (currentPage < 1) currentPage = 1;
+
+  const startIdx = (currentPage - 1) * pageSize;
+  const endIdx = Math.min(startIdx + pageSize, total);
+  const pageItems = filteredMembers.slice(startIdx, endIdx);
+
+  if (pageItems.length === 0) {
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="4" class="py-8 text-center text-on-surface-variant italic">
+          Không tìm thấy học viên phù hợp với từ khóa tìm kiếm.
+        </td>
+      </tr>
+    `;
+  } else {
+    tbody.innerHTML = pageItems.map((m, idx) => `
+      <tr class="hover:bg-surface-container-low/50 transition-colors">
+        <td class="py-3 px-4 text-center font-label-sm text-outline">${startIdx + idx + 1}</td>
+        <td class="py-3 px-4 font-label-md text-label-md text-on-surface font-medium">${m.name}</td>
+        <td class="py-3 px-4 font-body-sm text-on-surface-variant">${m.date}</td>
+        <td class="py-3 px-4 text-center">
+          <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-tertiary-fixed text-on-tertiary-fixed font-label-sm text-[11px] font-semibold">
+            <span class="w-1.5 h-1.5 rounded-full bg-tertiary"></span>
+            ${m.status}
+          </span>
+        </td>
+      </tr>
+    `).join('');
+  }
+
+  const rangeElem = document.getElementById('officialPaginationRange');
+  if (rangeElem) {
+    if (total === 0) {
+      rangeElem.textContent = 'Hiển thị 0 / 0 học viên';
+    } else {
+      rangeElem.textContent = `Hiển thị ${startIdx + 1}-${endIdx} / ${total} học viên`;
+    }
+  }
+
+  const pageIndicator = document.getElementById('officialPageIndicator');
+  if (pageIndicator) pageIndicator.textContent = `Trang ${currentPage} / ${totalPages}`;
+
+  const btnPrev = document.getElementById('btnPrevPage');
+  if (btnPrev) btnPrev.disabled = currentPage <= 1;
+
+  const btnNext = document.getElementById('btnNextPage');
+  if (btnNext) btnNext.disabled = currentPage >= totalPages;
+}
+
+function handleSearchOfficial() {
+  const query = (document.getElementById('officialSearchInput')?.value || '').trim();
+  const normQuery = normalizeVietnamese(query);
+
+  if (!normQuery) {
+    filteredMembers = [...officialMembers];
+  } else {
+    filteredMembers = officialMembers.filter(m => {
+      const normName = normalizeVietnamese(m.name);
+      return normName.includes(normQuery);
+    });
+  }
+  currentPage = 1;
+  renderOfficialTable();
+}
+
+function changePage(delta) {
+  currentPage += delta;
+  renderOfficialTable();
+}
+
+function renderPendingTable() {
+  const tbody = document.getElementById('pendingTableBody');
+  if (!tbody) return;
+
+  if (pendingMembers.length === 0) {
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="5" class="py-8 text-center text-on-surface-variant italic">
+          Không còn yêu cầu nào chờ duyệt.
+        </td>
+      </tr>
+    `;
+    return;
+  }
+
+  tbody.innerHTML = pendingMembers.map((item, idx) => `
+    <tr class="hover:bg-surface-container-low/50 transition-colors">
+      <td class="py-3 px-4 text-center font-label-sm text-outline">${idx + 1}</td>
+      <td class="py-3 px-4 font-label-md text-label-md text-on-surface font-semibold">${item.name}</td>
+      <td class="py-3 px-4 font-body-sm text-on-surface-variant">${item.time}</td>
+      <td class="py-3 px-4">
+        <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-secondary-fixed text-on-secondary-fixed font-label-sm text-[11px] font-semibold">
+          Chờ phê duyệt
+        </span>
+      </td>
+      <td class="py-3 px-4 text-center">
+        <div class="inline-flex items-center gap-2">
+          <button type="button" data-action="approve" data-id="${item.id}" class="btn-approve-member px-3 py-1 rounded-lg bg-primary text-on-primary hover:bg-primary-container font-label-sm text-label-sm shadow-sm transition-all flex items-center gap-1">
+            <span class="material-symbols-outlined text-[15px]">check</span>
+            Duyệt
+          </button>
+          <button type="button" data-action="reject" data-id="${item.id}" class="btn-reject-member px-2.5 py-1 rounded-lg bg-surface border border-outline-variant/50 text-secondary hover:bg-surface-container font-label-sm text-label-sm transition-colors flex items-center gap-1">
+            <span class="material-symbols-outlined text-[15px]">close</span>
+            Từ chối
+          </button>
+        </div>
+      </td>
+    </tr>
+  `).join('');
+}
+
+function approveMember(id) {
+  const studentCount = officialMembers.length;
+  const capacity = classData.capacity;
+
+  if (studentCount >= capacity) {
+    showToast('Lớp học đã đủ sĩ số, không thể duyệt thêm học viên mới!', 'error');
+    return;
+  }
+
+  const itemIdx = pendingMembers.findIndex(m => String(m.id) === String(id));
+  if (itemIdx === -1) return;
+  const approvedItem = pendingMembers[itemIdx];
+  pendingMembers.splice(itemIdx, 1);
+
+  const cleanName = approvedItem.name.replace(/\s*\(Phụ Huynh\)/i, '').trim();
+  const todayStr = '29/09/2026';
+  officialMembers.unshift({
+    id: Date.now(),
+    name: cleanName,
+    date: todayStr,
+    status: 'Chính thức'
+  });
+
+  filteredMembers = [...officialMembers];
+  currentPage = 1;
+
+  updateUI();
+  renderPendingTable();
+  renderOfficialTable();
+  showToast(`Đã duyệt học viên "${cleanName}" vào lớp thành công!`);
+}
+
+function rejectMember(id) {
+  const itemIdx = pendingMembers.findIndex(m => String(m.id) === String(id));
+  if (itemIdx === -1) return;
+  const rejectedName = pendingMembers[itemIdx].name;
+  pendingMembers.splice(itemIdx, 1);
+
+  updateUI();
+  renderPendingTable();
+  showToast(`Đã từ chối yêu cầu của "${rejectedName}"`);
+}
+
+function handlePendingClick(e) {
+  const btn = e.target.closest('button[data-action]');
+  if (!btn) return;
+  const action = btn.getAttribute('data-action');
+  const id = btn.getAttribute('data-id');
+  if (action === 'approve') {
+    approveMember(id);
+  } else if (action === 'reject') {
+    rejectMember(id);
+  }
+}
+
+function switchMemberTab(tab) {
+  const btnOff = document.getElementById('tabBtnOfficial');
+  const btnPend = document.getElementById('tabBtnPending');
+  const viewOff = document.getElementById('viewOfficial');
+  const viewPend = document.getElementById('viewPending');
+
+  if (tab === 'official') {
+    btnOff?.classList.add('border-primary', 'text-primary');
+    btnOff?.classList.remove('border-transparent', 'text-on-surface-variant');
+    btnPend?.classList.add('border-transparent', 'text-on-surface-variant');
+    btnPend?.classList.remove('border-primary', 'text-primary');
+
+    viewOff?.classList.remove('hidden');
+    viewPend?.classList.add('hidden');
+  } else {
+    btnPend?.classList.add('border-primary', 'text-primary');
+    btnPend?.classList.remove('border-transparent', 'text-on-surface-variant');
+    btnOff?.classList.add('border-transparent', 'text-on-surface-variant');
+    btnOff?.classList.remove('border-primary', 'text-primary');
+
+    viewPend?.classList.remove('hidden');
+    viewOff?.classList.add('hidden');
+  }
+}
+
+function openMembersModal(tab = 'official') {
+  const modal = document.getElementById('membersModal') || document.getElementById('modalMembers');
+  if (!modal) return;
+  switchMemberTab(tab);
+  renderOfficialTable();
+  renderPendingTable();
+  modal.classList.remove('pointer-events-none', 'opacity-0');
+  modal.classList.add('opacity-100');
+}
+
+function closeMembersModal() {
+  const modal = document.getElementById('membersModal') || document.getElementById('modalMembers');
+  if (!modal) return;
+  modal.classList.remove('opacity-100');
+  modal.classList.add('opacity-0');
+  setTimeout(() => {
+    modal.classList.add('pointer-events-none');
+  }, 200);
+}
+
+function checkCapacityValidation() {
+  const capInput = document.getElementById('settingCapacityInput') || document.getElementById('inputCapacity');
+  const errText = document.getElementById('capacityErrorText') || document.getElementById('capacityError');
+  const saveBtn = document.getElementById('btnSaveDrawer') || document.getElementById('btnSaveSettings');
+  if (!capInput) return true;
+
+  const valStr = capInput.value.trim();
+  const currentOfficial = officialMembers.length;
+  let isValid = true;
+  let errorMsg = '';
+
+  if (valStr === '' || isNaN(Number(valStr)) || !Number.isInteger(Number(valStr))) {
+    isValid = false;
+    errorMsg = `Sĩ số tối đa phải là số nguyên từ ${currentOfficial} đến 500 (không nhỏ hơn ${currentOfficial} học viên hiện tại)`;
+  } else {
+    const valNum = Number(valStr);
+    if (valNum < currentOfficial || valNum > 500) {
+      isValid = false;
+      errorMsg = `Sĩ số tối đa phải là số nguyên từ ${currentOfficial} đến 500 (không nhỏ hơn ${currentOfficial} học viên hiện tại)`;
+    }
+  }
+
+  if (!isValid) {
+    if (errText) {
+      errText.textContent = errorMsg;
+      errText.classList.remove('hidden');
+    }
+    capInput.classList.add('border-error', 'ring-2', 'ring-error');
+    if (saveBtn) {
+      saveBtn.disabled = true;
+      saveBtn.classList.add('opacity-50', 'cursor-not-allowed');
+    }
+    return false;
+  } else {
+    if (errText) {
+      errText.textContent = '';
+      errText.classList.add('hidden');
+    }
+    capInput.classList.remove('border-error', 'ring-2', 'ring-error');
+    if (saveBtn) {
+      saveBtn.disabled = false;
+      saveBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+    }
+    return true;
+  }
+}
+
+function resetSettingsDrawerForm() {
+  const nameInput = document.getElementById('settingNameInput');
+  const descInput = document.getElementById('settingDescInput');
+  const capInput = document.getElementById('settingCapacityInput') || document.getElementById('inputCapacity');
+  const schedInput = document.getElementById('settingScheduleInput');
+  const codeInput = document.getElementById('settingCodeInput');
+  const codeLabel = document.getElementById('settingCodeLabel');
+  const autoToggle = document.getElementById('toggleAutoApprove');
+  const enrollToggle = document.getElementById('toggleOpenEnrollment');
+  const subtitle = document.getElementById('drawerClassSubtitle');
+
+  if (nameInput) nameInput.value = classData.name;
+  if (descInput) descInput.value = classData.desc;
+  if (capInput) {
+    capInput.value = classData.capacity;
+    capInput.min = officialMembers.length;
+  }
+  if (schedInput) schedInput.value = classData.schedule;
+  if (codeInput) codeInput.value = classData.code;
+  if (codeLabel) codeLabel.textContent = `Mã Tham Gia (${classData.code})`;
+  if (autoToggle) autoToggle.checked = classData.autoApprove;
+  if (enrollToggle) enrollToggle.checked = classData.openEnrollment;
+  if (subtitle) subtitle.textContent = `Lớp hiện tại: ${classData.code} (${classData.name})`;
+
+  checkCapacityValidation();
+}
+
+function openClassSettingsDrawer() {
+  resetSettingsDrawerForm();
+  const drawer = document.getElementById('classSettingsDrawer') || document.getElementById('drawerSettings');
+  const content = document.getElementById('settingsDrawerContent');
+  if (!drawer) return;
+  drawer.classList.remove('pointer-events-none', 'opacity-0');
+  drawer.classList.add('opacity-100');
+  if (content) {
+    content.classList.remove('translate-x-full');
+    content.classList.add('translate-x-0');
+  }
+}
+
+function closeClassSettingsDrawer() {
+  const drawer = document.getElementById('classSettingsDrawer') || document.getElementById('drawerSettings');
+  const content = document.getElementById('settingsDrawerContent');
+  if (!drawer) return;
+  if (content) {
+    content.classList.remove('translate-x-0');
+    content.classList.add('translate-x-full');
+  }
+  drawer.classList.remove('opacity-100');
+  drawer.classList.add('opacity-0');
+  setTimeout(() => {
+    drawer.classList.add('pointer-events-none');
+    resetSettingsDrawerForm();
+  }, 300);
+}
+
+function validateAndSaveSettings() {
+  if (!checkCapacityValidation()) {
+    showToast('Vui lòng điều chỉnh lại sĩ số tối đa hợp lệ!', 'error');
+    return false;
+  }
+
+  const nameInput = document.getElementById('settingNameInput');
+  const descInput = document.getElementById('settingDescInput');
+  const capInput = document.getElementById('settingCapacityInput') || document.getElementById('inputCapacity');
+  const schedInput = document.getElementById('settingScheduleInput');
+  const autoCheck = document.getElementById('toggleAutoApprove')?.checked ?? false;
+  const enrollCheck = document.getElementById('toggleOpenEnrollment')?.checked ?? true;
+
+  if (!nameInput || !nameInput.value.trim()) {
+    showToast('Vui lòng nhập tên lớp học!', 'error');
+    if (nameInput) nameInput.focus();
+    return false;
+  }
+
+  const cap = Number(capInput.value.trim());
+
+  classData.name = nameInput.value.trim();
+  classData.desc = descInput ? descInput.value.trim() : classData.desc;
+  classData.capacity = cap;
+  classData.schedule = schedInput ? schedInput.value.trim() : classData.schedule;
+  classData.autoApprove = autoCheck;
+  classData.openEnrollment = enrollCheck;
+
+  updateUI();
+  showToast('Đã lưu thay đổi trong phiên thử nghiệm. Chưa lưu lên hệ thống.');
+  closeClassSettingsDrawer();
+  return true;
+}
+
+function copyCode(code) {
+  try {
+    if (navigator && navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(code).then(() => {
+        showToast(`Đã sao chép mã ${code} vào bộ nhớ tạm!`);
+      }).catch(() => {
+        showToast(`Mã lớp: ${code} (trình duyệt chặn quyền clipboard tự động)`, 'info');
+      });
+    } else {
+      showToast(`Mã lớp: ${code} (trình duyệt chặn quyền clipboard tự động)`, 'info');
+    }
+  } catch (err) {
+    showToast(`Mã lớp: ${code}`, 'info');
+  }
+}
+
+function changeClassCode() {
+  showToast('Thao tác mô phỏng trong phiên thử nghiệm, chưa thực hiện thay đổi trên hệ thống.', 'info');
+}
+
+function openCreateClassModal() {
+  const modal = document.getElementById('createModal');
+  if (!modal) return;
+  modal.classList.remove('pointer-events-none', 'opacity-0');
+  modal.classList.add('opacity-100');
+}
+
+function closeCreateClassModal() {
+  const modal = document.getElementById('createModal');
+  if (!modal) return;
+  modal.classList.remove('opacity-100');
+  modal.classList.add('opacity-0');
+  setTimeout(() => {
+    modal.classList.add('pointer-events-none');
+  }, 200);
+}
+
+function submitCreateClass() {
+  showToast('Tính năng tạo lớp mới đang ở chế độ bản thử nghiệm (chưa kết nối cơ sở dữ liệu).', 'info');
+  closeCreateClassModal();
+}
+
+function openDeleteConfirmModal() {
+  const modal = document.getElementById('deleteModal');
+  const input = document.getElementById('confirmDeleteCodeInput');
+  const lbl = document.getElementById('deleteConfirmCodeLabel');
+  if (lbl) lbl.textContent = classData.code;
+  if (input) {
+    input.value = '';
+    input.placeholder = `Nhập ${classData.code}`;
+  }
+  if (!modal) return;
+  modal.classList.remove('pointer-events-none', 'opacity-0');
+  modal.classList.add('opacity-100');
+}
+
+function closeDeleteConfirmModal() {
+  const modal = document.getElementById('deleteModal');
+  if (!modal) return;
+  modal.classList.remove('opacity-100');
+  modal.classList.add('opacity-0');
+  setTimeout(() => {
+    modal.classList.add('pointer-events-none');
+  }, 200);
+}
+
+function handleDeleteConfirm() {
+  const inputVal = (document.getElementById('confirmDeleteCodeInput')?.value || '').trim();
+  if (inputVal.toUpperCase() === classData.code.toUpperCase()) {
+    showToast('Thao tác mô phỏng trong phiên thử nghiệm, chưa thực hiện thay đổi trên hệ thống.', 'info');
+    closeDeleteConfirmModal();
+    closeClassSettingsDrawer();
+  } else {
+    alert(`Mã xác nhận không đúng. Vui lòng gõ chính xác: ${classData.code}`);
+  }
+}
+
+function handleClassSearch() {
+  const searchInput = document.getElementById('classSearchInput');
+  const query = searchInput ? searchInput.value.trim() : '';
+  const normQuery = normalizeVietnamese(query);
+
+  const mainSection = document.getElementById('mainClassSection') || document.getElementById('classCardContainer');
+  const emptySearch = document.getElementById('emptyStateSearch') || document.getElementById('searchEmptyState');
+  const emptyArchived = document.getElementById('emptyStateArchived') || document.getElementById('archivedEmptyState');
+
+  if (currentFilterTab === 'archived') {
+    if (mainSection) mainSection.classList.add('hidden');
+    if (emptySearch) emptySearch.classList.add('hidden');
+    if (emptyArchived) emptyArchived.classList.remove('hidden');
+    return;
+  }
+
+  if (emptyArchived) emptyArchived.classList.add('hidden');
+
+  if (!normQuery) {
+    if (mainSection) mainSection.classList.remove('hidden');
+    if (emptySearch) emptySearch.classList.add('hidden');
+    return;
+  }
+
+  const normName = normalizeVietnamese(classData.name);
+  const normCode = normalizeVietnamese(classData.code);
+
+  if (normName.includes(normQuery) || normCode.includes(normQuery)) {
+    if (mainSection) mainSection.classList.remove('hidden');
+    if (emptySearch) emptySearch.classList.add('hidden');
+  } else {
+    if (mainSection) mainSection.classList.add('hidden');
+    if (emptySearch) emptySearch.classList.remove('hidden');
+  }
+}
+
+function setFilterTab(tab) {
+  currentFilterTab = tab;
+  const btnActive = document.getElementById('btnFilterActive');
+  const btnArchived = document.getElementById('btnFilterArchived');
+
+  if (tab === 'active') {
+    if (btnActive) {
+      btnActive.className = "px-3.5 py-1.5 rounded-md font-label-md text-label-md bg-[#9A3412] text-white shadow-sm transition-all";
+    }
+    if (btnArchived) {
+      btnArchived.className = "px-3.5 py-1.5 rounded-md font-label-md text-label-md bg-transparent text-[#5c3f33] border border-[#e0d9d3] hover:text-on-surface transition-colors";
+    }
+  } else {
+    if (btnArchived) {
+      btnArchived.className = "px-3.5 py-1.5 rounded-md font-label-md text-label-md bg-[#9A3412] text-white shadow-sm transition-all";
+    }
+    if (btnActive) {
+      btnActive.className = "px-3.5 py-1.5 rounded-md font-label-md text-label-md bg-transparent text-[#5c3f33] border border-[#e0d9d3] hover:text-on-surface transition-colors";
+    }
+  }
+  handleClassSearch();
+}
+
+function initManagement() {
+  updateUI();
+  renderOfficialTable();
+  renderPendingTable();
+
+  const bind = (id, event, fn) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    bindEvent(el, event, fn);
+  };
+
+  bind('navClassManagement', 'click', (e) => {
+    e.preventDefault();
+    showToast('Bạn đang ở màn hình Quản lý Lớp Giảng Dạy');
+  });
+  bind('navLectures', 'click', (e) => {
+    e.preventDefault();
+    showToast('Mô phỏng: Chuyển hướng Kho bài giảng (07 · Kho bài giảng)');
+  });
+  bind('navGrading', 'click', (e) => {
+    e.preventDefault();
+    showToast('Mô phỏng: Chuyển hướng Bài cần chấm (08 · Chấm bài)');
+  });
+  bind('btnNotifications', 'click', () => {
+    showToast(`Thông báo: Lớp ${classData.code} có ${pendingMembers.length} yêu cầu mới`);
+  });
+
+  bind('footerLinkRules', 'click', (e) => {
+    e.preventDefault();
+    showToast('Mô phỏng: Mở Nội quy giảng đường');
+  });
+  bind('footerLinkDocs', 'click', (e) => {
+    e.preventDefault();
+    showToast('Mô phỏng: Mở Tài liệu Đệ Tử Quy');
+  });
+  bind('footerLinkSupport', 'click', (e) => {
+    e.preventDefault();
+    showToast('Mô phỏng: Hỗ trợ học tập');
+  });
+
+  bind('btnFilterActive', 'click', () => setFilterTab('active'));
+  bind('btnFilterArchived', 'click', () => setFilterTab('archived'));
+  bind('classSearchInput', 'input', handleClassSearch);
+
+  const btnCreate = document.getElementById('btnOpenCreateClass') || document.getElementById('btnCreateClass');
+  if (btnCreate) {
+    bindEvent(btnCreate, 'click', () => {
+      showToast('Tính năng tạo lớp mới đang ở chế độ bản thử nghiệm (chưa kết nối cơ sở dữ liệu).', 'info');
+    });
+  }
+  bind('btnCloseCreateModalIcon', 'click', closeCreateClassModal);
+  bind('btnCancelCreateModal', 'click', closeCreateClassModal);
+  bind('createModalOverlay', 'click', closeCreateClassModal);
+  bind('createClassForm', 'submit', (e) => {
+    e.preventDefault();
+    submitCreateClass();
+  });
+
+  bind('statCardOfficial', 'click', () => openMembersModal('official'));
+  bind('statOfficialCard', 'click', () => openMembersModal('official'));
+  bind('statCardPending', 'click', () => openMembersModal('pending'));
+  bind('statPendingCard', 'click', () => openMembersModal('pending'));
+  bind('btnCardMembers', 'click', () => openMembersModal('official'));
+  bind('btnSidebarManagePending', 'click', () => openMembersModal('pending'));
+  bind('btnPendingReviewAction', 'click', () => openMembersModal('pending'));
+
+  bind('tabBtnOfficial', 'click', () => switchMemberTab('official'));
+  bind('tabBtnPending', 'click', () => switchMemberTab('pending'));
+  bind('officialSearchInput', 'input', handleSearchOfficial);
+  bind('btnPrevPage', 'click', () => changePage(-1));
+  bind('btnNextPage', 'click', () => changePage(1));
+  bind('btnCloseMembersModalIcon', 'click', closeMembersModal);
+  bind('btnCloseMembersModal', 'click', closeMembersModal);
+  bind('btnCancelMembersModal', 'click', closeMembersModal);
+  bind('btnFooterCloseMembers', 'click', closeMembersModal);
+  bind('membersModalOverlay', 'click', closeMembersModal);
+  bind('modalBackdrop', 'click', closeMembersModal);
+
+  const pendingTable = document.getElementById('pendingTable') || document.getElementById('pendingTableBody');
+  if (pendingTable) {
+    bindEvent(pendingTable, 'click', handlePendingClick);
+  }
+
+  bind('btnCardGearSetting', 'click', openClassSettingsDrawer);
+  bind('btnCardSettings', 'click', openClassSettingsDrawer);
+  bind('btnCardSettingsSecondary', 'click', openClassSettingsDrawer);
+  bind('btnDrawerBack', 'click', closeClassSettingsDrawer);
+  bind('btnDrawerCloseIcon', 'click', closeClassSettingsDrawer);
+  bind('btnCloseSettings', 'click', closeClassSettingsDrawer);
+  bind('btnCancelDrawer', 'click', closeClassSettingsDrawer);
+  bind('btnCancelSettings', 'click', closeClassSettingsDrawer);
+  bind('drawerOverlay', 'click', closeClassSettingsDrawer);
+  bind('drawerBackdrop', 'click', closeClassSettingsDrawer);
+
+  bind('btnCopyMainCardCode', 'click', () => copyCode(classData.code));
+  bind('copyCodeBtn', 'click', () => copyCode(classData.code));
+  bind('btnCopyDrawerCode', 'click', () => copyCode(classData.code));
+  bind('copyCodeNoteBtn', 'click', () => copyCode(classData.code));
+  bind('btnChangeCode', 'click', changeClassCode);
+  bind('btnChangeCoverMock', 'click', () => {
+    showToast('Thao tác mô phỏng trong phiên thử nghiệm, chưa thực hiện thay đổi trên hệ thống.', 'info');
+  });
+  bind('btnChangeCover', 'click', () => {
+    showToast('Thao tác mô phỏng trong phiên thử nghiệm, chưa thực hiện thay đổi trên hệ thống.', 'info');
+  });
+
+  bind('btnArchiveClass', 'click', () => {
+    showToast('Thao tác mô phỏng trong phiên thử nghiệm, chưa thực hiện thay đổi trên hệ thống.', 'info');
+    closeClassSettingsDrawer();
+  });
+  bind('btnDeleteClass', 'click', () => {
+    showToast('Thao tác mô phỏng trong phiên thử nghiệm, chưa thực hiện thay đổi trên hệ thống.', 'info');
+  });
+  bind('btnOpenDeleteModal', 'click', openDeleteConfirmModal);
+  bind('btnCancelDeleteModal', 'click', closeDeleteConfirmModal);
+  bind('deleteModalOverlay', 'click', closeDeleteConfirmModal);
+  bind('btnConfirmDeleteAction', 'click', handleDeleteConfirm);
+
+  bind('btnSaveDrawer', 'click', validateAndSaveSettings);
+  bind('btnSaveSettings', 'click', validateAndSaveSettings);
+  bind('classSettingsForm', 'submit', (e) => {
+    e.preventDefault();
+    validateAndSaveSettings();
+  });
+
+  bind('settingCapacityInput', 'input', checkCapacityValidation);
+  bind('settingCapacityInput', 'change', checkCapacityValidation);
+  bind('inputCapacity', 'input', checkCapacityValidation);
+  bind('inputCapacity', 'change', checkCapacityValidation);
+
+  bind('btnPreviewStudent', 'click', () => {
+    showToast(`Mô phỏng: Chuyển hướng xem trước giao diện học viên (02 · Chi tiết lớp học) - Mã ${classData.code}`);
+  });
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initManagement, { once: true });
+} else {
+  initManagement();
+}
+</script></body></html>

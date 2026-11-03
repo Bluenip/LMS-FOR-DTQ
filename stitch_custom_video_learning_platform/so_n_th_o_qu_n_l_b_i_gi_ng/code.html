@@ -1,0 +1,555 @@
+<!DOCTYPE html>
+
+<html lang="vi"><head><meta charset="utf-8"/><meta content="width=device-width, initial-scale=1.0" name="viewport"/><meta content="web_standard" name="shell-type"/><title>Đệ Tử Quy - Giảng Đường Trực Tuyến</title><link href="https://fonts.googleapis.com" rel="preconnect"/><link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/><link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:ital,wght@0,400;0,500;0,600;0,700;1,400&amp;family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,600;1,6..72,400&amp;display=swap" rel="stylesheet"/><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/><style>@layer base{html,body{margin:0;padding:0;}body{overscroll-behavior:none;}main>:first-child{margin-top:0!important;}main>:last-child{margin-bottom:0!important;}}::-webkit-scrollbar{display:none;}</style><script src="https://cdn.tailwindcss.com"></script><script id="tailwind-config">tailwind.config={darkMode:"class",theme:{extend:{colors:{"primary":"#781f00","surface-bright":"#fff8f4","on-surface":"#1e1b18","inverse-on-surface":"#f7efe9","on-secondary-fixed":"#331200","on-primary-container":"#ffbda9","surface-dim":"#e0d9d3","outline-variant":"#dec0b7","on-primary-fixed-variant":"#842503","on-primary-fixed":"#3a0a00","on-tertiary":"#ffffff","surface-tint":"#a53c19","on-secondary":"#ffffff","secondary-fixed-dim":"#ffb68e","surface-container-lowest":"#ffffff","surface-container-high":"#eee7e1","outline":"#8b716a","on-surface-variant":"#57423c","secondary":"#9b4500","surface-container-low":"#faf2ec","on-tertiary-fixed-variant":"#005323","on-secondary-container":"#682c00","primary-fixed":"#ffdbd1","inverse-primary":"#ffb59f","primary-container":"#9a3412","on-tertiary-fixed":"#00210a","inverse-surface":"#33302c","surface-variant":"#e9e1db","on-background":"#1e1b18","surface-container-highest":"#e9e1db","secondary-container":"#fd8a42","surface":"#fff8f4","primary-fixed-dim":"#ffb59f","tertiary":"#004a1e","error":"#ba1a1a","background":"#fff8f4","error-container":"#ffdad6","tertiary-container":"#00642c","tertiary-fixed-dim":"#79db8d","tertiary-fixed":"#95f8a7","surface-container":"#f4ece7","on-error":"#ffffff","on-tertiary-container":"#7ee092","on-secondary-fixed-variant":"#763300","on-error-container":"#93000a","on-primary":"#ffffff","secondary-fixed":"#ffdbca"},borderRadius:{"DEFAULT":"0.25rem","lg":"0.5rem","xl":"0.75rem","full":"9999px"},spacing:{"gutter-desktop":"1.75rem","space-xl":"2.5rem","space-sm":"0.5rem","space-md":"1rem","margin":"1rem","gutter":"1.25rem","margin-desktop":"2.5rem","space-xs":"0.25rem","space-lg":"1.5rem"},fontFamily:{"body-md":["Be Vietnam Pro"],"display-lg":["Newsreader"],"label-sm":["Be Vietnam Pro"],"body-sm":["Be Vietnam Pro"],"headline-md":["Newsreader"],"label-md":["Be Vietnam Pro"],"headline-lg":["Newsreader"],"label-lg":["Be Vietnam Pro"],"body-lg":["Be Vietnam Pro"],"headline-sm":["Newsreader"],"display-lg-mobile":["Newsreader"]},fontSize:{"body-md":["14px",{lineHeight:"22px",fontWeight:"400"}],"display-lg":["40px",{lineHeight:"48px",fontWeight:"600"}],"label-sm":["11px",{lineHeight:"14px",fontWeight:"500"}],"body-sm":["12px",{lineHeight:"18px",fontWeight:"400"}],"headline-md":["22px",{lineHeight:"30px",fontWeight:"600"}],"label-md":["12px",{lineHeight:"16px",fontWeight:"600"}],"headline-lg":["28px",{lineHeight:"36px",fontWeight:"600"}],"label-lg":["14px",{lineHeight:"20px",fontWeight:"600"}],"body-lg":["16px",{lineHeight:"26px",fontWeight:"400"}],"headline-sm":["18px",{lineHeight:"26px",fontWeight:"600"}],"display-lg-mobile":["30px",{lineHeight:"38px",fontWeight:"600"}]}}}};</script></head><body class="bg-background font-body-md text-on-surface antialiased"><header class="fixed top-0 left-0 right-0 z-50 bg-surface/90 backdrop-blur-xl shadow-[0_1px_8px_rgba(0,0,0,0.04)]"><div class="h-20 w-full px-4 lg:px-margin-desktop flex items-center justify-between gap-space-md"><div class="flex items-center gap-space-md min-w-0"><div class="flex items-center gap-3 shrink-0"><div class="w-10 h-10 rounded-xl bg-primary-container text-on-primary flex items-center justify-center shadow-[0_2px_6px_rgba(120,31,0,0.2)]"><span class="material-symbols-outlined text-[24px]">menu_book</span></div><div><div class="font-headline-sm text-headline-sm text-primary leading-tight tracking-tight">Đệ Tử Quy</div><div class="font-label-sm text-label-sm text-on-surface-variant truncate hidden sm:block">Giảng Đường Trực Tuyến • Đức Hạnh &amp; Tri Thức</div></div></div><nav class="hidden xl:flex items-center gap-1.5 ml-space-md p-1 bg-surface-container rounded-xl" data-active-classes="bg-primary text-on-primary font-label-md rounded-lg shadow-sm"><a class="px-3 py-1.5 rounded-lg font-label-md text-label-md text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all" data-path="lop-hoc-cua-toi" href="#">Lớp Học Của Tôi</a><a class="px-3 py-1.5 rounded-lg font-label-md text-label-md text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all" data-path="bai-tap-can-nop" href="#">Bài Tập Cần Nộp</a><a class="px-3 py-1.5 rounded-lg font-label-md text-label-md text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all" data-path="kho-bai-giang-video" href="#">Kho Bài Giảng Video</a><a class="px-3 py-1.5 rounded-lg font-label-md text-label-md text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all" data-path="khao-thi-danh-gia" href="#">Khảo Thí &amp; Đánh Giá</a></nav></div><div class="flex items-center gap-space-sm shrink-0"><div class="hidden md:flex items-center p-1 rounded-full bg-surface-container"><button class="px-2.5 py-1 rounded-full font-label-sm text-label-sm bg-surface text-primary shadow-[0_1px_3px_rgba(0,0,0,0.08)] flex items-center gap-1" type="button"><span class="w-1.5 h-1.5 rounded-full bg-tertiary"></span><span>Học Viên</span></button><button class="px-2.5 py-1 rounded-full font-label-sm text-label-sm text-on-surface-variant hover:text-on-surface transition-colors flex items-center gap-1" type="button"><span>Giáo Viên</span></button></div><button class="hidden sm:inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-surface-container-high text-on-surface font-label-md text-label-md hover:bg-surface-variant hover:text-on-surface transition-all" type="button"><span class="material-symbols-outlined text-[18px] text-secondary">pin</span><span>Nhập Mã Lớp</span></button><button class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-primary text-on-primary font-label-md text-label-md hover:bg-primary-container hover:text-on-primary transition-all shadow-[0_2px_6px_rgba(120,31,0,0.15)]" type="button"><span class="material-symbols-outlined text-[18px]">add</span><span class="hidden lg:inline">Tạo Lớp Mới</span></button><div class="relative flex items-center justify-center w-9 h-9 rounded-full bg-surface-container hover:bg-surface-container-high transition-colors cursor-pointer text-on-surface-variant"><span class="material-symbols-outlined text-[20px]">notifications</span><span class="absolute top-1 right-1 w-2.5 h-2.5 rounded-full bg-primary ring-2 ring-surface"></span></div><div class="flex items-center gap-2 pl-2"><div class="hidden text-right lg:block"><div class="font-label-md text-label-md text-on-surface leading-tight">Nguyễn Văn An</div><div class="font-label-sm text-label-sm text-on-surface-variant">Khóa Hiếu Đạo</div></div><div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center"><span class="material-symbols-outlined text-on-primary text-[18px]">person</span></div></div></div></div></header><main class="w-full pt-20 bg-background"><div class="flex flex-col w-full">
+<!-- Top Command Ribbon & Pedagogical Context -->
+<section class="w-full px-4 lg:px-margin-desktop py-space-md bg-surface-container-low shadow-sm">
+<div class="max-w-7xl mx-auto flex flex-col gap-space-sm">
+<!-- Breadcrumb & Role Beacon -->
+<div class="flex flex-wrap items-center justify-between gap-2">
+<nav class="flex items-center gap-1.5 font-label-sm text-label-sm text-on-surface-variant">
+<span class="flex items-center gap-1 hover:text-primary transition-colors cursor-pointer">
+<span class="material-symbols-outlined text-[16px]">school</span>
+            Không Gian Sư Phạm
+          </span>
+<span class="material-symbols-outlined text-[14px]">chevron_right</span>
+<span class="hover:text-primary transition-colors cursor-pointer">Lớp Đệ Tử Quy – Nhập Tắc Hiếu</span>
+<span class="material-symbols-outlined text-[14px]">chevron_right</span>
+<span class="text-primary font-semibold">Quản Lý Bài Giảng</span>
+</nav>
+<div class="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-surface-container text-on-surface-variant font-label-sm text-label-sm">
+<span class="w-2 h-2 rounded-full bg-tertiary"></span>
+<span>Hệ Thống Quản Trị Giảng Viên • Khóa Niên 2024–2025</span>
+</div>
+</div>
+<!-- Main Action Bar -->
+<div class="flex flex-col md:flex-row md:items-center justify-between gap-4 pt-1">
+<div class="min-w-0">
+<div class="flex items-center gap-3">
+<h1 class="font-headline-lg text-headline-lg text-primary tracking-tight">
+              Kho Bài Giảng &amp; Chương Trình Học Lớp DTQ-2024
+            </h1>
+<span class="hidden sm:inline-flex px-2 py-0.5 rounded bg-primary-fixed text-on-primary-fixed font-label-sm text-label-sm">
+              Mã Lớp: DTQ-HIEU-88
+            </span>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant mt-0.5">
+            Soạn thảo, đồng bộ hóa kho video YouTube và đính kèm học liệu Đệ Tử Quy theo chuẩn mực nho phong học đường.
+          </p>
+</div>
+<!-- Toolbar Buttons -->
+<div class="flex flex-wrap items-center gap-2 shrink-0">
+<button class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-surface-container-high text-on-surface font-label-md text-label-md hover:bg-surface-variant transition-all shadow-sm" type="button">
+<span class="material-symbols-outlined text-[18px] text-secondary">drag_indicator</span>
+<span>Sắp Xếp Thứ Tự</span>
+</button>
+<button class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-surface-container-high text-on-surface font-label-md text-label-md hover:bg-surface-variant transition-all shadow-sm" type="button">
+<span class="material-symbols-outlined text-[18px]">visibility</span>
+<span>Xem Với Vai Trò Học Viên</span>
+</button>
+<button class="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-primary-container text-on-primary font-label-md text-label-md hover:bg-primary transition-all shadow-md" id="btnAddNewLecture" type="button">
+<span class="material-symbols-outlined text-[18px]">add_circle</span>
+<span>+ Thêm Bài Giảng Mới</span>
+</button>
+</div>
+</div>
+</div>
+</section>
+<!-- Dual-Column Studio Workspace -->
+<section class="w-full px-4 lg:px-margin-desktop py-space-lg">
+<div class="max-w-7xl mx-auto grid grid-cols-1 xl:grid-cols-12 gap-space-lg items-start">
+<!-- ================= LEFT COLUMN: Lecture Tree & Curriculum Catalog ================= -->
+<div class="xl:col-span-5 flex flex-col gap-space-md">
+<!-- Metrics Ribbon -->
+<div class="p-4 rounded-xl bg-surface-container-lowest shadow-sm flex items-center justify-between gap-2">
+<div class="flex items-center gap-3">
+<div class="w-9 h-9 rounded-lg bg-surface-container flex items-center justify-center text-primary">
+<span class="material-symbols-outlined text-[20px]">video_library</span>
+</div>
+<div>
+<div class="font-headline-sm text-headline-sm text-on-surface leading-tight">40 Bài Giảng</div>
+<div class="font-body-sm text-body-sm text-on-surface-variant">Tổng dung lượng giáo án</div>
+</div>
+</div>
+<div class="h-8 w-px bg-surface-container-highest"></div>
+<div class="text-right">
+<div class="font-label-md text-label-md text-tertiary flex items-center justify-end gap-1">
+<span class="w-2 h-2 rounded-full bg-tertiary"></span>
+              28 Đã phát hành
+            </div>
+<div class="font-label-sm text-label-sm text-secondary">
+              12 Bản nháp &amp; hẹn giờ
+            </div>
+</div>
+</div>
+<!-- Search & Quick Filters -->
+<div class="flex items-center gap-2 p-1.5 rounded-lg bg-surface-container-high">
+<span class="material-symbols-outlined text-on-surface-variant text-[20px] pl-2">search</span>
+<input class="w-full bg-transparent border-0 outline-none text-body-sm font-body-sm text-on-surface placeholder:text-on-surface-variant/70" placeholder="Tìm nhanh theo tựa bài, câu kinh văn..." type="text"/>
+<button class="p-1 rounded text-on-surface-variant hover:text-primary transition-colors" type="button">
+<span class="material-symbols-outlined text-[18px]">tune</span>
+</button>
+</div>
+<!-- Curriculum Units Accordion -->
+<div class="flex flex-col gap-space-sm">
+<!-- CHAPTER 1: Summary -->
+<div class="rounded-xl bg-surface-container-lowest shadow-sm overflow-hidden">
+<div class="px-4 py-3 bg-surface-container flex items-center justify-between gap-2 cursor-pointer select-none">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary text-[18px]">expand_more</span>
+<div>
+<h3 class="font-label-lg text-label-lg text-primary">Chương 1: Tổng Cương Đệ Tử Quy</h3>
+<p class="font-label-sm text-label-sm text-on-surface-variant">Từ Tập 01 đến Tập 04 • 4/4 Đã hoàn thành</p>
+</div>
+</div>
+<span class="px-2 py-0.5 rounded text-tertiary bg-surface font-label-sm text-label-sm">
+                100% Phát hành
+              </span>
+</div>
+<div class="p-3 flex flex-col gap-2">
+<div class="p-2.5 rounded-lg bg-surface-container-low hover:bg-surface-container transition-colors flex items-center justify-between gap-2">
+<div class="flex items-center gap-2.5 min-w-0">
+<span class="font-label-sm text-label-sm text-on-surface-variant shrink-0">#01</span>
+<p class="font-body-sm text-body-sm text-on-surface truncate">Tập 01: Ý Nghĩa &amp; Tầm Quan Trọng Của Giáo Dục Đạo Đức</p>
+</div>
+<span class="font-label-sm text-label-sm text-tertiary shrink-0">Đã xong</span>
+</div>
+<div class="p-2.5 rounded-lg bg-surface-container-low hover:bg-surface-container transition-colors flex items-center justify-between gap-2">
+<div class="flex items-center gap-2.5 min-w-0">
+<span class="font-label-sm text-label-sm text-on-surface-variant shrink-0">#04</span>
+<p class="font-body-sm text-body-sm text-on-surface truncate">Tập 04: Thân Nhân Nhân, Dư Lực Học Văn</p>
+</div>
+<span class="font-label-sm text-label-sm text-tertiary shrink-0">Đã xong</span>
+</div>
+</div>
+</div>
+<!-- CHAPTER 2: Current Focus (Active Section) -->
+<div class="rounded-xl bg-surface-container-lowest shadow-md overflow-hidden">
+<div class="px-4 py-3.5 bg-primary-fixed text-on-primary-fixed flex items-center justify-between gap-2">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[20px]">folder_open</span>
+<div>
+<h3 class="font-headline-sm text-headline-sm font-bold text-on-primary-fixed leading-tight">
+                    Chương 2: Nhập Tắc Hiếu – Đạo Làm Con
+                  </h3>
+<p class="font-label-sm text-label-sm text-on-primary-fixed-variant">
+                    Từ Tập 05 đến Tập 15 • Đang hoạt động
+                  </p>
+</div>
+</div>
+<span class="px-2.5 py-0.5 rounded-full bg-surface text-primary font-label-sm text-label-sm shadow-sm font-semibold">
+                11 Bài giảng
+              </span>
+</div>
+<!-- List of Lectures in Chapter 2 -->
+<div class="p-3 flex flex-col gap-2.5">
+<!-- Item 1 (ACTIVE / CURRENTLY EDITING) -->
+<div class="p-3 rounded-xl bg-surface-container-high shadow-sm relative overflow-hidden group">
+<div class="absolute left-0 top-0 bottom-0 w-1.5 bg-primary-container"></div>
+<div class="flex gap-3 pl-1">
+<!-- Thumbnail Container -->
+<div class="relative w-28 h-20 rounded-lg overflow-hidden bg-on-surface shrink-0 shadow-inner">
+<img class="w-full h-full object-cover opacity-90" data-alt="Warm serene Vietnamese Buddhist scholar lecturing before an ancient wooden book chamber with soft morning golden backlight and traditional scroll ornaments on the desk" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDqxQQCoowuR23smguF4V8_qiuf-JjY2aqTGekRdnBXyFT4qiHUCHbv2wu5RU0uPQd5094nBtcYUIm9pC4W3ZeyT85cndLC0GTSkD3EENwwilQ0C1bdMvpsMBPE5zVUqxzTNJSBActJml-l9BsxIZg1RWGLWf3y3ZUPSwvCXX4Q3YUP9NiaZAMgPLv_gUKN-YXVLWlNIigBGaobJ6plqpgvvMunSoDspKVoz5HKt1A"/>
+<div class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent"></div>
+<div class="absolute bottom-1 right-1 px-1.5 py-0.5 rounded bg-black/80 text-white font-label-sm text-[10px] leading-tight flex items-center gap-1">
+<span class="material-symbols-outlined text-[10px] text-error">play_arrow</span>
+                      45:20
+                    </div>
+<span class="absolute top-1 left-1 px-1 rounded bg-error text-white font-label-sm text-[9px] font-bold">YT</span>
+</div>
+<!-- Details -->
+<div class="flex-1 min-w-0">
+<div class="flex items-center justify-between gap-1">
+<span class="font-label-sm text-label-sm text-primary font-bold">ĐANG CHỈNH SỬA</span>
+<span class="px-2 py-0.2 rounded-full bg-surface-container-highest text-tertiary font-label-sm text-label-sm font-semibold flex items-center gap-1">
+<span class="w-1.5 h-1.5 rounded-full bg-tertiary"></span>
+                        Đã Xuất Bản
+                      </span>
+</div>
+<h4 class="font-headline-sm text-headline-sm text-on-surface line-clamp-1 mt-0.5">
+                      Tập 05: Phụ Mẫu Hô Ứng Vật Hoãn – Ý Nghĩa &amp; Hành Trì
+                    </h4>
+<div class="flex items-center gap-3 mt-1.5 font-label-sm text-label-sm text-on-surface-variant">
+<span class="flex items-center gap-1"><span class="material-symbols-outlined text-[14px]">visibility</span> 142 lượt xem</span>
+<span class="flex items-center gap-1"><span class="material-symbols-outlined text-[14px]">assignment_turned_in</span> 38 bài nộp</span>
+</div>
+</div>
+</div>
+<!-- Action Bar Inside Item -->
+<div class="mt-2.5 pt-2 flex items-center justify-between bg-surface-container/60 rounded-lg px-2.5 py-1">
+<span class="font-label-sm text-label-sm text-primary-container font-semibold">Khóa bài giảng #05</span>
+<div class="flex items-center gap-1">
+<button class="p-1 rounded hover:bg-surface-bright text-on-surface-variant hover:text-primary transition-colors" title="Xem trước" type="button">
+<span class="material-symbols-outlined text-[18px]">play_circle</span>
+</button>
+<button class="p-1 rounded bg-surface-bright text-primary transition-colors" title="Đang mở chỉnh sửa" type="button">
+<span class="material-symbols-outlined text-[18px]">edit_note</span>
+</button>
+<button class="p-1 rounded hover:bg-error-container text-on-surface-variant hover:text-error transition-colors" title="Xóa bài này" type="button">
+<span class="material-symbols-outlined text-[18px]">delete</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Item 2 -->
+<div class="p-3 rounded-xl bg-surface-container-low hover:bg-surface-container transition-all flex gap-3 group">
+<div class="relative w-28 h-20 rounded-lg overflow-hidden bg-on-surface shrink-0">
+<img class="w-full h-full object-cover opacity-85" data-alt="Traditional classroom setting with filial piety calligraphic scrolls hanging on textured clay walls, soft diffused natural daylight, rich earthen tones" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDmNpf136pBD2kBvNcqZy6H3CY072up21b2U-OPtl8TnEjL4tffFFFkVkEbFO-vGtCHLGI3pK8u-FK9q4R3Ud3EKI5wwCxI70fzNIm7K23f8KqzmsHKdypgy06sNxWnrWBeZVvyOMmelH2uPw-8Tyb_MbGlR0PsXHZHcnGxVnRcIKgRK03Rc-fYVAvLlNkjjKA93oJ-6xCYd0x-ETFI9hu9ZM51TFSNscFemtCC9ng"/>
+<div class="absolute bottom-1 right-1 px-1.5 py-0.5 rounded bg-black/80 text-white font-label-sm text-[10px]">
+                    38:15
+                  </div>
+</div>
+<div class="flex-1 min-w-0 flex flex-col justify-between">
+<div>
+<div class="flex items-center justify-between">
+<span class="font-label-sm text-label-sm text-on-surface-variant">Tập 06</span>
+<span class="font-label-sm text-label-sm text-tertiary">Đã xuất bản</span>
+</div>
+<h4 class="font-body-md text-body-md font-semibold text-on-surface line-clamp-1 mt-0.5">
+                      Tập 06: Phụ Mẫu Mệnh Hành Vật Đãi
+                    </h4>
+<p class="font-label-sm text-label-sm text-on-surface-variant mt-0.5">96 lượt xem • 29 bài nộp</p>
+</div>
+<div class="flex items-center justify-end gap-1.5 pt-1">
+<button class="font-label-sm text-label-sm text-primary hover:underline flex items-center gap-0.5" type="button">
+<span class="material-symbols-outlined text-[15px]">edit</span> Sửa
+                    </button>
+<span class="text-outline-variant">•</span>
+<button class="font-label-sm text-label-sm text-on-surface-variant hover:text-error flex items-center gap-0.5" type="button">
+<span class="material-symbols-outlined text-[15px]">delete_outline</span> Xóa
+                    </button>
+</div>
+</div>
+</div>
+<!-- Item 3 -->
+<div class="p-3 rounded-xl bg-surface-container-low hover:bg-surface-container transition-all flex gap-3 group">
+<div class="relative w-28 h-20 rounded-lg overflow-hidden bg-surface-dim shrink-0 flex items-center justify-center">
+<span class="material-symbols-outlined text-outline text-[32px]">movie_edit</span>
+<div class="absolute top-1 left-1 px-1.5 py-0.2 rounded bg-secondary-fixed text-on-secondary-fixed font-label-sm text-[9px] font-bold">
+                    NHÁP
+                  </div>
+</div>
+<div class="flex-1 min-w-0 flex flex-col justify-between">
+<div>
+<div class="flex items-center justify-between">
+<span class="font-label-sm text-label-sm text-secondary font-semibold">Tập 07 • Bản Nháp</span>
+<span class="px-1.5 py-0.2 rounded bg-surface-container-highest text-on-surface-variant font-label-sm text-[10px]">Chờ lịch</span>
+</div>
+<h4 class="font-body-md text-body-md font-semibold text-on-surface line-clamp-1 mt-0.5">
+                      Tập 07: Lời Lành Khuyên Răn Cha Mẹ Khi Lầm Lỗi
+                    </h4>
+<p class="font-label-sm text-label-sm text-on-surface-variant mt-0.5">Dự kiến phát: 20:00 Thứ Sáu</p>
+</div>
+<div class="flex items-center justify-end gap-1.5 pt-1">
+<button class="font-label-sm text-label-sm text-primary hover:underline flex items-center gap-0.5" type="button">
+<span class="material-symbols-outlined text-[15px]">edit</span> Soạn tiếp
+                    </button>
+<span class="text-outline-variant">•</span>
+<button class="font-label-sm text-label-sm text-on-surface-variant hover:text-error flex items-center gap-0.5" type="button">
+<span class="material-symbols-outlined text-[15px]">delete_outline</span> Xóa
+                    </button>
+</div>
+</div>
+</div>
+</div>
+<!-- Add Lecture to Chapter Footer Button -->
+<div class="p-3 bg-surface-container">
+<button class="w-full py-2.5 rounded-lg bg-surface-container-lowest hover:bg-surface-bright text-primary font-label-md text-label-md transition-all flex items-center justify-center gap-1.5 shadow-sm" type="button">
+<span class="material-symbols-outlined text-[18px]">add_circle_outline</span>
+<span>+ Thêm Bài Giảng Vào Chương Này</span>
+</button>
+</div>
+</div>
+<!-- CHAPTER 3: Upcoming -->
+<div class="p-3.5 rounded-xl bg-surface-container-lowest shadow-sm flex items-center justify-between gap-2 text-on-surface-variant cursor-pointer hover:bg-surface-container-low transition-colors">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[18px]">chevron_right</span>
+<span class="font-label-md text-label-md">Chương 3: Xuất Tắc Đễ – Kính Nhường Huynh Trưởng</span>
+</div>
+<span class="font-label-sm text-label-sm bg-surface-container px-2 py-0.5 rounded">6 Bài</span>
+</div>
+</div>
+</div>
+<!-- ================= RIGHT COLUMN: Interactive Editor & Lecture Configurator ================= -->
+<div class="xl:col-span-7 flex flex-col gap-space-md">
+<!-- Editor Card Container -->
+<div class="rounded-2xl bg-surface-container-lowest shadow-md overflow-hidden">
+<!-- Editor Header Banner -->
+<div class="px-6 py-4 bg-primary text-on-primary flex flex-wrap items-center justify-between gap-3">
+<div class="flex items-center gap-2.5">
+<span class="material-symbols-outlined text-[24px]">edit_document</span>
+<div>
+<h2 class="font-headline-md text-headline-md text-on-primary">
+                  Chỉnh Sửa Bài Giảng #05
+                </h2>
+<p class="font-label-sm text-label-sm text-on-primary-container">
+                  Lần lưu nháp gần nhất: 10 phút trước bởi Thầy Nguyễn Văn An
+                </p>
+</div>
+</div>
+<button class="px-3 py-1.5 rounded-lg bg-primary-container hover:bg-primary-container/80 text-on-primary font-label-sm text-label-sm transition-all flex items-center gap-1" type="button">
+<span class="material-symbols-outlined text-[16px]">add</span>
+              Chuyển Sang Thêm Mới
+            </button>
+</div>
+<!-- Form Body -->
+<form class="p-6 flex flex-col gap-5" onsubmit="event.preventDefault();">
+<!-- SECTION A: YouTube Auto Fetch Integration -->
+<div class="p-4 rounded-xl bg-surface-container-low flex flex-col gap-3">
+<div class="flex items-center justify-between">
+<label class="font-label-md text-label-md text-primary flex items-center gap-1.5">
+<span class="material-symbols-outlined text-error text-[18px]">smart_display</span>
+                  Đường Dẫn Video YouTube (Công Khai / Không Công Khai)
+                </label>
+<span class="font-label-sm text-label-sm text-on-surface-variant">Hỗ trợ YouTube VOD, Livestream</span>
+</div>
+<div class="flex flex-col sm:flex-row items-stretch gap-2">
+<div class="relative flex-1">
+<span class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-on-surface-variant">
+<span class="material-symbols-outlined text-[18px]">link</span>
+</span>
+<input class="w-full pl-9 pr-3 py-2 rounded-lg bg-surface-container-lowest font-body-sm text-body-sm text-on-surface outline-none focus:bg-surface-bright shadow-sm" type="url" value="https://www.youtube.com/watch?v=dQw4w9WgXcQ"/>
+</div>
+<button class="px-3.5 py-2 rounded-lg bg-secondary text-on-secondary font-label-md text-label-md hover:bg-on-secondary-container transition-all flex items-center justify-center gap-1.5 shrink-0 shadow-sm" type="button">
+<span class="material-symbols-outlined text-[18px]">sync</span>
+<span>Tự Động Tải Thông Tin</span>
+</button>
+</div>
+<!-- Video Fetch Preview Metadata Pill -->
+<div class="p-3 rounded-lg bg-surface-container-lowest flex items-start gap-3 shadow-sm">
+<div class="relative w-28 h-16 rounded overflow-hidden bg-black shrink-0">
+<img class="w-full h-full object-cover" data-alt="Screenshot of an authentic lecture on filial piety with teacher explaining Vietnamese traditional moral wisdom with warm terracotta chalkboard" src="https://lh3.googleusercontent.com/aida-public/AB6AXuC3Fd2-xOol8HdpmmEMmF7XQRiUc8E5uDBi8TEMd_VkAiMpoxQ2ZHzbIySdy3tfmHXQ7tbVg84xdaAuEWmQqCFBGRfvodnXeNf3mDMOaD77ENS8doVOVkdabQ1wgDwNH5ik_2zO_O7VWfnengUKVJ4S49-viPao_Bh794VNza9K5GlcwQIRiYU25A6ukbpuJvNm8Qwk8ZTDhm8n9qY6uij8crmc6I5FP-7vgfETT68"/>
+<div class="absolute bottom-1 right-1 px-1 rounded bg-black/80 text-white font-label-sm text-[9px]">45:20</div>
+</div>
+<div class="flex-1 min-w-0">
+<div class="flex items-center gap-1.5 font-label-sm text-label-sm text-tertiary">
+<span class="material-symbols-outlined text-[14px]">check_circle</span>
+<span>Đã nhận diện video từ YouTube API</span>
+</div>
+<p class="font-label-md text-label-md text-on-surface font-semibold truncate mt-0.5">
+                    Đệ Tử Quy Giảng Giải - Nhập Tắc Hiếu (Tập 5) - GS. Trần
+                  </p>
+<p class="font-body-sm text-body-sm text-on-surface-variant text-[11px]">
+                    Độ phân giải: 1080p60 • Thời lượng: 45 phút 20 giây • ID: dQw4w9WgXcQ
+                  </p>
+</div>
+</div>
+</div>
+<!-- SECTION B: Basic Lecture Information -->
+<div class="grid grid-cols-1 md:grid-cols-12 gap-4">
+<!-- Title -->
+<div class="md:col-span-8 flex flex-col gap-1.5">
+<label class="font-label-md text-label-md text-on-surface">Tiêu Đề Bài Giảng Hiển Thị</label>
+<input class="w-full px-3 py-2 rounded-lg bg-surface-container font-body-md text-body-md text-on-surface outline-none focus:bg-surface-bright shadow-sm" type="text" value="Tập 05: Phụ Mẫu Hô Ứng Vật Hoãn – Ý Nghĩa &amp; Hành Trì"/>
+</div>
+<!-- Module Placement -->
+<div class="md:col-span-4 flex flex-col gap-1.5">
+<label class="font-label-md text-label-md text-on-surface">Thuộc Chương Mục</label>
+<div class="relative">
+<select class="w-full px-3 py-2 rounded-lg bg-surface-container font-body-sm text-body-sm text-on-surface outline-none appearance-none pr-8 shadow-sm">
+<option>Chương 1: Tổng Cương</option>
+<option selected="">Chương 2: Nhập Tắc Hiếu</option>
+<option>Chương 3: Xuất Tắc Đễ</option>
+<option>Chương 4: Cẩn</option>
+</select>
+<span class="material-symbols-outlined absolute right-2.5 top-2.5 pointer-events-none text-on-surface-variant text-[18px]">arrow_drop_down</span>
+</div>
+</div>
+<!-- Sacred Scripture Quotation Box -->
+<div class="md:col-span-12 flex flex-col gap-1.5">
+<div class="flex items-center justify-between">
+<label class="font-label-md text-label-md text-primary flex items-center gap-1">
+<span class="material-symbols-outlined text-[16px]">menu_book</span>
+                    Trích Đoạn Kinh Văn Tương Ứng (Phiên Âm &amp; Dịch Nghĩa)
+                  </label>
+<span class="font-label-sm text-label-sm text-on-surface-variant">Hiển thị ở đầu trang bài học của trò</span>
+</div>
+<div class="p-3.5 rounded-xl bg-surface-container-low shadow-inner flex flex-col gap-2">
+<p class="font-headline-sm text-headline-sm text-primary italic leading-relaxed">
+                    “Phụ mẫu hô, ứng vật hoãn; Phụ mẫu mệnh, hành vật đãi.”
+                  </p>
+<p class="font-body-sm text-body-sm text-on-surface-variant">
+                    (Cha mẹ gọi, trả lời ngay chớ chậm trễ; Cha mẹ bảo, làm liền chớ biếng lười.)
+                  </p>
+</div>
+</div>
+</div>
+<!-- SECTION C: Lecture Chapters & Timestamps (Interactive) -->
+<div class="flex flex-col gap-2.5 pt-1">
+<div class="flex items-center justify-between">
+<div>
+<h4 class="font-label-lg text-label-lg text-on-surface">Mốc Thời Gian Trọng Tâm (Timestamps / Phân Đoạn)</h4>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Giúp học sinh dễ dàng tua đến bài học then chốt khi nghe giảng lại</p>
+</div>
+<button class="font-label-sm text-label-sm text-primary hover:underline flex items-center gap-1" type="button">
+<span class="material-symbols-outlined text-[16px]">add</span> Thêm Mốc
+                </button>
+</div>
+<div class="space-y-2">
+<!-- Timestamp Row 1 -->
+<div class="flex items-center gap-2 p-2 rounded-lg bg-surface-container-low shadow-sm">
+<span class="material-symbols-outlined text-[18px] text-on-surface-variant cursor-grab">drag_indicator</span>
+<input class="w-16 px-2 py-1 rounded bg-surface-container-lowest font-body-sm text-body-sm text-center font-bold text-primary outline-none" type="text" value="00:00"/>
+<input class="flex-1 px-2.5 py-1 rounded bg-surface-container-lowest font-body-sm text-body-sm text-on-surface outline-none" type="text" value="Giới thiệu đại ý câu kinh văn 'Phụ Mẫu Hô'"/>
+<button class="p-1 text-on-surface-variant hover:text-error transition-colors" type="button">
+<span class="material-symbols-outlined text-[16px]">close</span>
+</button>
+</div>
+<!-- Timestamp Row 2 -->
+<div class="flex items-center gap-2 p-2 rounded-lg bg-surface-container-low shadow-sm">
+<span class="material-symbols-outlined text-[18px] text-on-surface-variant cursor-grab">drag_indicator</span>
+<input class="w-16 px-2 py-1 rounded bg-surface-container-lowest font-body-sm text-body-sm text-center font-bold text-primary outline-none" type="text" value="12:45"/>
+<input class="flex-1 px-2.5 py-1 rounded bg-surface-container-lowest font-body-sm text-body-sm text-on-surface outline-none" type="text" value="Câu chuyện gương hiếu hạnh xưa và tấm lòng người mẹ hiền"/>
+<button class="p-1 text-on-surface-variant hover:text-error transition-colors" type="button">
+<span class="material-symbols-outlined text-[16px]">close</span>
+</button>
+</div>
+<!-- Timestamp Row 3 -->
+<div class="flex items-center gap-2 p-2 rounded-lg bg-surface-container-low shadow-sm">
+<span class="material-symbols-outlined text-[18px] text-on-surface-variant cursor-grab">drag_indicator</span>
+<input class="w-16 px-2 py-1 rounded bg-surface-container-lowest font-body-sm text-body-sm text-center font-bold text-primary outline-none" type="text" value="35:20"/>
+<input class="flex-1 px-2.5 py-1 rounded bg-surface-container-lowest font-body-sm text-body-sm text-on-surface outline-none" type="text" value="Phương pháp thực hành cung kính dạ thưa trong gia đình thời nay"/>
+<button class="p-1 text-on-surface-variant hover:text-error transition-colors" type="button">
+<span class="material-symbols-outlined text-[16px]">close</span>
+</button>
+</div>
+</div>
+</div>
+<!-- SECTION D: Attached Learning Materials & Linked Homework -->
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
+<!-- Attached Materials -->
+<div class="p-3.5 rounded-xl bg-surface-container-low flex flex-col gap-2.5">
+<div class="flex items-center justify-between">
+<span class="font-label-md text-label-md text-on-surface flex items-center gap-1.5">
+<span class="material-symbols-outlined text-[18px] text-primary">attach_file</span>
+                    Tài Liệu Đính Kèm (PDF, Audio)
+                  </span>
+<span class="font-label-sm text-label-sm text-on-surface-variant">1 Tệp tin</span>
+</div>
+<!-- Material File Chip -->
+<div class="p-2.5 rounded-lg bg-surface-container-lowest flex items-center justify-between gap-2 shadow-sm">
+<div class="flex items-center gap-2 min-w-0">
+<span class="w-7 h-7 rounded bg-error-container text-error flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-[16px]">picture_as_pdf</span>
+</span>
+<div class="min-w-0">
+<p class="font-label-sm text-label-sm font-semibold text-on-surface truncate">Giao_trinh_Tap_05_HieuDao.pdf</p>
+<p class="font-label-sm text-[10px] text-on-surface-variant">2.4 MB • Học liệu chính khóa</p>
+</div>
+</div>
+<div class="flex items-center gap-1 shrink-0">
+<button class="p-1 rounded text-on-surface-variant hover:text-primary transition-colors" type="button">
+<span class="material-symbols-outlined text-[16px]">download</span>
+</button>
+<button class="p-1 rounded text-on-surface-variant hover:text-error transition-colors" type="button">
+<span class="material-symbols-outlined text-[16px]">delete</span>
+</button>
+</div>
+</div>
+<!-- Upload Drag-Drop Trigger -->
+<button class="py-2 px-3 rounded-lg bg-surface-container hover:bg-surface-container-highest transition-colors text-primary font-label-sm text-label-sm flex items-center justify-center gap-1" type="button">
+<span class="material-symbols-outlined text-[16px]">cloud_upload</span>
+<span>Tải Lên Thêm Tài Liệu Mới</span>
+</button>
+</div>
+<!-- Linked Assignment -->
+<div class="p-3.5 rounded-xl bg-surface-container-low flex flex-col gap-2.5">
+<div class="flex items-center justify-between">
+<span class="font-label-md text-label-md text-on-surface flex items-center gap-1.5">
+<span class="material-symbols-outlined text-[18px] text-tertiary">assignment</span>
+                    Bài Tập Thực Hành Đi Kèm
+                  </span>
+<span class="px-2 py-0.5 rounded bg-tertiary-fixed text-on-tertiary-fixed font-label-sm text-label-sm">Đang mở nộp</span>
+</div>
+<div class="p-2.5 rounded-lg bg-surface-container-lowest flex items-center justify-between gap-2 shadow-sm">
+<div class="min-w-0">
+<p class="font-label-sm text-label-sm font-semibold text-on-surface truncate">Bài Tập Tuần 5: Nhật Ký 7 Ngày Lễ Kính</p>
+<p class="font-label-sm text-[10px] text-on-surface-variant">Hạn chót: Chủ Nhật tuần này • 38/45 đã nộp</p>
+</div>
+<button class="p-1 rounded text-primary hover:bg-surface-container transition-colors shrink-0" type="button">
+<span class="material-symbols-outlined text-[16px]">open_in_new</span>
+</button>
+</div>
+<button class="py-2 px-3 rounded-lg bg-surface-container hover:bg-surface-container-highest transition-colors text-secondary font-label-sm text-label-sm flex items-center justify-center gap-1" type="button">
+<span class="material-symbols-outlined text-[16px]">add_link</span>
+<span>Chọn Bài Tập Khác Từ Ngân Hàng</span>
+</button>
+</div>
+</div>
+<!-- SECTION E: Publishing Settings & Access Control -->
+<div class="p-4 rounded-xl bg-surface-container-low flex flex-col gap-3">
+<span class="font-label-md text-label-md text-on-surface">Chế Độ Phát Hành &amp; Truy Cập</span>
+<div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+<label class="p-3 rounded-lg bg-surface-container-lowest shadow-sm flex items-center gap-2.5 cursor-pointer hover:bg-surface-bright transition-colors">
+<input checked="" class="text-primary focus:ring-0" name="publishStatus" type="radio"/>
+<div>
+<div class="font-label-sm text-label-sm font-semibold text-on-surface">Xuất Bản Ngay</div>
+<div class="font-label-sm text-[10px] text-on-surface-variant">Học viên xem được ngay</div>
+</div>
+</label>
+<label class="p-3 rounded-lg bg-surface-container-lowest shadow-sm flex items-center gap-2.5 cursor-pointer hover:bg-surface-bright transition-colors">
+<input class="text-primary focus:ring-0" name="publishStatus" type="radio"/>
+<div>
+<div class="font-label-sm text-label-sm font-semibold text-on-surface">Hẹn Giờ Chiếu</div>
+<div class="font-label-sm text-[10px] text-on-surface-variant">Chọn ngày &amp; giờ mở khóa</div>
+</div>
+</label>
+<label class="p-3 rounded-lg bg-surface-container-lowest shadow-sm flex items-center gap-2.5 cursor-pointer hover:bg-surface-bright transition-colors">
+<input class="text-primary focus:ring-0" name="publishStatus" type="radio"/>
+<div>
+<div class="font-label-sm text-label-sm font-semibold text-on-surface">Lưu Bản Nháp</div>
+<div class="font-label-sm text-[10px] text-on-surface-variant">Chỉ giáo viên thấy</div>
+</div>
+</label>
+</div>
+</div>
+<!-- Form Action Footer Bar -->
+<div class="pt-3 border-t-0 flex flex-wrap items-center justify-between gap-3">
+<button class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-error-container text-on-error-container hover:bg-error hover:text-on-error font-label-md text-label-md transition-all" type="button">
+<span class="material-symbols-outlined text-[18px]">delete_forever</span>
+<span>Xóa Bài Giảng Này</span>
+</button>
+<div class="flex items-center gap-2.5">
+<button class="px-4 py-2 rounded-lg bg-surface-container-high text-on-surface font-label-md text-label-md hover:bg-surface-container-highest transition-all" type="button">
+                  Xem Thử
+                </button>
+<button class="inline-flex items-center gap-2 px-5 py-2 rounded-lg bg-primary-container text-on-primary font-label-md text-label-md hover:bg-primary transition-all shadow-md" type="submit">
+<span class="material-symbols-outlined text-[18px]">save</span>
+<span>Lưu &amp; Cập Nhật Bài Giảng</span>
+</button>
+</div>
+</div>
+</form>
+</div>
+<!-- Instructor Quick Guide Card -->
+<div class="p-4 rounded-xl bg-surface-container-low shadow-sm flex items-start gap-3.5">
+<div class="w-8 h-8 rounded-full bg-secondary-fixed text-on-secondary-fixed flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-[18px]">tips_and_updates</span>
+</div>
+<div>
+<h5 class="font-label-md text-label-md text-on-surface font-semibold">Lời Khuyên Giảng Huấn Từ Ban Giáo Học</h5>
+<p class="font-body-sm text-body-sm text-on-surface-variant mt-0.5 leading-relaxed">
+              Khi chèn video YouTube, Thầy Cô nên chia nhỏ mốc thời gian dưới 15 phút cho mỗi tiểu mục luận giảng, giúp các em học trò dễ tiếp thu đạo lý mà không bị phân tâm. Sau mỗi bài, hãy đính kèm ít nhất một bài kiểm tra nhỏ hoặc một lời nhắc thực hành hiếu đạo hàng ngày.
+            </p>
+</div>
+</div>
+</div>
+</div>
+</section>
+</div>
+<script>
+  // Quick client micro-interaction to switch states or alert simulation
+  document.addEventListener('DOMContentLoaded', function () {
+    const btnAddNew = document.getElementById('btnAddNewLecture');
+    if (btnAddNew) {
+      btnAddNew.addEventListener('click', function () {
+        const formHeader = document.querySelector('h2.font-headline-md');
+        if (formHeader) {
+          formHeader.innerText = 'Thêm Bài Giảng YouTube Mới';
+        }
+        window.scrollTo({ top: 120, behavior: 'smooth' });
+      });
+    }
+  });
+</script></main><footer class="w-full bg-surface-container-low py-space-xl mt-space-xl"><div class="w-full px-4 lg:px-margin-desktop mx-auto flex flex-col md:flex-row items-center justify-between gap-space-md text-on-surface-variant"><div class="flex items-center gap-3"><div class="w-8 h-8 rounded-lg bg-primary-container text-on-primary flex items-center justify-center"><span class="material-symbols-outlined text-[18px]">menu_book</span></div><div><div class="font-headline-sm text-headline-sm text-primary">Đệ Tử Quy</div><div class="font-body-sm text-body-sm text-on-surface-variant">Nền tảng Giáo dục Đạo đức &amp; Nhân cách Truyền thống</div></div></div><div class="flex items-center gap-space-lg font-label-md text-label-md"><a class="hover:text-primary transition-colors" href="#">Nội Quy Giảng Đường</a><a class="hover:text-primary transition-colors" href="#">Tài Liệu Đệ Tử Quy</a><a class="hover:text-primary transition-colors" href="#">Hỗ Trợ Học Tập</a></div><div class="font-body-sm text-body-sm text-on-surface-variant text-center md:text-right">© 2025 detuquy.com. Bảo tồn Văn hóa và Đạo học Á Đông.</div></div></footer></body></html>

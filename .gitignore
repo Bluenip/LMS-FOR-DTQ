@@ -1,0 +1,11 @@
+node_modules/
+.next/
+.env*
+!.env.example
+!.env.production.example
+.data/
+test-results/
+playwright-report/
+*.tsbuildinfo
+.hallmark/screens/
+backups/

@@ -1,0 +1,718 @@
+<!DOCTYPE html><html lang="vi"><head><meta charset="utf-8"><meta content="width=device-width, initial-scale=1.0" name="viewport"><meta content="web_standard" name="shell-type"><title>Đệ Tử Quy - Giảng Đường Trực Tuyến</title><link href="https://fonts.googleapis.com" rel="preconnect"><link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"><link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:ital,wght@0,400;0,500;0,600;0,700;1,400&amp;family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,600;1,6..72,400&amp;display=swap" rel="stylesheet"><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"><style>@layer base{html,body{margin:0;padding:0;}body{overscroll-behavior:none;}main>:first-child{margin-top:0!important;}main>:last-child{margin-bottom:0!important;}}::-webkit-scrollbar{display:none;}</style><script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script><script id="tailwind-config">tailwind.config={darkMode:"class",theme:{extend:{colors:{"primary":"#781f00","surface-bright":"#fff8f4","on-surface":"#1e1b18","inverse-on-surface":"#f7efe9","on-secondary-fixed":"#331200","on-primary-container":"#ffbda9","surface-dim":"#e0d9d3","outline-variant":"#dec0b7","on-primary-fixed-variant":"#842503","on-primary-fixed":"#3a0a00","on-tertiary":"#ffffff","surface-tint":"#a53c19","on-secondary":"#ffffff","secondary-fixed-dim":"#ffb68e","surface-container-lowest":"#ffffff","surface-container-high":"#eee7e1","outline":"#8b716a","on-surface-variant":"#57423c","secondary":"#9b4500","surface-container-low":"#faf2ec","on-tertiary-fixed-variant":"#005323","on-secondary-container":"#682c00","primary-fixed":"#ffdbd1","inverse-primary":"#ffb59f","primary-container":"#9a3412","on-tertiary-fixed":"#00210a","inverse-surface":"#33302c","surface-variant":"#e9e1db","on-background":"#1e1b18","surface-container-highest":"#e9e1db","secondary-container":"#fd8a42","surface":"#fff8f4","primary-fixed-dim":"#ffb59f","tertiary":"#004a1e","error":"#ba1a1a","background":"#fff8f4","error-container":"#ffdad6","tertiary-container":"#00642c","tertiary-fixed-dim":"#79db8d","tertiary-fixed":"#95f8a7","surface-container":"#f4ece7","on-error":"#ffffff","on-tertiary-container":"#7ee092","on-secondary-fixed-variant":"#763300","on-error-container":"#93000a","on-primary":"#ffffff","secondary-fixed":"#ffdbca"},borderRadius:{"DEFAULT":"0.25rem","lg":"0.5rem","xl":"0.75rem","full":"9999px"},spacing:{"gutter-desktop":"1.75rem","space-xl":"2.5rem","space-sm":"0.5rem","space-md":"1rem","margin":"1rem","gutter":"1.25rem","margin-desktop":"2.5rem","space-xs":"0.25rem","space-lg":"1.5rem"},fontFamily:{"body-md":["Be Vietnam Pro"],"display-lg":["Newsreader"],"label-sm":["Be Vietnam Pro"],"body-sm":["Be Vietnam Pro"],"headline-md":["Newsreader"],"label-md":["Be Vietnam Pro"],"headline-lg":["Newsreader"],"label-lg":["Be Vietnam Pro"],"body-lg":["Be Vietnam Pro"],"headline-sm":["Newsreader"],"display-lg-mobile":["Newsreader"]},fontSize:{"body-md":["14px",{lineHeight:"22px",fontWeight:"400"}],"display-lg":["40px",{lineHeight:"48px",fontWeight:"600"}],"label-sm":["11px",{lineHeight:"14px",fontWeight:"500"}],"body-sm":["12px",{lineHeight:"18px",fontWeight:"400"}],"headline-md":["22px",{lineHeight:"30px",fontWeight:"600"}],"label-md":["12px",{lineHeight:"16px",fontWeight:"600"}],"headline-lg":["28px",{lineHeight:"36px",fontWeight:"600"}],"label-lg":["14px",{lineHeight:"20px",fontWeight:"600"}],"body-lg":["16px",{lineHeight:"26px",fontWeight:"400"}],"headline-sm":["18px",{lineHeight:"26px",fontWeight:"600"}],"display-lg-mobile":["30px",{lineHeight:"38px",fontWeight:"600"}]}}}};</script></head><body class="bg-background font-body-md text-on-surface antialiased min-h-screen flex flex-col justify-between" data-mode="connect"><div class="fixed top-5 right-5 z-[100] transform transition-all duration-300 translate-y-[-150%] opacity-0 pointer-events-none" id="toastNotification"><div class="flex items-center gap-3 px-4 py-3 rounded-xl bg-inverse-surface text-inverse-on-surface shadow-xl text-body-sm font-medium"><span class="material-symbols-outlined text-[20px] text-tertiary-fixed" id="toastIcon">check_circle</span><span id="toastMessage" class="">Thông báo thao tác</span></div></div><header class="fixed top-0 left-0 right-0 z-50 bg-surface/90 backdrop-blur-xl shadow-[0_1px_8px_rgba(0,0,0,0.04)]"><div class="h-20 w-full px-4 lg:px-margin-desktop flex items-center justify-between gap-space-md"><div class="flex items-center gap-space-md min-w-0"><div class="flex items-center gap-3 shrink-0"><div class="w-10 h-10 rounded-xl bg-primary-container text-on-primary flex items-center justify-center shadow-[0_2px_6px_rgba(120,31,0,0.2)]"><span class="material-symbols-outlined text-[24px]">menu_book</span></div><div><div class="font-headline-sm text-headline-sm text-primary leading-tight tracking-tight">Đệ Tử Quy</div><div class="font-label-sm text-label-sm text-on-surface-variant truncate hidden sm:block">Giảng Đường Trực Tuyến • Đức Hạnh &amp; Tri Thức</div></div></div><nav class="hidden md:flex items-center gap-1.5 ml-space-md p-1 bg-surface-container rounded-xl"><a class="px-3.5 py-1.5 rounded-lg font-label-md text-label-md bg-primary text-on-primary shadow-sm transition-all" href="#">Lớp Giảng Dạy</a><a class="px-3.5 py-1.5 rounded-lg font-label-md text-label-md text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all" href="#" onclick="showToast('Mô phỏng: Chuyển hướng Kho bài giảng'); return false;">Kho Bài Giảng</a><a class="px-3.5 py-1.5 rounded-lg font-label-md text-label-md text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all" href="#" onclick="showToast('Mô phỏng: Chuyển hướng Bài cần chấm'); return false;">Bài Cần Chấm</a></nav></div><div class="flex items-center gap-space-sm shrink-0"><div class="relative flex items-center justify-center w-9 h-9 rounded-full bg-surface-container hover:bg-surface-container-high transition-colors cursor-pointer text-on-surface-variant" onclick="showToast('Thông báo: Lớp DTQ-2026 có 2 yêu cầu mới');" title="Thông báo"><span class="material-symbols-outlined text-[20px]">notifications</span><span class="absolute top-1 right-1 w-2.5 h-2.5 rounded-full bg-primary ring-2 ring-surface"></span></div><div class="flex items-center gap-2 pl-2"><div class="hidden text-right lg:block"><div class="font-label-md text-label-md text-on-surface leading-tight font-semibold">Giáo viên Tuệ Tâm</div><div class="font-label-sm text-label-sm text-primary font-medium flex items-center justify-end gap-1"><span class="w-1.5 h-1.5 rounded-full bg-tertiary"></span><span class="">Giáo viên phụ trách</span></div></div><div class="w-9 h-9 rounded-full bg-primary-container text-on-primary flex items-center justify-center shadow-sm font-semibold text-sm">TT</div></div></div></div></header><main class="w-full pt-20 bg-background flex-1"><div class="flex flex-col w-full"><div class="relative w-full px-4 lg:px-margin-desktop py-space-md"><div class="flex flex-col md:flex-row md:items-end justify-between gap-space-md mb-space-lg"><div class="space-y-1"><div class="flex flex-wrap items-center gap-2 font-label-sm text-label-sm text-secondary"><span class="material-symbols-outlined text-[15px]">school</span><span class="">Giảng đường</span><span class="text-outline-variant">/</span><span class="text-primary font-semibold">Quản lý lớp giảng dạy</span><span class="text-outline-variant">•</span><span class="px-2 py-0.5 rounded-full bg-surface-container-high text-on-surface-variant text-[11px] font-medium border border-outline-variant/40">Bản thử nghiệm · Dữ liệu minh họa</span></div><h1 class="font-headline-lg text-headline-lg text-primary tracking-tight">Lớp Học Của Tôi (Giảng Dạy)</h1><p class="font-body-md text-body-md text-on-surface-variant max-w-3xl">Quản lý giảng đường trực tuyến, theo dõi danh sách học viên và cập nhật tiến trình 40 bài giảng Đệ Tử Quy.</p></div><div class="flex items-center gap-2.5 shrink-0"><button class="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-primary-container text-on-primary font-label-md text-label-md hover:bg-primary shadow-md hover:shadow-lg transition-all" onclick="openCreateClassModal()" type="button"><span class="material-symbols-outlined text-[20px]">add_circle</span><span class="">+ Tạo Lớp Học Mới</span></button></div></div><div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-space-lg"><div class="p-3.5 rounded-xl bg-surface-container-low shadow-sm flex items-center gap-3"><div class="w-10 h-10 rounded-lg bg-primary-fixed flex items-center justify-center text-primary shrink-0"><span class="material-symbols-outlined text-[22px]">auto_stories</span></div><div><div class="font-headline-sm text-headline-sm text-primary leading-tight font-semibold">1</div><div class="font-label-sm text-label-sm text-on-surface-variant">Lớp Đang Giảng Dạy</div></div></div><div class="p-3.5 rounded-xl bg-surface-container-low shadow-sm flex items-center gap-3 cursor-pointer hover:bg-surface-container transition-colors group" onclick="openMembersModal('official')"><div class="w-10 h-10 rounded-lg bg-surface-container-highest flex items-center justify-center text-tertiary shrink-0 group-hover:scale-105 transition-transform"><span class="material-symbols-outlined text-[22px]">groups</span></div><div><div class="font-headline-sm text-headline-sm text-tertiary leading-tight font-semibold" id="statOfficialCount">42</div><div class="font-label-sm text-label-sm text-on-surface-variant">Học Viên Chính Thức <span class="text-[10px] text-primary block underline">Xem chi tiết</span></div></div></div><div class="p-3.5 rounded-xl bg-surface-container-low shadow-sm flex items-center gap-3 cursor-pointer hover:bg-surface-container transition-colors group" onclick="openMembersModal('pending')"><div class="w-10 h-10 rounded-lg bg-secondary-fixed flex items-center justify-center text-secondary shrink-0 group-hover:scale-105 transition-transform"><span class="material-symbols-outlined text-[22px]">pending_actions</span></div><div><div class="font-headline-sm text-headline-sm text-secondary leading-tight font-semibold" id="statPendingCount">2</div><div class="font-label-sm text-label-sm text-on-surface-variant">Chờ Phê Duyệt <span class="text-[10px] text-secondary font-medium block underline">Xem &amp; Phê duyệt</span></div></div></div><div class="p-3.5 rounded-xl bg-surface-container-low shadow-sm flex items-center gap-3"><div class="w-10 h-10 rounded-lg bg-surface-container flex items-center justify-center text-on-surface-variant shrink-0"><span class="material-symbols-outlined text-[22px]">smart_display</span></div><div><div class="font-headline-sm text-headline-sm text-on-surface leading-tight font-semibold">40 Bài</div><div class="font-label-sm text-label-sm text-on-surface-variant font-medium">11 đã xuất bản · 29 bản nháp</div><div class="text-[10px] text-error font-medium">Bài 12 chưa có video / bản nháp</div></div></div></div><div class="p-3.5 rounded-xl bg-surface-container mb-space-lg shadow-sm flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3"><div class="relative flex-1 min-w-[260px]"><span class="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-on-surface-variant text-[20px]">search</span><input class="w-full pl-10 pr-4 py-2 rounded-lg bg-surface text-on-surface font-body-md text-body-md placeholder:text-outline focus:outline-none focus:ring-2 focus:ring-primary shadow-inner" id="classSearchInput" placeholder="Tìm theo tên hoặc mã lớp học (DTQ-2026)..." type="text"></div><div class="flex items-center gap-2"><div class="flex items-center p-1 rounded-lg bg-surface shadow-inner"><button class="px-3.5 py-1.5 rounded-md font-label-md text-label-md bg-primary text-on-primary shadow-sm transition-all" type="button">Đang mở giảng dạy (1)</button><button class="px-3.5 py-1.5 rounded-md font-label-md text-label-md text-on-surface-variant hover:text-on-surface transition-colors" onclick="showToast('Hiện tại chưa có lớp nào lưu trữ');" type="button">Đã lưu trữ (0)</button></div></div></div><div class="grid grid-cols-1 xl:grid-cols-12 gap-space-lg items-start"><div class="xl:col-span-8 space-y-space-md"><div class="rounded-2xl bg-surface-container-lowest shadow-md overflow-hidden transition-all hover:shadow-xl"><div class="relative h-44 w-full bg-cover bg-center p-space-md flex flex-col justify-between" data-alt="Traditional Vietnamese wooden academy lecture hall, warm bamboo scrolls, ancient ink stones, soft morning sunlight illuminating calligraphy hanging scrolls in terracotta and sandalwood tones." style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuBj3_Xq2ovuyLTETgfDzrtCg_SgbVEKibCp780eqcyt7WthWZQXtnnYFK_WFKU4m3uVUpl9kxKSv-xLmvLdaXOxHw7n75-i-9un4aTanBRJ7JCwC6Efm5fvroMMJzdDZHLerB1IBzg550-pb722OS-HK_LEGEiZ8F3XQeEA9-5UYLDKGbZmBaO1LHgq91L7RERzuPFNwK-7eLbmBptwCFR8JJmMMS03xrZtgcQ58ls')"><div class="absolute inset-0 bg-gradient-to-t from-black/85 via-black/45 to-black/20"></div><div class="relative z-10 flex items-center justify-between"><div class="flex items-center gap-2"><span class="px-2.5 py-1 rounded-full bg-tertiary text-on-tertiary font-label-sm text-label-sm shadow flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-tertiary-fixed"></span>Đang Mở Giảng Dạy</span><span class="px-2.5 py-1 rounded-full bg-surface-bright/90 backdrop-blur text-primary font-label-sm text-label-sm shadow font-medium">Căn Bản Đạo Đức</span></div><div class="flex items-center gap-1 bg-surface-bright/90 backdrop-blur rounded-lg p-1"><button class="w-7 h-7 rounded flex items-center justify-center text-on-surface hover:bg-surface-container transition-colors" onclick="openClassSettingsDrawer()" title="Cài đặt &amp; Thiết lập lớp" type="button"><span class="material-symbols-outlined text-[18px]">settings</span></button></div></div><div class="relative z-10 text-on-primary"><div class="font-label-sm text-label-sm text-secondary-fixed-dim uppercase tracking-wider mb-0.5">Khóa Học Đạo Học Thu 2026</div><h2 class="font-headline-lg text-headline-lg text-surface-bright leading-tight drop-shadow-sm" id="cardCourseTitle">Đệ Tử Quy – Nhập Tắc Hiếu (Đạo Làm Con)</h2></div></div><div class="p-space-md space-y-space-md"><div class="p-3 rounded-xl bg-surface-container-low flex flex-wrap items-center justify-between gap-3"><div class="flex items-center gap-2"><span class="font-label-sm text-label-sm text-on-surface-variant font-medium">Mã Tham Gia (Code):</span><div class="flex items-center gap-1 px-3 py-1 rounded-md bg-secondary-fixed text-on-secondary-fixed font-headline-sm text-headline-sm font-bold tracking-widest shadow-sm"><span id="mainCardCode" class="">DTQ-2026</span><button class="ml-1 text-secondary hover:text-primary transition-colors" onclick="copyCode(document.getElementById('mainCardCode').innerText)" title="Sao chép mã" type="button"><span class="material-symbols-outlined text-[18px]">content_copy</span></button></div></div><div class="flex items-center gap-2 bg-surface px-3 py-1.5 rounded-lg shadow-sm"><span class="font-label-sm text-label-sm text-on-surface font-medium">Trạng thái nhận học viên:</span><span class="px-2 py-0.5 rounded bg-tertiary-fixed text-on-tertiary-fixed font-label-sm text-label-sm font-semibold">Đang mở</span><span class="text-outline-variant">•</span><span class="font-label-sm text-label-sm text-on-surface-variant">Tự động duyệt:</span><span class="font-label-sm text-label-sm text-outline font-semibold" id="autoApprovalBadge">Tắt (Duyệt thủ công)</span></div></div><div class="grid grid-cols-2 sm:grid-cols-4 gap-3 py-1"><div><div class="font-label-sm text-label-sm text-on-surface-variant">Sĩ Số Học Viên</div><div class="font-headline-sm text-headline-sm text-primary font-semibold flex items-center gap-1"><span id="cardOfficialCount" class="">42</span><span class="font-body-sm text-body-sm text-outline">/ 50</span></div><div class="w-full bg-surface-container rounded-full h-1.5 mt-1.5 overflow-hidden"><div class="bg-primary h-1.5 rounded-full transition-all duration-500" id="cardCapacityBar" style="width: 84%"></div></div><div class="font-label-sm text-label-sm text-on-surface-variant mt-1" id="cardCapacityPercent">Đã dùng 42/50 chỗ (84%)</div></div><div><div class="font-label-sm text-label-sm text-on-surface-variant">Tiến Trình Bài Giảng</div><div class="font-headline-sm text-headline-sm text-on-surface font-semibold flex items-center gap-1"><span class="material-symbols-outlined text-secondary text-[20px]">smart_display</span><span class="">40 Bài</span></div><div class="font-label-sm text-label-sm text-on-surface-variant">11 xuất bản · 29 nháp</div><div class="font-label-sm text-label-sm text-error font-medium">Bài 12: Chưa có video</div></div><div><div class="font-label-sm text-label-sm text-on-surface-variant">Thời Gian Khóa Học</div><div class="font-label-md text-label-md text-on-surface font-medium mt-1">15/09/2026 – 30/12/2026</div><div class="font-label-sm text-label-sm text-outline" id="cardCourseSchedule">Tối Chủ nhật 19:30 hàng tuần</div></div><div><div class="font-label-sm text-label-sm text-on-surface-variant">Giáo viên phụ trách</div><div class="font-label-md text-label-md text-primary font-semibold mt-1">Giáo viên Tuệ Tâm</div><div class="font-label-sm text-label-sm text-on-surface-variant">Giáo viên phụ trách</div></div></div><div class="flex flex-wrap items-center justify-between gap-3 pt-space-xs border-t border-outline-variant/20"><div class="flex items-center gap-2"><span class="font-body-sm text-body-sm text-on-surface-variant" id="cardCourseDesc">Khóa học bồi dưỡng nền tảng nhân cách và đạo hiếu gia đình.</span></div><div class="flex flex-wrap items-center gap-2"><button class="px-3.5 py-1.5 rounded-lg bg-surface-container text-on-surface font-label-md text-label-md hover:bg-surface-container-high transition-colors flex items-center gap-1.5 relative" onclick="openMembersModal('official')" type="button"><span class="material-symbols-outlined text-[18px]">group</span><span class="">Thành Viên (<span id="btnOfficialCount" class="">42</span>)</span><span class="px-1.5 py-0.5 rounded-full bg-secondary text-on-secondary text-[11px] font-semibold" id="cardPendingBadge">+2 chờ duyệt</span></button><button class="px-3.5 py-1.5 rounded-lg bg-surface-container text-on-surface font-label-md text-label-md hover:bg-surface-container-high transition-colors flex items-center gap-1" onclick="openClassSettingsDrawer()" type="button"><span class="material-symbols-outlined text-[18px]">settings</span><span class="">Cài đặt &amp; Thiết lập</span></button><button class="px-3.5 py-1.5 rounded-lg bg-surface-container-high text-primary font-label-md text-label-md hover:bg-primary hover:text-on-primary transition-all flex items-center gap-1.5" onclick="previewAsStudent()" title="Xem thử giao diện phía học viên" type="button"><span class="material-symbols-outlined text-[18px]">visibility</span><span class="">Xem trước lớp học</span><span class="text-[11px] opacity-80">(Giao diện học viên)</span></button></div></div></div></div></div><div class="xl:col-span-4 space-y-space-md"><div class="rounded-2xl bg-surface-container-lowest p-space-md shadow-md space-y-4"><div class="flex items-center justify-between"><div class="flex items-center gap-2"><div class="w-8 h-8 rounded-lg bg-secondary-fixed flex items-center justify-center text-secondary"><span class="material-symbols-outlined text-[20px]">person_add</span></div><div><h3 class="font-headline-sm text-headline-sm text-primary leading-tight">Yêu Cầu Xin Nhập Lớp</h3><div class="font-label-sm text-label-sm text-on-surface-variant"><span id="sidebarPendingText" class="">2</span> học viên chờ duyệt</div></div></div><span class="px-2 py-0.5 rounded-full bg-secondary text-on-secondary font-label-sm text-label-sm font-semibold" id="sidebarBadgeCount">2 mới</span></div><div class="space-y-2.5" id="sidebarPendingList">
+    <div class="p-3 rounded-xl bg-surface-container-low flex items-center justify-between gap-3">
+      <div class="flex items-center gap-2.5 min-w-0">
+        <div class="w-9 h-9 rounded-full bg-secondary-fixed text-secondary font-bold flex items-center justify-center text-sm shrink-0">
+          TM
+        </div>
+        <div class="min-w-0">
+          <div class="font-label-md text-label-md text-on-surface truncate font-medium">Trần Minh Quân</div>
+          <div class="font-label-sm text-label-sm text-on-surface-variant truncate">DTQ-2026 • 12 phút trước</div>
+        </div>
+      </div>
+      <span class="font-label-sm text-label-sm text-secondary bg-surface px-2 py-1 rounded shadow-inner shrink-0">Chờ duyệt</span>
+    </div>
+  
+    <div class="p-3 rounded-xl bg-surface-container-low flex items-center justify-between gap-3">
+      <div class="flex items-center gap-2.5 min-w-0">
+        <div class="w-9 h-9 rounded-full bg-secondary-fixed text-secondary font-bold flex items-center justify-center text-sm shrink-0">
+          LH
+        </div>
+        <div class="min-w-0">
+          <div class="font-label-md text-label-md text-on-surface truncate font-medium">Lê Hoàng Lan (Phụ Huynh)</div>
+          <div class="font-label-sm text-label-sm text-on-surface-variant truncate">DTQ-2026 • 45 phút trước</div>
+        </div>
+      </div>
+      <span class="font-label-sm text-label-sm text-secondary bg-surface px-2 py-1 rounded shadow-inner shrink-0">Chờ duyệt</span>
+    </div>
+  </div><div class="pt-1"><button class="w-full py-2.5 rounded-lg bg-primary-container text-on-primary hover:bg-primary font-label-md text-label-md transition-all text-center flex items-center justify-center gap-1.5 shadow-sm" onclick="openMembersModal('pending')" type="button"><span class="material-symbols-outlined text-[18px]">how_to_reg</span><span class="">Quản lý &amp; Duyệt yêu cầu</span></button></div></div><div class="rounded-2xl bg-surface-container-low p-space-md shadow-sm space-y-3 relative overflow-hidden"><div class="flex items-center gap-2 text-primary font-semibold"><span class="material-symbols-outlined text-[20px]">info</span><span class="font-headline-sm text-headline-sm">Lưu Ý Quản Trị</span></div><ul class="space-y-2 font-body-sm text-body-sm text-on-surface-variant leading-relaxed"><li class="flex items-start gap-2"><span class="material-symbols-outlined text-[16px] text-secondary shrink-0 mt-1">vpn_key</span><span class=""><strong>Mã lớp DTQ-2026:</strong> Cung cấp mã cho học viên tự ghi danh vào lớp.</span></li><li class="flex items-start gap-2"><span class="material-symbols-outlined text-[16px] text-secondary shrink-0 mt-1">how_to_reg</span><span class=""><strong>Cơ chế duyệt thủ công:</strong> Giáo viên kiểm tra thông tin và duyệt trực tiếp tại danh sách thành viên.</span></li><li class="flex items-start gap-2"><span class="material-symbols-outlined text-[16px] text-secondary shrink-0 mt-1">videocam_off</span><span class=""><strong>Tình trạng bài 12:</strong> Đang để chế độ bản nháp và chưa gắn link video bài giảng.</span></li></ul></div></div></div></div><div class="fixed inset-0 z-50 overflow-hidden pointer-events-none transition-opacity duration-300 opacity-0" id="classSettingsDrawer"><div class="absolute inset-0 bg-inverse-surface/40 backdrop-blur-sm transition-opacity" onclick="closeClassSettingsDrawer()"></div><div class="fixed inset-y-0 right-0 max-w-full flex pl-10"><div class="w-screen max-w-xl bg-surface-bright shadow-2xl p-6 overflow-y-auto flex flex-col justify-between pointer-events-auto transform translate-x-full transition-transform duration-300 ease-in-out" id="settingsDrawerContent"><div class="space-y-4"><div class="flex items-center justify-between pb-3 border-b-0"><button class="inline-flex items-center gap-1.5 text-primary hover:text-primary-container font-label-md text-label-md transition-colors" onclick="closeClassSettingsDrawer()" type="button"><span class="material-symbols-outlined text-[18px]">arrow_back</span><span class="">Quay lại danh sách lớp</span></button><button class="w-8 h-8 rounded-full bg-surface-container hover:bg-surface-container-high flex items-center justify-center text-on-surface-variant" onclick="closeClassSettingsDrawer()" type="button"><span class="material-symbols-outlined text-[20px]">close</span></button></div><div><h2 class="font-headline-md text-headline-md text-primary leading-tight">Cài Đặt &amp; Thiết Lập Lớp Học</h2><span class="font-label-sm text-label-sm text-on-surface-variant">Lớp hiện tại: DTQ-2026 (Đệ Tử Quy – Nhập Tắc Hiếu)</span></div><form class="space-y-4" id="classSettingsForm" onsubmit="event.preventDefault(); saveSettings();"><div class="space-y-1"><label class="font-label-md text-label-md text-on-surface font-semibold" for="settingNameInput">Tên Lớp Học <span class="text-error">*</span></label><input class="w-full px-3.5 py-2.5 rounded-lg bg-surface-container-low text-on-surface font-body-md text-body-md focus:bg-surface focus:outline-none focus:ring-2 focus:ring-primary shadow-inner" id="settingNameInput" required="" type="text" value="Đệ Tử Quy – Nhập Tắc Hiếu (Đạo Làm Con)"></div><div class="space-y-1"><label class="font-label-md text-label-md text-on-surface font-semibold" for="settingDescInput">Mô Tả Ngắn Lớp Học</label><textarea class="w-full px-3.5 py-2 rounded-lg bg-surface-container-low text-on-surface font-body-md text-body-md focus:bg-surface focus:outline-none focus:ring-2 focus:ring-primary shadow-inner leading-relaxed" id="settingDescInput" rows="2">Khóa học bồi dưỡng nền tảng nhân cách và đạo hiếu gia đình.</textarea></div><div class="grid grid-cols-2 gap-3"><div class="space-y-1"><label class="font-label-md text-label-md text-on-surface font-semibold" for="settingCapacityInput">Sĩ Số Tối Đa (1 - 500) <span class="text-error">*</span></label><input class="w-full px-3.5 py-2 rounded-lg bg-surface-container-low text-on-surface font-body-md text-body-md focus:bg-surface focus:outline-none focus:ring-2 focus:ring-primary shadow-inner" id="settingCapacityInput" max="500" min="1" required="" type="number" value="50"><p class="text-xs text-error font-medium hidden" id="capacityErrorMsg"></p></div><div class="space-y-1"><label class="font-label-md text-label-md text-on-surface font-semibold" for="settingScheduleInput">Lịch Học Cố Định</label><input class="w-full px-3.5 py-2 rounded-lg bg-surface-container-low text-on-surface font-body-md text-body-md focus:bg-surface focus:outline-none focus:ring-2 focus:ring-primary shadow-inner" id="settingScheduleInput" type="text" value="Tối Chủ nhật 19:30 hàng tuần"></div></div><div class="space-y-1"><label class="font-label-md text-label-md text-on-surface font-semibold">Ảnh Bìa Giảng Đường</label><div class="h-24 w-full rounded-xl bg-cover bg-center relative overflow-hidden flex items-end p-2.5 shadow-inner" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuBj3_Xq2ovuyLTETgfDzrtCg_SgbVEKibCp780eqcyt7WthWZQXtnnYFK_WFKU4m3uVUpl9kxKSv-xLmvLdaXOxHw7n75-i-9un4aTanBRJ7JCwC6Efm5fvroMMJzdDZHLerB1IBzg550-pb722OS-HK_LEGEiZ8F3XQeEA9-5UYLDKGbZmBaO1LHgq91L7RERzuPFNwK-7eLbmBptwCFR8JJmMMS03xrZtgcQ58ls')"><div class="absolute inset-0 bg-black/40"></div><div class="relative z-10 flex items-center justify-between w-full"><span class="text-on-primary font-label-sm text-label-sm">Ảnh bìa hiện tại</span><button class="px-2 py-0.5 rounded bg-surface/90 backdrop-blur text-primary font-label-sm text-label-sm font-semibold hover:bg-surface" onclick="showToast('Mô phỏng: Chọn hình ảnh mới')" type="button">Đổi Ảnh Bìa</button></div></div></div><div class="p-3.5 rounded-xl bg-surface-container space-y-3 shadow-inner"><div class="flex items-center justify-between"><div><label class="font-label-md text-label-md text-primary font-semibold">Mã Tham Gia (DTQ-2026)</label><p class="font-label-sm text-label-sm text-on-surface-variant">Học viên dùng mã này để gia nhập lớp học</p></div><button class="px-2.5 py-1 rounded bg-surface hover:bg-surface-container-high text-secondary font-label-sm text-label-sm shadow-sm flex items-center gap-1" onclick="changeClassCode()" type="button"><span class="material-symbols-outlined text-[15px]">refresh</span><span class="">Đổi Mã Mới</span></button></div><div class="flex items-center gap-2"><input class="flex-1 px-3.5 py-2 font-headline-sm text-headline-sm font-bold tracking-widest text-primary uppercase rounded-lg bg-surface focus:outline-none focus:ring-2 focus:ring-primary shadow-sm" id="settingCodeInput" readonly="" type="text" value="DTQ-2026"><button class="p-2 rounded-lg bg-secondary text-on-secondary hover:bg-primary transition-colors" onclick="copyCode(document.getElementById('settingCodeInput').value)" title="Sao chép mã" type="button"><span class="material-symbols-outlined text-[20px]">content_copy</span></button></div><div class="p-2.5 rounded-lg bg-surface-container-low text-xs text-on-surface-variant flex items-center gap-1.5"><span class="material-symbols-outlined text-[15px] text-error">warning</span><span class="">Lưu ý: Mã cũ sẽ hết hiệu lực ngay lập tức khi đổi mã mới!</span></div></div><div class="space-y-3 p-3.5 rounded-xl bg-surface-container-low shadow-sm"><div class="flex items-center justify-between"><span class="font-label-md text-label-md text-on-surface font-medium">Mở nhận thêm học viên mới</span><label class="relative inline-flex items-center cursor-pointer"><input checked="" class="sr-only peer" id="toggleOpenEnrollment" type="checkbox"><div class="w-9 h-5 bg-surface-container-highest peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-surface peer-checked:bg-tertiary after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-surface after:rounded-full after:h-4 after:w-4 after:transition-all"></div></label></div><div class="flex items-center justify-between"><div><span class="font-label-md text-label-md text-on-surface font-medium block">Tự động phê duyệt học viên khi nhập mã</span><span class="font-label-sm text-label-sm text-on-surface-variant">Mặc định tắt: Thầy cô duyệt thủ công</span></div><label class="relative inline-flex items-center cursor-pointer"><input class="sr-only peer" id="toggleAutoApprove" type="checkbox"><div class="w-9 h-5 bg-surface-container-highest peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-surface peer-checked:bg-tertiary after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-surface after:rounded-full after:h-4 after:w-4 after:transition-all"></div></label></div></div><div class="p-3.5 rounded-xl bg-surface-container-low space-y-2 border border-outline-variant/30"><div class="flex items-center gap-1.5 text-secondary font-semibold font-label-md text-label-md"><span class="material-symbols-outlined text-[18px]">archive</span><span class="">Lưu Trữ Giảng Đường (Khuyến nghị)</span></div><p class="font-body-sm text-body-sm text-on-surface-variant leading-relaxed">Lưu trữ lớp học khi kết thúc khóa. Toàn bộ thông tin điểm danh và học tập của 42 học viên được bảo lưu an toàn.</p><button class="px-3.5 py-1.5 rounded-lg bg-surface text-secondary hover:bg-surface-container font-label-md text-label-md transition-colors shadow-sm inline-flex items-center gap-1.5" onclick="archiveCurrentClass()" type="button"><span class="material-symbols-outlined text-[16px]">inventory_2</span><span class="">Lưu Trữ Lớp Học Này</span></button></div><div class="p-3.5 rounded-xl bg-error-container/40 space-y-2 border border-error/20"><div class="flex items-center gap-1.5 text-error font-semibold font-label-md text-label-md"><span class="material-symbols-outlined text-[18px]">report</span><span class="">Khu Vực Nguy Hiểm</span></div><p class="font-body-sm text-body-sm text-on-surface-variant leading-relaxed">Xóa lớp học sẽ hủy liên kết giảng đường. Hành động này không thể hoàn tác.</p><button class="px-3.5 py-1.5 rounded-lg bg-error-container text-error hover:bg-error hover:text-on-error font-label-md text-label-md transition-colors shadow-sm inline-flex items-center gap-1" onclick="openDeleteConfirmModal()" type="button"><span class="material-symbols-outlined text-[16px]">delete</span><span class="">Xóa Lớp Học</span></button></div></form></div><div class="pt-4 mt-4 border-t border-outline-variant/20 flex items-center justify-between gap-3"><button class="px-4 py-2 rounded-lg bg-surface-container hover:bg-surface-container-high text-on-surface font-label-md text-label-md transition-colors" onclick="closeClassSettingsDrawer()" type="button">Hủy Bỏ</button><button class="px-5 py-2 rounded-lg bg-primary-container text-on-primary hover:bg-primary font-label-md text-label-md shadow-md hover:shadow-lg transition-all flex items-center gap-1.5" onclick="saveSettings()" type="button"><span class="material-symbols-outlined text-[18px]">save</span><span class="">Lưu Thay Đổi</span></button></div></div></div></div><div class="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none opacity-0 transition-opacity duration-200" id="createModal"><div class="absolute inset-0 bg-inverse-surface/50 backdrop-blur-xs" onclick="closeCreateClassModal()"></div><div class="relative z-10 max-w-lg w-full rounded-2xl bg-surface-bright p-space-md shadow-2xl space-y-4 pointer-events-auto"><div class="flex items-center justify-between"><div class="flex items-center gap-2"><div class="w-9 h-9 rounded-lg bg-primary-container text-on-primary flex items-center justify-center"><span class="material-symbols-outlined text-[20px]">add_circle</span></div><div><h3 class="font-headline-sm text-headline-sm text-primary">Tạo Lớp Học Mới</h3><span class="font-label-sm text-label-sm text-on-surface-variant">Khởi tạo giảng đường Đệ Tử Quy</span></div></div><button class="w-8 h-8 rounded-full bg-surface-container flex items-center justify-center text-on-surface-variant hover:bg-surface-container-high" onclick="closeCreateClassModal()" type="button"><span class="material-symbols-outlined text-[18px]">close</span></button></div><form class="space-y-3" onsubmit="event.preventDefault(); submitCreateClass();"><div class="space-y-1"><label class="font-label-md text-label-md text-on-surface font-semibold" for="newClassName">Tên Lớp Học <span class="text-error">*</span></label><input class="w-full px-3 py-2 rounded-lg bg-surface-container-low text-on-surface font-body-md text-body-md focus:bg-surface focus:outline-none focus:ring-2 focus:ring-primary shadow-inner" id="newClassName" placeholder="Ví dụ: Đệ Tử Quy – Xuất Tắc Đễ..." required="" type="text"></div><div class="space-y-1"><label class="font-label-md text-label-md text-on-surface font-semibold" for="newClassDesc">Mô Tả Lớp</label><textarea class="w-full px-3 py-1.5 rounded-lg bg-surface-container-low text-on-surface font-body-md text-body-md focus:bg-surface focus:outline-none focus:ring-2 focus:ring-primary shadow-inner" id="newClassDesc" placeholder="Mô tả mục tiêu khóa học..." rows="2"></textarea></div><div class="grid grid-cols-2 gap-3"><div class="space-y-1"><label class="font-label-md text-label-md text-on-surface font-semibold" for="newClassCapacity">Giới Hạn Sĩ Số (1 - 500)</label><input class="w-full px-3 py-1.5 rounded-lg bg-surface-container-low text-on-surface font-body-md text-body-md focus:bg-surface focus:outline-none focus:ring-2 focus:ring-primary shadow-inner" id="newClassCapacity" max="500" min="1" required="" type="number" value="50"></div><div class="space-y-1"><label class="font-label-md text-label-md text-on-surface font-semibold" for="newClassSchedule">Thời Gian / Lịch Học</label><input class="w-full px-3 py-1.5 rounded-lg bg-surface-container-low text-on-surface font-body-md text-body-md focus:bg-surface focus:outline-none focus:ring-2 focus:ring-primary shadow-inner" id="newClassSchedule" placeholder="Tối CN 19:30 hàng tuần" type="text" value="Tối Chủ nhật 19:30 hàng tuần"></div></div><div class="space-y-1"><label class="font-label-md text-label-md text-on-surface font-semibold" for="newClassApproval">Phương Thức Xét Duyệt</label><select class="w-full px-3 py-2 rounded-lg bg-surface-container-low text-on-surface font-body-md text-body-md focus:bg-surface focus:outline-none focus:ring-2 focus:ring-primary shadow-inner" id="newClassApproval"><option selected="" value="manual">Giáo viên duyệt thủ công từng học viên (Khuyến nghị)</option><option value="auto">Tự động phê duyệt khi nhập đúng mã</option></select></div><div class="pt-2 flex items-center justify-end gap-2"><button class="px-4 py-2 rounded-lg bg-surface-container text-on-surface font-label-md text-label-md hover:bg-surface-container-high transition-colors" onclick="closeCreateClassModal()" type="button">Hủy Bỏ</button><button class="px-5 py-2 rounded-lg bg-primary text-on-primary font-label-md text-label-md hover:bg-primary-container shadow transition-all" type="submit">Tạo Lớp Học</button></div></form></div></div><div class="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none opacity-0 transition-opacity duration-200" id="deleteModal"><div class="absolute inset-0 bg-inverse-surface/50 backdrop-blur-xs" onclick="closeDeleteConfirmModal()"></div><div class="relative z-10 max-w-md w-full rounded-2xl bg-surface-bright p-space-md shadow-2xl space-y-4 pointer-events-auto"><div class="flex items-start gap-3"><div class="w-11 h-11 rounded-full bg-error-container text-error flex items-center justify-center shrink-0"><span class="material-symbols-outlined text-[24px]">warning</span></div><div class="space-y-1"><h3 class="font-headline-sm text-headline-sm text-primary">Cảnh Báo: Xóa Lớp Học</h3><p class="font-body-sm text-body-sm text-on-surface-variant leading-relaxed">Hành động này sẽ xóa dữ liệu lớp và bài nộp của học viên. Để xác nhận, vui lòng nhập chính xác mã lớp <span class="font-bold text-primary">DTQ-2026</span> bên dưới:</p></div></div><div class="space-y-1"><input class="w-full px-3 py-2 rounded-lg bg-surface-container-low text-on-surface font-headline-sm text-headline-sm tracking-widest text-center uppercase focus:bg-surface focus:outline-none focus:ring-2 focus:ring-error shadow-inner" id="confirmDeleteCodeInput" placeholder="Nhập DTQ-2026" type="text"></div><div class="p-2.5 rounded-lg bg-surface-container text-on-surface-variant font-label-sm text-label-sm flex items-center gap-2"><span class="material-symbols-outlined text-[16px] text-secondary">info</span><span class="">Lưu ý mô phỏng: Đây là nguyên mẫu client-side, hệ thống sẽ bảo toàn dữ liệu.</span></div><div class="flex items-center justify-end gap-2 pt-2"><button class="px-3.5 py-2 rounded-lg bg-surface-container-high text-on-surface font-label-md text-label-md hover:bg-surface-variant transition-colors" onclick="closeDeleteConfirmModal()" type="button">Hủy Bỏ</button><button class="px-4 py-2 rounded-lg bg-error text-on-error font-label-md text-label-md hover:opacity-90 transition-all shadow-sm" onclick="handleDeleteConfirm()" type="button">Xác Nhận Xóa</button></div></div></div><div class="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 transition-opacity duration-200 opacity-0 pointer-events-none" id="membersModal"><div class="absolute inset-0 bg-inverse-surface/50 backdrop-blur-xs" onclick="closeMembersModal()"></div><div class="relative z-10 max-w-4xl w-full max-h-[92vh] flex flex-col rounded-2xl bg-surface-bright shadow-2xl overflow-hidden pointer-events-auto border border-outline-variant/30"><div class="p-5 border-b border-outline-variant/30 flex items-center justify-between gap-3 bg-surface"><div class="flex items-center gap-3"><div class="w-10 h-10 rounded-xl bg-primary text-on-primary flex items-center justify-center shadow-sm shrink-0"><span class="material-symbols-outlined text-[24px]">groups</span></div><div><div class="flex items-center gap-2"><h2 class="font-headline-md text-headline-md text-primary leading-tight">Quản Lý Thành Viên · DTQ-2026</h2><span class="px-2 py-0.5 rounded bg-tertiary-fixed text-on-tertiary-fixed font-label-sm text-label-sm font-semibold">Đang hoạt động</span></div><div class="font-body-sm text-body-sm text-on-surface-variant">Lớp: Đệ Tử Quy – Nhập Tắc Hiếu • Giáo viên phụ trách: Giáo viên Tuệ Tâm</div></div></div><button class="w-9 h-9 rounded-full bg-surface-container flex items-center justify-center text-on-surface-variant hover:bg-surface-container-high transition-colors" onclick="closeMembersModal()" title="Đóng modal" type="button"><span class="material-symbols-outlined text-[20px]">close</span></button></div><div class="flex border-b border-outline-variant/30 bg-surface-container-low px-5"><button class="py-3 px-4 font-label-md text-label-md border-b-2 font-semibold transition-colors flex items-center gap-2 border-transparent text-on-surface-variant" id="tabBtnOfficial" onclick="switchMemberTab('official')" type="button"><span class="">Chính Thức</span><span class="px-2 py-0.5 rounded-full bg-primary-fixed text-primary text-[11px] font-bold" id="badgeModalOfficial">42</span></button><button class="py-3 px-4 font-label-md text-label-md border-b-2 font-medium transition-colors flex items-center gap-2 hover:text-on-surface border-primary text-primary" id="tabBtnPending" onclick="switchMemberTab('pending')" type="button"><span class="">Chờ Duyệt</span><span class="px-2 py-0.5 rounded-full bg-secondary-fixed text-secondary text-[11px] font-bold" id="badgeModalPending">2</span></button></div><div class="flex-1 overflow-y-auto p-5 space-y-4"><div class="space-y-4 hidden" id="viewOfficial"><div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3"><div class="relative flex-1"><span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-[18px]">search</span><input class="w-full pl-9 pr-4 py-2 rounded-lg bg-surface border border-outline-variant/40 text-on-surface font-body-md text-body-md placeholder:text-outline focus:outline-none focus:ring-2 focus:ring-primary shadow-inner" id="officialSearchInput" oninput="handleSearchOfficial()" placeholder="Tìm kiếm theo họ tên học viên (có dấu hoặc không dấu)..." type="text"></div><div class="text-label-sm text-label-sm text-on-surface-variant flex items-center gap-1.5 self-end sm:self-center"><span class="material-symbols-outlined text-[16px] text-tertiary">check_circle</span><span class="">Tổng sĩ số: <strong class="text-on-surface" id="modalOfficialTotalText">42</strong> / 50</span></div></div><div class="rounded-xl border border-outline-variant/40 overflow-hidden bg-surface shadow-sm"><div class="overflow-x-auto"><table class="w-full text-left border-collapse"><thead class="bg-surface-container-low border-b border-outline-variant/30 text-on-surface-variant font-label-sm text-label-sm"><tr><th class="py-2.5 px-4 w-16 text-center">STT</th><th class="py-2.5 px-4">Họ Và Tên Học Viên</th><th class="py-2.5 px-4">Ngày Tham Gia</th><th class="py-2.5 px-4 text-center">Trạng Thái</th></tr></thead><tbody class="divide-y divide-outline-variant/20 font-body-sm text-body-sm" id="officialTableBody">
+      <tr class="hover:bg-surface-container-low/50 transition-colors">
+        <td class="py-3 px-4 text-center font-label-sm text-outline">1</td>
+        <td class="py-3 px-4 font-label-md text-label-md text-on-surface font-medium">Nguyễn Văn An</td>
+        <td class="py-3 px-4 font-body-sm text-on-surface-variant">15/09/2026</td>
+        <td class="py-3 px-4 text-center">
+          <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-tertiary-fixed text-on-tertiary-fixed font-label-sm text-[11px] font-semibold">
+            <span class="w-1.5 h-1.5 rounded-full bg-tertiary"></span>
+            Chính thức
+          </span>
+        </td>
+      </tr>
+    
+      <tr class="hover:bg-surface-container-low/50 transition-colors">
+        <td class="py-3 px-4 text-center font-label-sm text-outline">2</td>
+        <td class="py-3 px-4 font-label-md text-label-md text-on-surface font-medium">Trần Thị Mai</td>
+        <td class="py-3 px-4 font-body-sm text-on-surface-variant">15/09/2026</td>
+        <td class="py-3 px-4 text-center">
+          <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-tertiary-fixed text-on-tertiary-fixed font-label-sm text-[11px] font-semibold">
+            <span class="w-1.5 h-1.5 rounded-full bg-tertiary"></span>
+            Chính thức
+          </span>
+        </td>
+      </tr>
+    
+      <tr class="hover:bg-surface-container-low/50 transition-colors">
+        <td class="py-3 px-4 text-center font-label-sm text-outline">3</td>
+        <td class="py-3 px-4 font-label-md text-label-md text-on-surface font-medium">Lê Hoàng Long</td>
+        <td class="py-3 px-4 font-body-sm text-on-surface-variant">15/09/2026</td>
+        <td class="py-3 px-4 text-center">
+          <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-tertiary-fixed text-on-tertiary-fixed font-label-sm text-[11px] font-semibold">
+            <span class="w-1.5 h-1.5 rounded-full bg-tertiary"></span>
+            Chính thức
+          </span>
+        </td>
+      </tr>
+    
+      <tr class="hover:bg-surface-container-low/50 transition-colors">
+        <td class="py-3 px-4 text-center font-label-sm text-outline">4</td>
+        <td class="py-3 px-4 font-label-md text-label-md text-on-surface font-medium">Phạm Bảo Ngọc</td>
+        <td class="py-3 px-4 font-body-sm text-on-surface-variant">16/09/2026</td>
+        <td class="py-3 px-4 text-center">
+          <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-tertiary-fixed text-on-tertiary-fixed font-label-sm text-[11px] font-semibold">
+            <span class="w-1.5 h-1.5 rounded-full bg-tertiary"></span>
+            Chính thức
+          </span>
+        </td>
+      </tr>
+    
+      <tr class="hover:bg-surface-container-low/50 transition-colors">
+        <td class="py-3 px-4 text-center font-label-sm text-outline">5</td>
+        <td class="py-3 px-4 font-label-md text-label-md text-on-surface font-medium">Võ Minh Khang</td>
+        <td class="py-3 px-4 font-body-sm text-on-surface-variant">16/09/2026</td>
+        <td class="py-3 px-4 text-center">
+          <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-tertiary-fixed text-on-tertiary-fixed font-label-sm text-[11px] font-semibold">
+            <span class="w-1.5 h-1.5 rounded-full bg-tertiary"></span>
+            Chính thức
+          </span>
+        </td>
+      </tr>
+    
+      <tr class="hover:bg-surface-container-low/50 transition-colors">
+        <td class="py-3 px-4 text-center font-label-sm text-outline">6</td>
+        <td class="py-3 px-4 font-label-md text-label-md text-on-surface font-medium">Vũ Thanh Trúc</td>
+        <td class="py-3 px-4 font-body-sm text-on-surface-variant">16/09/2026</td>
+        <td class="py-3 px-4 text-center">
+          <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-tertiary-fixed text-on-tertiary-fixed font-label-sm text-[11px] font-semibold">
+            <span class="w-1.5 h-1.5 rounded-full bg-tertiary"></span>
+            Chính thức
+          </span>
+        </td>
+      </tr>
+    
+      <tr class="hover:bg-surface-container-low/50 transition-colors">
+        <td class="py-3 px-4 text-center font-label-sm text-outline">7</td>
+        <td class="py-3 px-4 font-label-md text-label-md text-on-surface font-medium">Đặng Thùy Dương</td>
+        <td class="py-3 px-4 font-body-sm text-on-surface-variant">17/09/2026</td>
+        <td class="py-3 px-4 text-center">
+          <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-tertiary-fixed text-on-tertiary-fixed font-label-sm text-[11px] font-semibold">
+            <span class="w-1.5 h-1.5 rounded-full bg-tertiary"></span>
+            Chính thức
+          </span>
+        </td>
+      </tr>
+    
+      <tr class="hover:bg-surface-container-low/50 transition-colors">
+        <td class="py-3 px-4 text-center font-label-sm text-outline">8</td>
+        <td class="py-3 px-4 font-label-md text-label-md text-on-surface font-medium">Hoàng Đức Trọng</td>
+        <td class="py-3 px-4 font-body-sm text-on-surface-variant">17/09/2026</td>
+        <td class="py-3 px-4 text-center">
+          <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-tertiary-fixed text-on-tertiary-fixed font-label-sm text-[11px] font-semibold">
+            <span class="w-1.5 h-1.5 rounded-full bg-tertiary"></span>
+            Chính thức
+          </span>
+        </td>
+      </tr>
+    
+      <tr class="hover:bg-surface-container-low/50 transition-colors">
+        <td class="py-3 px-4 text-center font-label-sm text-outline">9</td>
+        <td class="py-3 px-4 font-label-md text-label-md text-on-surface font-medium">Bùi Quang Huy</td>
+        <td class="py-3 px-4 font-body-sm text-on-surface-variant">17/09/2026</td>
+        <td class="py-3 px-4 text-center">
+          <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-tertiary-fixed text-on-tertiary-fixed font-label-sm text-[11px] font-semibold">
+            <span class="w-1.5 h-1.5 rounded-full bg-tertiary"></span>
+            Chính thức
+          </span>
+        </td>
+      </tr>
+    
+      <tr class="hover:bg-surface-container-low/50 transition-colors">
+        <td class="py-3 px-4 text-center font-label-sm text-outline">10</td>
+        <td class="py-3 px-4 font-label-md text-label-md text-on-surface font-medium">Trịnh Ánh Nguyệt</td>
+        <td class="py-3 px-4 font-body-sm text-on-surface-variant">18/09/2026</td>
+        <td class="py-3 px-4 text-center">
+          <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-tertiary-fixed text-on-tertiary-fixed font-label-sm text-[11px] font-semibold">
+            <span class="w-1.5 h-1.5 rounded-full bg-tertiary"></span>
+            Chính thức
+          </span>
+        </td>
+      </tr>
+    </tbody></table></div></div><div class="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2 font-label-sm text-label-sm text-on-surface-variant"><div id="officialPaginationRange" class="">Hiển thị 1-10 / 42 học viên</div><div class="flex items-center gap-2"><button class="px-3 py-1 rounded bg-surface border border-outline-variant/40 text-on-surface hover:bg-surface-container disabled:opacity-40 disabled:cursor-not-allowed transition-colors" id="btnPrevPage" onclick="changePage(-1)" type="button" disabled="">Trước</button><span class="font-semibold text-on-surface px-2" id="officialPageIndicator">Trang 1 / 5</span><button class="px-3 py-1 rounded bg-surface border border-outline-variant/40 text-on-surface hover:bg-surface-container disabled:opacity-40 disabled:cursor-not-allowed transition-colors" id="btnNextPage" onclick="changePage(1)" type="button">Sau</button></div></div></div><div class="space-y-4" id="viewPending"><div class="p-3 rounded-xl bg-surface-container-low border border-outline-variant/30 text-body-sm text-on-surface-variant flex items-start gap-2.5"><span class="material-symbols-outlined text-[18px] text-secondary shrink-0 mt-0.5">info</span><p class="">Học viên tham gia bằng mã lớp <strong class="text-primary font-semibold">DTQ-2026</strong>. Giáo viên duyệt để chính thức bổ sung vào danh sách lớp.</p></div><div class="rounded-xl border border-outline-variant/40 overflow-hidden bg-surface shadow-sm"><div class="overflow-x-auto"><table class="w-full text-left border-collapse"><thead class="bg-surface-container-low border-b border-outline-variant/30 text-on-surface-variant font-label-sm text-label-sm"><tr><th class="py-2.5 px-4 w-16 text-center">STT</th><th class="py-2.5 px-4">Họ Và Tên Học Viên</th><th class="py-2.5 px-4">Thời Gian Yêu Cầu</th><th class="py-2.5 px-4">Trạng Thái</th><th class="py-2.5 px-4 text-center">Hành Động</th></tr></thead><tbody class="divide-y divide-outline-variant/20 font-body-sm text-body-sm" id="pendingTableBody">
+    <tr class="hover:bg-surface-container-low/50 transition-colors">
+      <td class="py-3 px-4 text-center font-label-sm text-outline">1</td>
+      <td class="py-3 px-4 font-label-md text-label-md text-on-surface font-semibold">Trần Minh Quân</td>
+      <td class="py-3 px-4 font-body-sm text-on-surface-variant">12 phút trước</td>
+      <td class="py-3 px-4">
+        <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-secondary-fixed text-on-secondary-fixed font-label-sm text-[11px] font-semibold">
+          Chờ phê duyệt
+        </span>
+      </td>
+      <td class="py-3 px-4 text-center">
+        <div class="inline-flex items-center gap-2">
+          <button type="button" onclick="approveMember('req-1')" class="px-3 py-1 rounded-lg bg-primary text-on-primary hover:bg-primary-container font-label-sm text-label-sm shadow-sm transition-all flex items-center gap-1">
+            <span class="material-symbols-outlined text-[15px]">check</span>
+            Duyệt
+          </button>
+          <button type="button" onclick="rejectMember('req-1')" class="px-2.5 py-1 rounded-lg bg-surface border border-outline-variant/50 text-secondary hover:bg-surface-container font-label-sm text-label-sm transition-colors flex items-center gap-1">
+            <span class="material-symbols-outlined text-[15px]">close</span>
+            Từ chối
+          </button>
+        </div>
+      </td>
+    </tr>
+  
+    <tr class="hover:bg-surface-container-low/50 transition-colors">
+      <td class="py-3 px-4 text-center font-label-sm text-outline">2</td>
+      <td class="py-3 px-4 font-label-md text-label-md text-on-surface font-semibold">Lê Hoàng Lan (Phụ Huynh)</td>
+      <td class="py-3 px-4 font-body-sm text-on-surface-variant">45 phút trước</td>
+      <td class="py-3 px-4">
+        <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-secondary-fixed text-on-secondary-fixed font-label-sm text-[11px] font-semibold">
+          Chờ phê duyệt
+        </span>
+      </td>
+      <td class="py-3 px-4 text-center">
+        <div class="inline-flex items-center gap-2">
+          <button type="button" onclick="approveMember('req-2')" class="px-3 py-1 rounded-lg bg-primary text-on-primary hover:bg-primary-container font-label-sm text-label-sm shadow-sm transition-all flex items-center gap-1">
+            <span class="material-symbols-outlined text-[15px]">check</span>
+            Duyệt
+          </button>
+          <button type="button" onclick="rejectMember('req-2')" class="px-2.5 py-1 rounded-lg bg-surface border border-outline-variant/50 text-secondary hover:bg-surface-container font-label-sm text-label-sm transition-colors flex items-center gap-1">
+            <span class="material-symbols-outlined text-[15px]">close</span>
+            Từ chối
+          </button>
+        </div>
+      </td>
+    </tr>
+  </tbody></table></div></div></div></div><div class="p-4 bg-surface-container-low border-t border-outline-variant/30 flex items-center justify-between"><div class="text-body-sm text-on-surface-variant italic">Nền tảng Quản trị Giảng đường Đệ Tử Quy</div><button class="px-4 py-2 rounded-lg bg-surface border border-outline-variant/40 text-on-surface font-label-md text-label-md hover:bg-surface-container transition-colors" onclick="closeMembersModal()" type="button">Đóng</button></div></div></div></div></main><footer class="w-full bg-surface-container-low py-space-xl mt-space-xl"><div class="w-full px-4 lg:px-margin-desktop mx-auto flex flex-col md:flex-row items-center justify-between gap-space-md text-on-surface-variant"><div class="flex items-center gap-3"><div class="w-8 h-8 rounded-lg bg-primary-container text-on-primary flex items-center justify-center"><span class="material-symbols-outlined text-[18px]">menu_book</span></div><div><div class="font-headline-sm text-headline-sm text-primary">Đệ Tử Quy</div><div class="font-body-sm text-body-sm text-on-surface-variant">Nền tảng Giáo dục Đạo đức &amp; Nhân cách Truyền thống</div></div></div><div class="flex items-center gap-space-lg font-label-md text-label-md"><a class="hover:text-primary transition-colors" href="#" onclick="showToast('Mô phỏng: Mở Nội quy giảng đường'); return false;">Nội Quy Giảng Đường</a><a class="hover:text-primary transition-colors" href="#" onclick="showToast('Mô phỏng: Mở Tài liệu Đệ Tử Quy'); return false;">Tài Liệu Đệ Tử Quy</a><a class="hover:text-primary transition-colors" href="#" onclick="showToast('Mô phỏng: Hỗ trợ học tập'); return false;">Hỗ Trợ Học Tập</a></div><div class="font-body-sm text-body-sm text-on-surface-variant text-center md:text-right">© 2026 detuquy.com. Nền tảng Giáo dục Đạo đức &amp; Nhân cách Truyền thống.</div></div></footer><script>
+let officialMembers = [
+  { id: 1, name: "Nguyễn Văn An", date: "15/09/2026", status: "Chính thức" },
+  { id: 2, name: "Trần Thị Mai", date: "15/09/2026", status: "Chính thức" },
+  { id: 3, name: "Lê Hoàng Long", date: "15/09/2026", status: "Chính thức" },
+  { id: 4, name: "Phạm Bảo Ngọc", date: "16/09/2026", status: "Chính thức" },
+  { id: 5, name: "Võ Minh Khang", date: "16/09/2026", status: "Chính thức" },
+  { id: 6, name: "Vũ Thanh Trúc", date: "16/09/2026", status: "Chính thức" },
+  { id: 7, name: "Đặng Thùy Dương", date: "17/09/2026", status: "Chính thức" },
+  { id: 8, name: "Hoàng Đức Trọng", date: "17/09/2026", status: "Chính thức" },
+  { id: 9, name: "Bùi Quang Huy", date: "17/09/2026", status: "Chính thức" },
+  { id: 10, name: "Trịnh Ánh Nguyệt", date: "18/09/2026", status: "Chính thức" },
+  { id: 11, name: "Đỗ Minh Tú", date: "18/09/2026", status: "Chính thức" },
+  { id: 12, name: "Ngô Phương Thảo", date: "18/09/2026", status: "Chính thức" },
+  { id: 13, name: "Dương Gia Huy", date: "19/09/2026", status: "Chính thức" },
+  { id: 14, name: "Bùi Thúy Kiều", date: "19/09/2026", status: "Chính thức" },
+  { id: 15, name: "Phan Văn Khang", date: "19/09/2026", status: "Chính thức" },
+  { id: 16, name: "Tạ Minh Châu", date: "20/09/2026", status: "Chính thức" },
+  { id: 17, name: "Lâm Trường Sơn", date: "20/09/2026", status: "Chính thức" },
+  { id: 18, name: "Đinh Thục Quyên", date: "20/09/2026", status: "Chính thức" },
+  { id: 19, name: "Trương Vĩnh Hưng", date: "21/09/2026", status: "Chính thức" },
+  { id: 20, name: "Mai Mỹ Uyên", date: "21/09/2026", status: "Chính thức" },
+  { id: 21, name: "Đoàn Kiến Quốc", date: "21/09/2026", status: "Chính thức" },
+  { id: 22, name: "Lương Bảo Trâm", date: "22/09/2026", status: "Chính thức" },
+  { id: 23, name: "Lý Gia Hân", date: "22/09/2026", status: "Chính thức" },
+  { id: 24, name: "Chu Đình Trọng", date: "22/09/2026", status: "Chính thức" },
+  { id: 25, name: "Hà Diệu Linh", date: "23/09/2026", status: "Chính thức" },
+  { id: 26, name: "Cao Nhật Minh", date: "23/09/2026", status: "Chính thức" },
+  { id: 27, name: "Phùng Khánh An", date: "23/09/2026", status: "Chính thức" },
+  { id: 28, name: "Lưu Quốc Toàn", date: "24/09/2026", status: "Chính thức" },
+  { id: 29, name: "Vương Bích Hạnh", date: "24/09/2026", status: "Chính thức" },
+  { id: 30, name: "Trương Đình Nam", date: "24/09/2026", status: "Chính thức" },
+  { id: 31, name: "Nghiêm Xuân Phúc", date: "25/09/2026", status: "Chính thức" },
+  { id: 32, name: "Dương Tuệ Nghi", date: "25/09/2026", status: "Chính thức" },
+  { id: 33, name: "Tô Thanh Sơn", date: "25/09/2026", status: "Chính thức" },
+  { id: 34, name: "Quách Tú Oanh", date: "26/09/2026", status: "Chính thức" },
+  { id: 35, name: "Liễu Ngọc Mai", date: "26/09/2026", status: "Chính thức" },
+  { id: 36, name: "Châu Đức Thành", date: "26/09/2026", status: "Chính thức" },
+  { id: 37, name: "Lục Gia Bảo", date: "27/09/2026", status: "Chính thức" },
+  { id: 38, name: "Mạc Đăng Khoa", date: "27/09/2026", status: "Chính thức" },
+  { id: 39, name: "Đào Phương Vy", date: "27/09/2026", status: "Chính thức" },
+  { id: 40, name: "Khổng Vĩnh Khang", date: "28/09/2026", status: "Chính thức" },
+  { id: 41, name: "Từ Cẩm Nhung", date: "28/09/2026", status: "Chính thức" },
+  { id: 42, name: "Diệp Thiên Kim", date: "28/09/2026", status: "Chính thức" }
+];
+
+let pendingMembers = [
+  { id: "req-1", name: "Trần Minh Quân", time: "12 phút trước", status: "Chờ duyệt", initial: "TM" },
+  { id: "req-2", name: "Lê Hoàng Lan (Phụ Huynh)", time: "45 phút trước", status: "Chờ duyệt", initial: "LH" }
+];
+
+let currentPage = 1;
+const pageSize = 10;
+let filteredMembers = [...officialMembers];
+let toastTimer = null;
+
+function normalizeVietnamese(str) {
+  if (!str) return '';
+  return str
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/đ/g, 'd')
+    .replace(/Đ/g, 'D')
+    .trim();
+}
+
+function showToast(msg, icon = 'check_circle') {
+  try {
+    const toast = document.getElementById('toastNotification');
+    const toastMsg = document.getElementById('toastMessage');
+    const toastIco = document.getElementById('toastIcon');
+    if (!toast || !toastMsg) return;
+    toastMsg.textContent = msg;
+    if (toastIco) toastIco.textContent = icon;
+    toast.classList.remove('translate-y-[-150%]', 'opacity-0', 'pointer-events-none');
+    toast.classList.add('translate-y-0', 'opacity-100');
+    if (toastTimer) clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => {
+      toast.classList.remove('translate-y-0', 'opacity-100');
+      toast.classList.add('translate-y-[-150%]', 'opacity-0', 'pointer-events-none');
+    }, 3500);
+  } catch (e) {
+    console.error(e);
+  }
+}
+
+function updateAllCounters() {
+  try {
+    const offCount = officialMembers.length;
+    const pendCount = pendingMembers.length;
+
+    const statOff = document.getElementById('statOfficialCount');
+    if (statOff) statOff.textContent = offCount;
+    const statPend = document.getElementById('statPendingCount');
+    if (statPend) statPend.textContent = pendCount;
+
+    const cardOff = document.getElementById('cardOfficialCount');
+    if (cardOff) cardOff.textContent = offCount;
+    const btnOff = document.getElementById('btnOfficialCount');
+    if (btnOff) btnOff.textContent = offCount;
+
+    const cardPendingBadge = document.getElementById('cardPendingBadge');
+    if (cardPendingBadge) {
+      if (pendCount > 0) {
+        cardPendingBadge.textContent = `+${pendCount} chờ duyệt`;
+        cardPendingBadge.classList.remove('hidden');
+      } else {
+        cardPendingBadge.classList.add('hidden');
+      }
+    }
+
+    const sbPendText = document.getElementById('sidebarPendingText');
+    if (sbPendText) sbPendText.textContent = pendCount;
+    const sbBadge = document.getElementById('sidebarBadgeCount');
+    if (sbBadge) {
+      if (pendCount > 0) {
+        sbBadge.textContent = `${pendCount} mới`;
+        sbBadge.classList.remove('hidden');
+      } else {
+        sbBadge.textContent = '0 mới';
+        sbBadge.classList.add('opacity-50');
+      }
+    }
+
+    const badgeModOff = document.getElementById('badgeModalOfficial');
+    if (badgeModOff) badgeModOff.textContent = offCount;
+    const badgeModPend = document.getElementById('badgeModalPending');
+    if (badgeModPend) badgeModPend.textContent = pendCount;
+    const modalOffTotal = document.getElementById('modalOfficialTotalText');
+    if (modalOffTotal) modalOffTotal.textContent = offCount;
+
+    const capacity = 50;
+    const pct = Math.min(100, Math.round((offCount / capacity) * 100));
+    const cardCapBar = document.getElementById('cardCapacityBar');
+    if (cardCapBar) cardCapBar.style.width = pct + '%';
+    const cardCapPct = document.getElementById('cardCapacityPercent');
+    if (cardCapPct) cardCapPct.textContent = `Tiến độ ${pct}%`;
+
+    renderSidebarPending();
+  } catch (e) {
+    console.error(e);
+  }
+}
+
+function renderSidebarPending() {
+  const list = document.getElementById('sidebarPendingList');
+  if (!list) return;
+  if (pendingMembers.length === 0) {
+    list.innerHTML = `
+      <div class="p-3.5 rounded-xl bg-surface-container-low text-center text-on-surface-variant font-body-sm italic">
+        Không còn yêu cầu nào chờ duyệt.
+      </div>
+    `;
+    return;
+  }
+  list.innerHTML = pendingMembers.map(item => `
+    <div class="p-3 rounded-xl bg-surface-container-low flex items-center justify-between gap-3">
+      <div class="flex items-center gap-2.5 min-w-0">
+        <div class="w-9 h-9 rounded-full bg-secondary-fixed text-secondary font-bold flex items-center justify-center text-sm shrink-0">
+          ${item.initial || 'HV'}
+        </div>
+        <div class="min-w-0">
+          <div class="font-label-md text-label-md text-on-surface truncate font-medium">${item.name}</div>
+          <div class="font-label-sm text-label-sm text-on-surface-variant truncate">DTQ-2026 • ${item.time}</div>
+        </div>
+      </div>
+      <span class="font-label-sm text-label-sm text-secondary bg-surface px-2 py-1 rounded shadow-inner shrink-0">Chờ duyệt</span>
+    </div>
+  `).join('');
+}
+
+function renderOfficialTable() {
+  const tbody = document.getElementById('officialTableBody');
+  if (!tbody) return;
+
+  const total = filteredMembers.length;
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  if (currentPage > totalPages) currentPage = totalPages;
+  if (currentPage < 1) currentPage = 1;
+
+  const startIdx = (currentPage - 1) * pageSize;
+  const endIdx = Math.min(startIdx + pageSize, total);
+  const pageItems = filteredMembers.slice(startIdx, endIdx);
+
+  if (pageItems.length === 0) {
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="4" class="py-8 text-center text-on-surface-variant italic">
+          Không tìm thấy học viên phù hợp với từ khóa tìm kiếm.
+        </td>
+      </tr>
+    `;
+  } else {
+    tbody.innerHTML = pageItems.map((m, idx) => `
+      <tr class="hover:bg-surface-container-low/50 transition-colors">
+        <td class="py-3 px-4 text-center font-label-sm text-outline">${startIdx + idx + 1}</td>
+        <td class="py-3 px-4 font-label-md text-label-md text-on-surface font-medium">${m.name}</td>
+        <td class="py-3 px-4 font-body-sm text-on-surface-variant">${m.date}</td>
+        <td class="py-3 px-4 text-center">
+          <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-tertiary-fixed text-on-tertiary-fixed font-label-sm text-[11px] font-semibold">
+            <span class="w-1.5 h-1.5 rounded-full bg-tertiary"></span>
+            ${m.status}
+          </span>
+        </td>
+      </tr>
+    `).join('');
+  }
+
+  const rangeElem = document.getElementById('officialPaginationRange');
+  if (rangeElem) {
+    if (total === 0) {
+      rangeElem.textContent = 'Hiển thị 0 / 0 học viên';
+    } else {
+      rangeElem.textContent = `Hiển thị ${startIdx + 1}-${endIdx} / ${total} học viên`;
+    }
+  }
+
+  const pageIndicator = document.getElementById('officialPageIndicator');
+  if (pageIndicator) pageIndicator.textContent = `Trang ${currentPage} / ${totalPages}`;
+
+  const btnPrev = document.getElementById('btnPrevPage');
+  if (btnPrev) btnPrev.disabled = currentPage <= 1;
+
+  const btnNext = document.getElementById('btnNextPage');
+  if (btnNext) btnNext.disabled = currentPage >= totalPages;
+}
+
+function handleSearchOfficial() {
+  const query = (document.getElementById('officialSearchInput')?.value || '').trim();
+  const normQuery = normalizeVietnamese(query);
+
+  if (!normQuery) {
+    filteredMembers = [...officialMembers];
+  } else {
+    filteredMembers = officialMembers.filter(m => {
+      const normName = normalizeVietnamese(m.name);
+      return normName.includes(normQuery);
+    });
+  }
+  currentPage = 1;
+  renderOfficialTable();
+}
+
+function changePage(delta) {
+  currentPage += delta;
+  renderOfficialTable();
+}
+
+function renderPendingTable() {
+  const tbody = document.getElementById('pendingTableBody');
+  if (!tbody) return;
+
+  if (pendingMembers.length === 0) {
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="5" class="py-8 text-center text-on-surface-variant italic">
+          Không còn yêu cầu nào chờ duyệt.
+        </td>
+      </tr>
+    `;
+    return;
+  }
+
+  tbody.innerHTML = pendingMembers.map((item, idx) => `
+    <tr class="hover:bg-surface-container-low/50 transition-colors">
+      <td class="py-3 px-4 text-center font-label-sm text-outline">${idx + 1}</td>
+      <td class="py-3 px-4 font-label-md text-label-md text-on-surface font-semibold">${item.name}</td>
+      <td class="py-3 px-4 font-body-sm text-on-surface-variant">${item.time}</td>
+      <td class="py-3 px-4">
+        <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-secondary-fixed text-on-secondary-fixed font-label-sm text-[11px] font-semibold">
+          Chờ phê duyệt
+        </span>
+      </td>
+      <td class="py-3 px-4 text-center">
+        <div class="inline-flex items-center gap-2">
+          <button type="button" onclick="approveMember('${item.id}')" class="px-3 py-1 rounded-lg bg-primary text-on-primary hover:bg-primary-container font-label-sm text-label-sm shadow-sm transition-all flex items-center gap-1">
+            <span class="material-symbols-outlined text-[15px]">check</span>
+            Duyệt
+          </button>
+          <button type="button" onclick="rejectMember('${item.id}')" class="px-2.5 py-1 rounded-lg bg-surface border border-outline-variant/50 text-secondary hover:bg-surface-container font-label-sm text-label-sm transition-colors flex items-center gap-1">
+            <span class="material-symbols-outlined text-[15px]">close</span>
+            Từ chối
+          </button>
+        </div>
+      </td>
+    </tr>
+  `).join('');
+}
+
+function approveMember(id) {
+  const itemIdx = pendingMembers.findIndex(m => m.id === id);
+  if (itemIdx === -1) return;
+  const approvedItem = pendingMembers[itemIdx];
+  pendingMembers.splice(itemIdx, 1);
+
+  const cleanName = approvedItem.name.replace(/\s*\(Phụ Huynh\)/i, '').trim();
+  const todayStr = '29/09/2026';
+  officialMembers.unshift({
+    id: Date.now(),
+    name: cleanName,
+    date: todayStr,
+    status: 'Chính thức'
+  });
+
+  filteredMembers = [...officialMembers];
+  currentPage = 1;
+
+  updateAllCounters();
+  renderPendingTable();
+  renderOfficialTable();
+  showToast(`Mô phỏng: Đã phê duyệt học viên vào lớp (chưa lưu máy chủ)`);
+}
+
+function rejectMember(id) {
+  const itemIdx = pendingMembers.findIndex(m => m.id === id);
+  if (itemIdx === -1) return;
+  pendingMembers.splice(itemIdx, 1);
+
+  updateAllCounters();
+  renderPendingTable();
+  showToast(`Mô phỏng: Đã từ chối yêu cầu gia nhập lớp`);
+}
+
+function switchMemberTab(tab) {
+  const btnOff = document.getElementById('tabBtnOfficial');
+  const btnPend = document.getElementById('tabBtnPending');
+  const viewOff = document.getElementById('viewOfficial');
+  const viewPend = document.getElementById('viewPending');
+
+  if (tab === 'official') {
+    btnOff.classList.add('border-primary', 'text-primary');
+    btnOff.classList.remove('border-transparent', 'text-on-surface-variant');
+    btnPend.classList.add('border-transparent', 'text-on-surface-variant');
+    btnPend.classList.remove('border-primary', 'text-primary');
+
+    viewOff.classList.remove('hidden');
+    viewPend.classList.add('hidden');
+  } else {
+    btnPend.classList.add('border-primary', 'text-primary');
+    btnPend.classList.remove('border-transparent', 'text-on-surface-variant');
+    btnOff.classList.add('border-transparent', 'text-on-surface-variant');
+    btnOff.classList.remove('border-primary', 'text-primary');
+
+    viewPend.classList.remove('hidden');
+    viewOff.classList.add('hidden');
+  }
+}
+
+function openMembersModal(tab = 'official') {
+  const modal = document.getElementById('membersModal');
+  if (!modal) return;
+  switchMemberTab(tab);
+  renderOfficialTable();
+  renderPendingTable();
+  modal.classList.remove('pointer-events-none', 'opacity-0');
+  modal.classList.add('opacity-100');
+}
+
+function closeMembersModal() {
+  const modal = document.getElementById('membersModal');
+  if (!modal) return;
+  modal.classList.remove('opacity-100');
+  modal.classList.add('opacity-0');
+  setTimeout(() => {
+    modal.classList.add('pointer-events-none');
+  }, 200);
+}
+
+function openClassSettingsDrawer() {
+  const drawer = document.getElementById('classSettingsDrawer');
+  const content = document.getElementById('settingsDrawerContent');
+  if (!drawer || !content) return;
+  drawer.classList.remove('pointer-events-none', 'opacity-0');
+  drawer.classList.add('opacity-100');
+  content.classList.remove('translate-x-full');
+  content.classList.add('translate-x-0');
+}
+
+function closeClassSettingsDrawer() {
+  const drawer = document.getElementById('classSettingsDrawer');
+  const content = document.getElementById('settingsDrawerContent');
+  if (!drawer || !content) return;
+  content.classList.remove('translate-x-0');
+  content.classList.add('translate-x-full');
+  drawer.classList.remove('opacity-100');
+  drawer.classList.add('opacity-0');
+  setTimeout(() => {
+    drawer.classList.add('pointer-events-none');
+  }, 300);
+}
+
+function copyCode(code) {
+  if (navigator && navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(code).then(() => {
+      showToast('Đã sao chép mã lớp: ' + code);
+    }).catch(() => {
+      showToast('Đã sao chép mã lớp: ' + code);
+    });
+  } else {
+    showToast('Đã sao chép mã lớp: ' + code);
+  }
+}
+
+function changeClassCode() {
+  if (confirm('Cảnh báo: Mã cũ sẽ hết hiệu lực ngay lập tức! Bạn có chắc muốn đổi mã mới?')) {
+    const randomPart = Math.floor(1000 + Math.random() * 9000);
+    const newCode = 'DTQ-' + randomPart;
+    const input = document.getElementById('settingCodeInput');
+    if (input) input.value = newCode;
+    const cardCode = document.getElementById('mainCardCode');
+    if (cardCode) cardCode.textContent = newCode;
+    showToast('Đã đổi sang mã mới: ' + newCode);
+  }
+}
+
+function saveSettings() {
+  const nameInput = document.getElementById('settingNameInput');
+  const capInput = document.getElementById('settingCapacityInput');
+  if (!nameInput || !nameInput.value.trim()) {
+    alert('Vui lòng nhập tên lớp học!');
+    return;
+  }
+  const cap = parseInt(capInput.value, 10);
+  if (isNaN(cap) || cap < 1 || cap > 500) {
+    alert('Sĩ số tối đa phải nằm trong khoảng 1 đến 500!');
+    return;
+  }
+  const autoCheck = document.getElementById('toggleAutoApprove')?.checked;
+  const badge = document.getElementById('autoApprovalBadge');
+  if (badge) {
+    badge.textContent = autoCheck ? 'Bật (Tự động duyệt)' : 'Tắt (Duyệt thủ công)';
+    badge.className = autoCheck ? 'font-label-sm text-label-sm text-tertiary font-semibold' : 'font-label-sm text-label-sm text-outline font-semibold';
+  }
+  showToast('Đã lưu thay đổi thiết lập lớp học thành công!');
+  closeClassSettingsDrawer();
+}
+
+function archiveCurrentClass() {
+  showToast('Lớp học đã được chuyển vào mục Đã lưu trữ an toàn!');
+  closeClassSettingsDrawer();
+}
+
+function openCreateClassModal() {
+  const modal = document.getElementById('createModal');
+  if (!modal) return;
+  modal.classList.remove('pointer-events-none', 'opacity-0');
+  modal.classList.add('opacity-100');
+}
+
+function closeCreateClassModal() {
+  const modal = document.getElementById('createModal');
+  if (!modal) return;
+  modal.classList.remove('opacity-100');
+  modal.classList.add('opacity-0');
+  setTimeout(() => {
+    modal.classList.add('pointer-events-none');
+  }, 200);
+}
+
+function submitCreateClass() {
+  const name = document.getElementById('newClassName')?.value;
+  const cap = parseInt(document.getElementById('newClassCapacity')?.value, 10);
+  if (isNaN(cap) || cap < 1 || cap > 500) {
+    alert('Sĩ số tối đa phải từ 1 đến 500 học viên!');
+    return;
+  }
+  const randomPart = Math.floor(1000 + Math.random() * 9000);
+  const newCode = 'DTQ-' + randomPart;
+  showToast(`Đã tạo thành công lớp: "${name}" (Mã: ${newCode})`);
+  closeCreateClassModal();
+}
+
+function openDeleteConfirmModal() {
+  const modal = document.getElementById('deleteModal');
+  const input = document.getElementById('confirmDeleteCodeInput');
+  if (input) input.value = '';
+  if (!modal) return;
+  modal.classList.remove('pointer-events-none', 'opacity-0');
+  modal.classList.add('opacity-100');
+}
+
+function closeDeleteConfirmModal() {
+  const modal = document.getElementById('deleteModal');
+  if (!modal) return;
+  modal.classList.remove('opacity-100');
+  modal.classList.add('opacity-0');
+  setTimeout(() => {
+    modal.classList.add('pointer-events-none');
+  }, 200);
+}
+
+function handleDeleteConfirm() {
+  const code = (document.getElementById('confirmDeleteCodeInput')?.value || '').trim();
+  const currentCode = (document.getElementById('mainCardCode')?.innerText || 'DTQ-2026').trim();
+  if (code.toUpperCase() === currentCode.toUpperCase()) {
+    showToast('Mô phỏng: Đã gửi lệnh xóa lớp (dữ liệu mẫu được bảo toàn)');
+    closeDeleteConfirmModal();
+    closeClassSettingsDrawer();
+  } else {
+    alert(`Mã xác nhận không đúng. Vui lòng gõ chính xác: ${currentCode}`);
+  }
+}
+
+function previewAsStudent() {
+  showToast('Mô phỏng: Đang mở chế độ xem trước với tư cách học viên DTQ-2026');
+}
+
+function initPage() {
+  try {
+    updateAllCounters();
+    renderOfficialTable();
+    renderPendingTable();
+  } catch (err) {
+    console.error('Lỗi khởi tạo:', err);
+  }
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initPage);
+} else {
+  initPage();
+}
+</script>
+
+</body></html>

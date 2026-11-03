@@ -1,0 +1,51 @@
+{
+  "name": "de-tu-quy-lms",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev --hostname 0.0.0.0",
+    "build": "prisma generate && next build",
+    "start": "next start --hostname 0.0.0.0",
+    "typecheck": "tsc --noEmit",
+    "db:generate": "prisma generate",
+    "db:push": "prisma db push",
+    "db:seed": "node --env-file-if-exists=.env --import tsx scripts/seed.ts",
+    "test": "tsx --test tests/*.test.ts",
+    "db:migrate": "prisma migrate deploy",
+    "test:e2e": "playwright test",
+    "format": "prettier --write \"src/**/*.{ts,tsx,css}\" \"tests/**/*.ts\" \"scripts/*.{ts,mjs}\" next.config.ts playwright.config.ts",
+    "format:check": "prettier --check \"src/**/*.{ts,tsx,css}\" \"tests/**/*.ts\" \"scripts/*.{ts,mjs}\" next.config.ts playwright.config.ts",
+    "test:integration": "node scripts/integration-test.mjs",
+    "account:create-teacher": "node --env-file-if-exists=.env --import tsx scripts/create-teacher.ts",
+    "account:grant-admin": "node --env-file-if-exists=.env --import tsx scripts/grant-admin.ts"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "latest",
+    "@aws-sdk/s3-request-presigner": "latest",
+    "@prisma/client": "6.19.0",
+    "lucide-react": "latest",
+    "next": "latest",
+    "nodemailer": "^10.3.1",
+    "react": "latest",
+    "react-dom": "latest",
+    "zod": "latest"
+  },
+  "devDependencies": {
+    "@playwright/test": "latest",
+    "@types/node": "^22",
+    "@types/nodemailer": "^8.0.2",
+    "@types/react": "latest",
+    "@types/react-dom": "latest",
+    "prettier": "^3.9.10",
+    "prisma": "6.19.0",
+    "puppeteer-core": "latest",
+    "tsx": "latest",
+    "typescript": "latest"
+  },
+  "overrides": {
+    "@prisma/config": {
+      "deepmerge-ts": "^8.0.2",
+      "effect": "^3.20.0"
+    }
+  }
+}
