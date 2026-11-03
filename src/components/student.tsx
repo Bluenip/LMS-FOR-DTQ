@@ -177,8 +177,8 @@ export function ClassList() {
           <p>Tiếp tục bài học, mang điều đã học vào cuộc sống.</p>
         </div>
         <div className="welcome-quote">
-          <blockquote>“Đệ tử quy, thánh nhân huấn.”</blockquote>
-          <cite>Đệ Tử Quy, lời mở đầu</cite>
+          <blockquote>“Giúp đỡ người là niềm vui chân thật.”</blockquote>
+          <cite>Pháp sư Tịnh Không</cite>
         </div>
       </div>
       <div className="toolbar">
