@@ -8,18 +8,18 @@ datasource db {
 }
 
 model User {
-  id                 String         @id
+  id                 String            @id
   name               String
-  email              String         @unique
+  email              String            @unique
   role               String
   avatar             String?
   passwordHash       String
-  emailVerified      Boolean        @default(true)
-  sessionVersion     Int            @default(0)
-  isDemo             Boolean        @default(false)
-  isAdmin            Boolean        @default(false)
-  disabled           Boolean        @default(false)
-  mustChangePassword Boolean        @default(false)
+  emailVerified      Boolean           @default(true)
+  sessionVersion     Int               @default(0)
+  isDemo             Boolean           @default(false)
+  isAdmin            Boolean           @default(false)
+  disabled           Boolean           @default(false)
+  mustChangePassword Boolean           @default(false)
   authTokens         AuthToken[]
   classes            Classroom[]
   enrollments        Enrollment[]
@@ -29,6 +29,8 @@ model User {
   discussions        Discussion[]
   notifications      Notification[]
   files              StoredFile[]
+  driveConnections   DriveConnection[]
+  driveUploads       DriveUpload[]
 }
 
 model AuthToken {
@@ -48,19 +50,19 @@ model AuthToken {
 }
 
 model Classroom {
-  id             String       @id
+  id             String        @id
   title          String
   description    String
-  contentAuthor  String       @default("")
-  code           String       @unique
+  contentAuthor  String        @default("")
+  code           String        @unique
   teacherId      String
-  teacherIds     String[]     @default([])
-  revision       String       @default("")
-  teacher        User         @relation(fields: [teacherId], references: [id], onDelete: Restrict)
-  status         String       @default("ACTIVE")
-  capacity       Int          @default(50)
-  enrollmentOpen Boolean      @default(true)
-  autoApprove    Boolean      @default(false)
+  teacherIds     String[]      @default([])
+  revision       String        @default("")
+  teacher        User          @relation(fields: [teacherId], references: [id], onDelete: Restrict)
+  status         String        @default("ACTIVE")
+  capacity       Int           @default(50)
+  enrollmentOpen Boolean       @default(true)
+  autoApprove    Boolean       @default(false)
   schedule       String
   cover          String
   createdAt      String
@@ -68,6 +70,7 @@ model Classroom {
   lessons        Lesson[]
   assignments    Assignment[]
   files          StoredFile[]
+  driveUploads   DriveUpload[]
 
   @@index([teacherId])
 }
@@ -86,26 +89,28 @@ model Enrollment {
 }
 
 model Lesson {
-  id          String       @id
-  classId     String
-  classroom   Classroom    @relation(fields: [classId], references: [id], onDelete: Cascade)
-  title       String
-  chapter     String
-  order       Int
-  description String
-  videoType   String
-  videoUrl    String
-  videoFileId String?
-  duration    String
-  published   Boolean      @default(false)
-  revision    String       @default("")
-  timestamps  Json         @default("[]")
-  documents   Json         @default("[]")
-  createdAt   String
-  assignments Assignment[]
-  progress    Progress[]
-  notes       Note[]
-  discussions Discussion[]
+  id           String        @id
+  classId      String
+  classroom    Classroom     @relation(fields: [classId], references: [id], onDelete: Cascade)
+  title        String
+  chapter      String
+  order        Int
+  description  String
+  videoType    String
+  videoUrl     String
+  videoFileId  String?
+  driveFileId  String?
+  duration     String
+  published    Boolean       @default(false)
+  revision     String        @default("")
+  timestamps   Json          @default("[]")
+  documents    Json          @default("[]")
+  createdAt    String
+  assignments  Assignment[]
+  progress     Progress[]
+  notes        Note[]
+  discussions  Discussion[]
+  driveUploads DriveUpload[]
 
   @@index([classId, order])
 }
@@ -219,4 +224,47 @@ model StoredFile {
   createdAt String
 
   @@index([classId, ownerId])
+}
+
+/// Single shared Google Drive account connected by an administrator (id is always "shared").
+model DriveConnection {
+  id                    String  @id
+  connectedById         String
+  connectedBy           User    @relation(fields: [connectedById], references: [id], onDelete: Cascade)
+  email                 String
+  encryptedRefreshToken String
+  scope                 String
+  status                String  @default("ACTIVE")
+  folderId              String?
+  createdAt             String
+  updatedAt             String
+}
+
+model DriveUpload {
+  id                  String    @id
+  ownerId             String
+  owner               User      @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  classId             String
+  classroom           Classroom @relation(fields: [classId], references: [id], onDelete: Cascade)
+  lessonId            String?
+  lesson              Lesson?   @relation(fields: [lessonId], references: [id], onDelete: SetNull)
+  kind                String
+  name                String
+  mimeType            String
+  size                Float
+  title               String    @default("")
+  description         String    @default("")
+  status              String
+  bytesUploaded       Float     @default(0)
+  encryptedSessionUri String?
+  driveFileId         String?   @unique
+  webViewLink         String?
+  shared              Boolean   @default(false)
+  errorMessage        String?
+  createdAt           String
+  updatedAt           String
+
+  @@index([classId, status])
+  @@index([ownerId, status])
+  @@index([lessonId])
 }

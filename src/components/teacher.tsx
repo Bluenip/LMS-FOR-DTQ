@@ -37,7 +37,9 @@ import {
   Search,
   Tabs,
 } from '@/components/ui';
-import { api, fold, uploadFile } from '@/lib/client';
+import { api, fold } from '@/lib/client';
+import { uploadFile } from '@/lib/drive-upload';
+import { AttachmentViewer, CourseLessonVideo, DriveVideoPlayer } from './drive';
 import { useUnsavedWarning } from '@/lib/use-unsaved-warning';
 import { readSessionDraft, removeSessionDraft, writeSessionDraft } from '@/lib/session-draft';
 import { wordRequirement } from '@/lib/assignment-policy';
@@ -1137,9 +1139,12 @@ function LessonEditor({
   const [chapter, setChapter] = useState(lesson?.chapter || '');
   const [order, setOrder] = useState(lesson?.order || nextOrder);
   const [description, setDescription] = useState(lesson?.description || '');
-  const [videoType, setVideoType] = useState<'YOUTUBE' | 'UPLOAD'>(lesson?.videoType || 'YOUTUBE');
+  const [videoType, setVideoType] = useState<'YOUTUBE' | 'UPLOAD' | 'DRIVE'>(
+    lesson?.videoType || 'YOUTUBE',
+  );
   const [videoUrl, setVideoUrl] = useState(lesson?.videoUrl || '');
-  const [videoFileId, setVideoFileId] = useState(lesson?.videoFileId || '');
+  // For DRIVE lessons this holds the Google Drive file id (sent as driveFileId).
+  const [videoFileId, setVideoFileId] = useState(lesson?.videoFileId || lesson?.driveFileId || '');
   const [duration, setDuration] = useState(lesson?.duration || '');
   const [timestamps, setTimestamps] = useState(lesson?.timestamps || []);
   const [documents, setDocuments] = useState<Attachment[]>(lesson?.documents || []);
@@ -1156,7 +1161,7 @@ function LessonEditor({
       chapter: string;
       order: number;
       description: string;
-      videoType: 'YOUTUBE' | 'UPLOAD';
+      videoType: 'YOUTUBE' | 'UPLOAD' | 'DRIVE';
       videoUrl: string;
       videoFileId: string;
       duration: string;
@@ -1234,7 +1239,8 @@ function LessonEditor({
     description,
     videoType,
     videoUrl,
-    videoFileId: videoFileId || undefined,
+    videoFileId: videoType === 'UPLOAD' ? videoFileId || undefined : undefined,
+    driveFileId: videoType === 'DRIVE' ? videoFileId || undefined : undefined,
     duration,
     timestamps,
     documents,
@@ -1288,7 +1294,11 @@ function LessonEditor({
                 }}
                 items={[
                   { id: 'YOUTUBE', label: 'YouTube' },
-                  { id: 'UPLOAD', label: 'Tải video' },
+                  { id: 'DRIVE', label: 'Google Drive' },
+                  // Legacy S3 videos stay playable/editable, but new uploads always go to Drive.
+                  ...(lesson?.videoType === 'UPLOAD'
+                    ? [{ id: 'UPLOAD', label: 'Kho cũ (S3)' }]
+                    : []),
                 ]}
               />
             </div>
@@ -1310,6 +1320,17 @@ function LessonEditor({
                   </p>
                 )}
               </>
+            ) : videoType === 'DRIVE' ? (
+              <CourseLessonVideo
+                classId={classId}
+                lessonId={lesson?.id}
+                driveFileId={videoFileId}
+                title={title}
+                onChange={(id) => {
+                  setVideoFileId(id);
+                  setDirty(true);
+                }}
+              />
             ) : (
               <Field
                 label="Chọn video MP4 hoặc WebM"
@@ -1323,7 +1344,7 @@ function LessonEditor({
                 />
               </Field>
             )}
-            {!videoUrl && (
+            {!videoUrl && !videoFileId && (
               <div className="video-empty">
                 <Video size={30} />
                 <strong>Chưa có nguồn video</strong>
@@ -1469,15 +1490,22 @@ function LessonEditor({
             ) : (
               <p className="small muted">Chưa có tài liệu đính kèm.</p>
             )}
-            <Field label="Tải học liệu lên">
+            <Field
+              label="Tải học liệu lên Google Drive"
+              hint="PDF, DOCX, PPTX, JPG, PNG; tối đa 25 MB. Tệp ở chế độ riêng tư, chỉ thành viên lớp mở được."
+            >
               <input
                 type="file"
-                accept=".pdf,.docx,.jpg,.jpeg,.png"
+                accept=".pdf,.docx,.pptx,.jpg,.jpeg,.png"
                 disabled={uploading || !state.storageConfigured || documents.length >= 20}
                 onChange={(e) => upload(e.target.files?.[0], 'document')}
               />
             </Field>
-            {!state.storageConfigured && <p className="small muted">Kho tệp chưa được cấu hình.</p>}
+            {!state.storageConfigured && (
+              <p className="small muted">
+                Google Drive chưa được kết nối. Quản trị viên cần kết nối trước khi tải tệp.
+              </p>
+            )}
             <p className="small muted">{documents.length}/20 tài liệu</p>
           </section>
           {related.length > 0 && (
@@ -1564,13 +1592,17 @@ function LessonEditor({
         wide
       >
         <div className="stack">
-          {videoType === 'YOUTUBE' && youtubeId(videoUrl) ? (
+          {!preview ? null : videoType === 'YOUTUBE' && youtubeId(videoUrl) ? (
             <iframe
               className="video-preview"
               src={`https://www.youtube-nocookie.com/embed/${youtubeId(videoUrl)}`}
               title={title}
               allowFullScreen
             />
+          ) : videoType === 'DRIVE' && videoFileId ? (
+            <div className="video-frame">
+              <DriveVideoPlayer fileId={videoFileId} title={title} />
+            </div>
           ) : videoType === 'UPLOAD' && videoUrl ? (
             <video className="video-preview" poster="/video-poster.svg" controls src={videoUrl} />
           ) : (
@@ -2474,17 +2506,20 @@ function GradeForm({
             </a>
           )}
           {submission.attachments.map((a) => (
-            <a
-              className="list-row"
-              href={a.url || `/api/files/${a.id}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              key={a.id}
-            >
+            <div className="list-row" key={a.id}>
               <FileText size={18} />
-              {a.name}
-              <Download size={16} />
-            </a>
+              <span>{a.name}</span>
+              <AttachmentViewer file={a} />
+              <a
+                href={a.url || `/api/files/${a.id}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label={`Tải ${a.name}`}
+                title="Tải xuống"
+              >
+                <Download size={16} />
+              </a>
+            </div>
           ))}
           <p className="small muted">Nộp lúc {date(submission.submittedAt)} (GMT+7)</p>
         </article>

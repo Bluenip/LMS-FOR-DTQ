@@ -46,6 +46,10 @@ Chế độ JSON chỉ phù hợp một tiến trình Node.js để phát triể
 
 Dữ liệu demo có lớp, bài tập và tiến độ mẫu; không kèm video bài giảng thật. Khi chưa có video hoặc tài liệu, giao diện hiển thị trạng thái tương ứng. Chưa cấu hình S3 thì không tải tệp lên được, nhưng vẫn có thể viết và nộp bài trực tiếp.
 
+## Video qua Google Drive
+
+Giáo viên có thể tải video lên Google Drive dùng chung (quản trị viên kết nối tại `/admin`) và phát trong bài giảng bằng Drive Preview; tải theo chunk, tự tiếp tục khi mất mạng. Cấu hình Google Cloud, API, giới hạn và checklist: [docs/GOOGLE_DRIVE.md](docs/GOOGLE_DRIVE.md).
+
 ## Chức năng và đường dẫn
 
 | Đường dẫn                                  | Chức năng hiện có                                                                                                                |

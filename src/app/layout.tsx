@@ -5,6 +5,7 @@ import { APP_NAME } from '@/lib/brand';
 import './globals.css';
 import '@/components/auth.css';
 import '@/components/admin.css';
+import '@/components/drive.css';
 export const metadata: Metadata = {
   title: { default: `${APP_NAME} — Giảng đường trực tuyến`, template: `%s | ${APP_NAME}` },
   description:

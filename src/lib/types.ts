@@ -60,9 +60,11 @@ export interface Lesson {
   chapter: string;
   order: number;
   description: string;
-  videoType: 'YOUTUBE' | 'UPLOAD';
+  videoType: 'YOUTUBE' | 'UPLOAD' | 'DRIVE';
   videoUrl: string;
   videoFileId?: string;
+  /** Google Drive file id, only when videoType is DRIVE. */
+  driveFileId?: string;
   duration: string;
   published: boolean;
   revision?: string;
@@ -183,6 +185,69 @@ export interface StoredFile {
   verified: boolean;
   createdAt: string;
 }
+export type DriveUploadStatus = 'PENDING' | 'UPLOADING' | 'COMPLETED' | 'FAILED' | 'CANCELLED';
+export interface DriveConnection {
+  id: string;
+  connectedById: string;
+  email: string;
+  /** AES-256-GCM envelope; never leaves the server. */
+  encryptedRefreshToken: string;
+  scope: string;
+  status: 'ACTIVE' | 'REVOKED';
+  folderId?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+export interface DriveUpload {
+  id: string;
+  ownerId: string;
+  classId: string;
+  lessonId?: string;
+  kind: 'video' | 'document';
+  name: string;
+  mimeType: string;
+  size: number;
+  title: string;
+  description: string;
+  status: DriveUploadStatus;
+  bytesUploaded: number;
+  /** Encrypted resumable-session URI (a bearer credential); never serialised to clients. */
+  encryptedSessionUri?: string;
+  driveFileId?: string;
+  webViewLink?: string;
+  shared: boolean;
+  errorMessage?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+/** Client-safe view of a DriveUpload. */
+export interface DriveFile {
+  id: string;
+  classId: string;
+  lessonId?: string;
+  kind: 'video' | 'document';
+  name: string;
+  mimeType: string;
+  size: number;
+  title: string;
+  description: string;
+  status: DriveUploadStatus;
+  bytesUploaded: number;
+  driveFileId?: string;
+  previewUrl?: string;
+  webViewLink?: string;
+  shared: boolean;
+  errorMessage?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+export interface DriveStatus {
+  configured: boolean;
+  connected: boolean;
+  status?: DriveConnection['status'];
+  email?: string;
+  canConnect: boolean;
+}
 export interface Database {
   users: StoredUser[];
   classes: Classroom[];
@@ -196,4 +261,6 @@ export interface Database {
   notifications: Notification[];
   files: StoredFile[];
   authTokens: AuthToken[];
+  driveConnections: DriveConnection[];
+  driveUploads: DriveUpload[];
 }

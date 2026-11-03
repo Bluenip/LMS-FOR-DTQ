@@ -18,6 +18,8 @@ const tables = {
   notifications: 'notification',
   files: 'storedFile',
   authTokens: 'authToken',
+  driveConnections: 'driveConnection',
+  driveUploads: 'driveUpload',
 } as const;
 async function client() {
   if (!prisma) {
@@ -31,6 +33,24 @@ function cleanRow<T>(row: unknown): T {
     Object.entries(row as Record<string, unknown>).filter(([, value]) => value !== null),
   ) as T;
 }
+function emptyDatabase(): Database {
+  return {
+    users: [],
+    classes: [],
+    enrollments: [],
+    lessons: [],
+    assignments: [],
+    submissions: [],
+    progress: [],
+    notes: [],
+    discussions: [],
+    notifications: [],
+    files: [],
+    authTokens: [],
+    driveConnections: [],
+    driveUploads: [],
+  };
+}
 /** Session checks need one user, not a snapshot of every class and submission. */
 export async function findSessionUser(userId: string): Promise<StoredUser | undefined> {
   if (!process.env.DATABASE_URL) return withDatabase((db) => db.users.find((u) => u.id === userId));
@@ -43,41 +63,13 @@ export async function withScopedState<T>(
   userId: string | null,
   fn: (db: Database) => T,
 ): Promise<T> {
-  if (!userId)
-    return fn({
-      users: [],
-      classes: [],
-      enrollments: [],
-      lessons: [],
-      assignments: [],
-      submissions: [],
-      progress: [],
-      notes: [],
-      discussions: [],
-      notifications: [],
-      files: [],
-      authTokens: [],
-    });
+  if (!userId) return fn(emptyDatabase());
   if (!process.env.DATABASE_URL) return withDatabase(fn);
   const pg = await client();
   return pg.$transaction(
     async (tx) => {
       const userRow = await tx.user.findUnique({ where: { id: userId } });
-      if (!userRow)
-        return fn({
-          users: [],
-          classes: [],
-          enrollments: [],
-          lessons: [],
-          assignments: [],
-          submissions: [],
-          progress: [],
-          notes: [],
-          discussions: [],
-          notifications: [],
-          files: [],
-          authTokens: [],
-        });
+      if (!userRow) return fn(emptyDatabase());
       const user = cleanRow<StoredUser>(userRow);
       const own = await tx.enrollment.findMany({ where: { userId, status: { not: 'REMOVED' } } });
       const classrooms = await tx.classroom.findMany({
@@ -165,6 +157,11 @@ export async function withScopedState<T>(
         notifications: clean(notifications),
         files: [],
         authTokens: [],
+        // Only the connection status is needed to tell clients whether uploads are available.
+        driveConnections: (
+          await tx.driveConnection.findMany({ select: { id: true, status: true } })
+        ).map((c) => ({ ...c, encryptedRefreshToken: '' })) as Database['driveConnections'],
+        driveUploads: [],
       } as Database);
     },
     {
@@ -216,11 +213,19 @@ async function writePostgres(tx: unknown, db: Database, previous: Database) {
       const optional: Record<string, string[]> = {
         user: ['avatar'],
         authToken: ['consumedAt', 'pendingPasswordHash', 'pendingName'],
-        lesson: ['videoFileId'],
+        lesson: ['videoFileId', 'driveFileId'],
         assignment: ['lessonId', 'maxWords'],
         notification: ['assignmentId'],
         discussion: ['updatedAt'],
         submission: ['submittedAt', 'score', 'gradedAt'],
+        driveUpload: [
+          'lessonId',
+          'encryptedSessionUri',
+          'driveFileId',
+          'webViewLink',
+          'errorMessage',
+        ],
+        driveConnection: ['folderId'],
       };
       for (const field of optional[model] || []) if (!(field in data)) data[field] = null;
       if (model === 'submission' && !('rubric' in data)) data.rubric = Prisma.DbNull;
@@ -263,6 +268,8 @@ export async function withDatabase<T>(
       await writeFile('.data/demo.json', JSON.stringify(db, null, 2), { mode: 0o600 });
     }
     db.authTokens ??= [];
+    db.driveConnections ??= [];
+    db.driveUploads ??= [];
     for (const user of db.users) {
       user.emailVerified ??= true;
       user.sessionVersion ??= 0;
