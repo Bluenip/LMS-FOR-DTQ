@@ -2,7 +2,7 @@
 
 Ứng dụng quản lý lớp học trực tuyến bằng tiếng Việt: giáo viên tổ chức bài giảng và bài tập, học viên học và nộp bài, quản trị viên cấp tài khoản. Frontend và API cùng chạy trong một ứng dụng Next.js; PostgreSQL lưu dữ liệu vận hành, kho S3 tương thích lưu tệp và video.
 
-**Cập nhật ngày 03/11/2026:** đã sửa các lỗi về quyền riêng tư, video, thu hồi/chấm bài, JSON đầu vào và giới hạn đăng nhập; 72 kiểm thử backend/vận hành, 12 kiểm thử trình duyệt và build production đều đạt. Có Docker/Compose, healthcheck PostgreSQL và Bash tự cập nhật GitHub bằng systemd timer khi server bật/reboot. Xem [báo cáo kiểm tra](docs/CODE_REVIEW.md) và [hướng dẫn triển khai](docs/DEPLOYMENT.md) để biết kết quả xác minh và giới hạn còn lại.
+**Cập nhật ngày 03/11/2026:** đã sửa các lỗi về quyền riêng tư, video, thu hồi/chấm bài, JSON đầu vào và giới hạn đăng nhập; 81 kiểm thử backend/vận hành, 15 kiểm thử trình duyệt và build production đều đạt. Có Docker/Compose, healthcheck PostgreSQL và Bash tự cập nhật GitHub bằng systemd timer khi server bật/reboot. Xem [báo cáo kiểm tra](docs/CODE_REVIEW.md) và [hướng dẫn triển khai](docs/DEPLOYMENT.md) để biết kết quả xác minh và giới hạn còn lại.
 
 **Địa chỉ triển khai:** https://zimaos.click — Cloudflare Tunnel nối tới app ở `127.0.0.1:3000`. Chưa cấu hình bucket vận hành vì R2 của tài khoản chưa bật; YouTube/bài viết hoạt động, tải tệp cần bổ sung S3/R2.
 
@@ -48,24 +48,34 @@ Dữ liệu demo có lớp, bài tập và tiến độ mẫu; không kèm video
 
 ## Chức năng và đường dẫn
 
-| Đường dẫn                                  | Chức năng hiện có                                                                                           |
-| ------------------------------------------ | ----------------------------------------------------------------------------------------------------------- |
-| `/login`                                   | Đăng nhập bằng email và mật khẩu được cấp                                                                   |
-| `/profile`                                 | Sửa họ tên, đổi mật khẩu bằng mật khẩu hiện tại                                                             |
-| `/admin`, `/admin/users`                   | Quản trị tài khoản giáo viên/học viên: tạo, sửa tên, kích hoạt, khóa/mở khóa, reset mật khẩu                |
-| `/classes`                                 | Lớp đang học/chờ duyệt/lưu trữ; tìm kiếm, kiểm tra mã lớp, xin tham gia và hủy yêu cầu chờ duyệt            |
-| `/classes/[id]`                            | Tổng quan, bài giảng, bài tập, thành viên và thông tin lớp                                                  |
-| `/classes/[id]/lessons/[lessonId]`         | Video YouTube hoặc video trong kho tệp, tài liệu, ghi chép cá nhân, thảo luận, lưu bài, đánh dấu hoàn thành |
-| `/classes/[id]/assignments/[assignmentId]` | Lưu nháp, nộp bài viết/tệp, xác nhận trung thực, thu hồi/nộp lại theo chính sách, xem điểm đã trả           |
-| `/classes/[id]/members`                    | Danh sách thành viên, tìm tên không dấu, lọc nhóm, phân trang                                               |
-| `/assignments`                             | Tổng hợp bài cần làm, đã nộp và đã chấm                                                                     |
-| `/teacher/classes`                         | Tạo/sửa/lưu trữ/khôi phục/xóa lớp, đổi mã, giới hạn sĩ số, duyệt học viên                                   |
-| `/teacher/lessons`                         | Soạn chương/bài, YouTube/video tải lên, tài liệu, mốc nội dung, bản nháp và xuất bản                        |
-| `/teacher/assignments`                     | Giao bài, chấm theo tiêu chí 40/40/20, lưu điểm nháp, trả điểm, nhắc nộp trong ứng dụng, xuất CSV           |
+| Đường dẫn                                  | Chức năng hiện có                                                                                                                |
+| ------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------- |
+| `/login`                                   | Đăng nhập bằng email và mật khẩu được cấp                                                                                        |
+| `/profile`                                 | Sửa họ tên, đổi mật khẩu bằng mật khẩu hiện tại                                                                                  |
+| `/admin`, `/admin/users`                   | Quản trị tài khoản giáo viên/học viên: tạo, sửa tên, kích hoạt, khóa/mở khóa, reset mật khẩu                                     |
+| `/classes`                                 | Lớp đang học/chờ duyệt/lưu trữ; tìm kiếm, kiểm tra mã lớp, xin tham gia và hủy yêu cầu chờ duyệt                                 |
+| `/classes/[id]`                            | Tổng quan, bài giảng, bài tập, thành viên và thông tin lớp                                                                       |
+| `/classes/[id]/lessons/[lessonId]`         | Video YouTube hoặc video trong kho tệp, tài liệu, ghi chép cá nhân, thảo luận, lưu bài, đánh dấu hoàn thành                      |
+| `/classes/[id]/assignments/[assignmentId]` | Lưu nháp, nộp bài viết/tệp, xác nhận trung thực, thu hồi/nộp lại theo chính sách, xem điểm đã trả                                |
+| `/classes/[id]/members`                    | Danh sách thành viên, tìm tên không dấu, lọc nhóm, phân trang                                                                    |
+| `/assignments`                             | Tổng hợp bài cần làm, đã nộp và đã chấm                                                                                          |
+| `/teacher/classes`                         | Tạo/sửa/lưu trữ/khôi phục/xóa lớp, đổi mã, giới hạn sĩ số, duyệt học viên, cấu hình người giảng nội dung                         |
+| `/teacher/lessons`                         | Soạn chương/bài, YouTube/video tải lên, tài liệu, mốc nội dung, bản nháp và xuất bản                                             |
+| `/teacher/assignments`                     | Tạo/sửa/xóa bài tập, đặt số từ từng bài, chấm theo tiêu chí 40/40/20, lưu điểm nháp, trả điểm, nhắc nộp trong ứng dụng, xuất CSV |
 
 Trang đang mở lấy cập nhật khoảng mỗi 3 giây; khi quay lại tab hoặc có mạng trở lại sẽ kiểm tra ngay. Các tab cùng trình duyệt có thêm tín hiệu qua `BroadcastChannel`. Đây là cơ chế polling, chưa dùng WebSocket hoặc SSE.
 
 Hoàn thành bài học là thao tác đánh dấu thủ công. Ứng dụng chưa kiểm tra thời lượng xem video hoặc bắt buộc học tuần tự. Nhắc nộp bài là thông báo trong ứng dụng, không phải email hay tin nhắn bên ngoài.
+
+## Quản lý bài tập và thông báo
+
+Trong **Bài cần chấm**, bảng **Bài tập đã giao** hiển thị từng đề, hạn nộp, yêu cầu số từ và số học viên đã nộp. Thầy cô chọn **Xem bài nộp**, **Sửa bài tập** hoặc **Xóa bài tập**. Xóa yêu cầu nhập đúng tên; bài nộp, điểm và thông báo gắn với bài đó cũng bị xóa. Các bài khác và bài giảng được giữ nguyên.
+
+Khi tạo hoặc sửa bài, giáo viên đặt **Số từ tối thiểu** và **Số từ tối đa**. Mặc định bài mới là tối thiểu **150 từ**, không giới hạn tối đa; để trống ô tối đa để bỏ giới hạn, nhập 0 ở ô tối thiểu để bỏ mức tối thiểu. Học viên nhận đúng yêu cầu hiện hành khi trang đang mở; bản nháp đang viết không bị thay thế khi thầy cô sửa đề. Các bài đã giao trước bản cập nhật giữ yêu cầu cũ cho tới khi giáo viên sửa.
+
+Nhắc nộp và trả điểm tạo thông báo trong ứng dụng: chuông có số chưa đọc, trang hiển thị nội dung thông báo mới và hộp thông báo có liên kết tới bài tập. Mở chuông không tự đánh dấu đã đọc; người dùng chọn đánh dấu hoặc mở bài liên quan. Dữ liệu cập nhật theo polling khoảng 3 giây khi trang đang hiển thị.
+
+Ở **Lớp giảng dạy → Cài đặt → Người giảng nội dung**, nhập tên riêng cho từng lớp hoặc để trống để ẩn dòng này trên thẻ lớp. Chương mục của bài giảng mới để trống và chỉ gợi ý những chương đã có trong chính lớp đang chọn; không gán tên người giảng hoặc chương mẫu cho lớp thật.
 
 ## Chính sách tài khoản
 
@@ -232,14 +242,14 @@ Kết quả chạy lại ngày **03/11/2026**, với dependency khớp lockfile 
 | ------------------------------------------------------------ | -------------------------------------------------------------------- |
 | TypeScript                                                   | Đạt                                                                  |
 | Prettier trên mã nguồn                                       | Đạt                                                                  |
-| Backend                                                      | 72/72 đạt                                                            |
+| Backend                                                      | 81/81 đạt                                                            |
 | Build production mặc định với Turbopack                      | Đạt                                                                  |
-| Playwright trên bản sao dữ liệu riêng, đủ tài khoản quản trị | 12/12 đạt, không bỏ qua ca nào                                       |
+| Playwright trên bản sao dữ liệu riêng, đủ tài khoản quản trị | 15/15 đạt, không bỏ qua ca nào                                       |
 | `npm audit`                                                  | 0 lỗ hổng đã biết được báo về tại thời điểm chạy                     |
-| PostgreSQL + S3 qua HTTP                                     | 52/52 đạt với PostgreSQL và S3 giả lập trong Docker trên server      |
+| PostgreSQL + S3 qua HTTP                                     | 72/72 đạt với PostgreSQL và S3 giả lập trong Docker trên server      |
 | Chạy ứng dụng trên server đích / qua tên miền thật           | Đã triển khai tại `https://zimaos.click`; đăng nhập/health HTTPS đạt |
 
-Playwright lần rà soát dùng dev server Webpack trên bản sao tạm để dùng chung dependency mà không sửa dữ liệu gốc; build production được kiểm tra riêng bằng cấu hình Turbopack mặc định. Bộ 12 ca này không kiểm thử chịu tải hoặc production qua HTTPS. Ngoài bộ đó, đăng nhập quản trị, cookie, trang/API quản trị và healthcheck đã được xác minh riêng bằng Chromium qua tên miền HTTPS thật.
+Playwright lần rà soát dùng dev server Webpack trên bản sao tạm để dùng chung dependency mà không sửa dữ liệu gốc; build production được kiểm tra riêng bằng cấu hình Turbopack mặc định. Bộ 15 ca này không kiểm thử chịu tải hoặc production qua HTTPS. Ngoài bộ đó, đăng nhập quản trị, cookie, trang/API quản trị và healthcheck đã được xác minh riêng bằng Chromium qua tên miền HTTPS thật.
 
 Hướng dẫn kiểm thử PostgreSQL/S3 và kết quả lịch sử: [docs/INTEGRATION.md](docs/INTEGRATION.md). Các kết quả lịch sử trong tài liệu không thay thế lần chạy mới.
 

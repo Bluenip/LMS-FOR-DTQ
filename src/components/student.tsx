@@ -34,6 +34,7 @@ import {
 import { useLms } from './lms-provider';
 import { Button, IconButton, Badge, Empty, Dialog, Field, PageHeading, Search, Tabs } from './ui';
 import { dateTime, fold, initials, uploadFile, words, youtubeId } from '@/lib/client';
+import { acceptsWordCount, wordRequirement } from '@/lib/assignment-policy';
 import type { Classroom, Lesson, Assignment, Attachment } from '@/lib/types';
 function useQuery() {
   const params = useSearchParams();
@@ -260,7 +261,7 @@ export function ClassList() {
                         <div>
                           <small>Giáo viên phụ trách</small>
                           <strong>{teacher?.name || 'Giáo viên'}</strong>
-                          <small>Nội dung: Thầy Thái Lễ Húc</small>
+                          {c.contentAuthor && <small>Nội dung: {c.contentAuthor}</small>}
                         </div>
                       </div>
                       <ProgressBar done={done} total={lessons.length} />
@@ -725,7 +726,7 @@ function AssignmentCard({ assignment: a }: { assignment: Assignment }) {
         <span className="small muted">
           {sub?.status === 'GRADED'
             ? `${sub.score}/100 điểm`
-            : `${a.minWords}–${a.maxWords} từ hoặc tệp đính kèm`}
+            : `${wordRequirement(a)} hoặc tệp đính kèm`}
         </span>
         <Link className="button secondary" href={`/classes/${a.classId}/assignments/${a.id}`}>
           Xem bài tập
@@ -1109,8 +1110,7 @@ export function AssignmentPage({
             <div className="notice">
               <Info size={18} />
               <span>
-                Viết {a.minWords}–{a.maxWords} từ hoặc đính kèm PDF, DOCX, JPG, PNG (tối đa 25 MB
-                mỗi tệp).
+                Viết {wordRequirement(a)} hoặc đính kèm PDF, DOCX, JPG, PNG (tối đa 25 MB mỗi tệp).
               </span>
             </div>
           </section>
@@ -1156,12 +1156,13 @@ export function AssignmentPage({
               <>
                 <Field
                   label="Bài thu hoạch"
-                  hint={`${count}/${a.maxWords} từ; tối thiểu ${a.minWords} từ nếu không đính kèm tệp.`}
+                  hint={`${count} từ; yêu cầu ${wordRequirement(a)} nếu không đính kèm tệp.`}
                 >
                   <textarea
                     className="assignment-editor"
+                    aria-label="Bài thu hoạch"
                     value={content}
-                    maxLength={30000}
+                    maxLength={50000}
                     onChange={(e) => {
                       setContent(e.target.value);
                       setSaved(false);
@@ -1255,10 +1256,8 @@ export function AssignmentPage({
                           setError('Vui lòng xác nhận bài làm trung thực trước khi nộp.');
                           return;
                         }
-                        if (!files.length && (count < a.minWords || count > a.maxWords)) {
-                          setError(
-                            `Bài viết cần từ ${a.minWords} đến ${a.maxWords} từ hoặc có tệp đính kèm.`,
-                          );
+                        if (!files.length && !acceptsWordCount(count, a)) {
+                          setError(`Bài viết cần ${wordRequirement(a)} hoặc có tệp đính kèm.`);
                           return;
                         }
                         setConfirm(true);
@@ -1450,8 +1449,8 @@ export function MembersPage({ classId }: { classId: string }) {
               <GraduationCap size={24} />
             </span>
             <div>
-              <strong>Thầy Thái Lễ Húc</strong>
-              <p>Bài giảng Đệ Tử Quy</p>
+              <strong>{c.contentAuthor || 'Chưa cập nhật người giảng nội dung'}</strong>
+              <p>{c.title}</p>
             </div>
           </div>
         </section>

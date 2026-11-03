@@ -250,6 +250,8 @@ test('student persists lesson activity, drafts and submits an assignment', async
       lessonId: lesson.id,
       title: 'Bài thực hành lắng nghe E2E',
       instructions: 'Viết từ 300 đến 500 từ về trải nghiệm thực hành.',
+      minWords: 300,
+      maxWords: 500,
       dueAt: new Date(Date.now() + 86_400_000).toISOString(),
       allowLate: false,
     });
@@ -372,6 +374,8 @@ test('teacher creates and publishes a lesson, approves enrollment and returns a 
     await page.goto(`/teacher/lessons?class=${classroom.id}`, { waitUntil: 'domcontentloaded' });
     await page.getByRole('button', { name: 'Thêm bài giảng', exact: true }).click();
     const lessonTitle = 'Bài thực hành hiếu kính E2E';
+    await expect(page.getByLabel('Chương mục', { exact: true })).toHaveValue('');
+    await page.getByLabel('Chương mục', { exact: true }).fill('Chương thực hành của lớp');
     await page.getByLabel('Tiêu đề bài giảng (bắt buộc)', { exact: true }).fill(lessonTitle);
     await page
       .getByLabel('Mô tả bài học', { exact: true })

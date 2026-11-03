@@ -1222,6 +1222,46 @@ small,
   flex-direction: column;
   gap: var(--space-md);
 }
+.notification-button {
+  position: relative;
+}
+.notification-badge {
+  position: absolute;
+  top: 0;
+  right: -3px;
+  min-width: 18px;
+  padding: 1px 4px;
+  border-radius: 12px;
+  background: var(--color-primary, #922d10);
+  color: white;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 16px;
+}
+.unread-notification {
+  margin-bottom: 24px;
+  align-items: center;
+}
+.unread-notification > div {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.unread-notification p {
+  margin: 4px 0 0;
+}
+.notification-item.unread {
+  border-left: 3px solid var(--color-primary, #922d10);
+  padding-left: 12px;
+}
+@media (max-width: 600px) {
+  .unread-notification {
+    flex-wrap: wrap;
+  }
+  .unread-notification > div {
+    flex-basis: calc(100% - 40px);
+  }
+}
 .notification-item {
   padding-bottom: var(--space-md);
   border-bottom: 1px solid var(--color-line);

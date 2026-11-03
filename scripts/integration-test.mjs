@@ -80,6 +80,7 @@ const c = await action(teacher, 'createClass', {
   title: 'PostgreSQL integration class',
   capacity: 2,
   autoApprove: true,
+  contentAuthor: 'Integration content instructor',
 });
 await action(student, 'joinClass', { code: c.code });
 await action(teacher, 'updateClass', {
@@ -88,6 +89,7 @@ await action(teacher, 'updateClass', {
 });
 st = await state(student);
 assert(st.classes.some((x) => x.id === c.id && x.description.startsWith('Updated')));
+assert.equal(st.classes.find((x) => x.id === c.id).contentAuthor, 'Integration content instructor');
 checks++;
 const l = await action(teacher, 'saveLesson', {
   classId: c.id,
@@ -127,6 +129,32 @@ const a = await action(teacher, 'createAssignment', {
   allowResubmit: true,
   allowLate: true,
 });
+assert.deepEqual(await action(teacher, 'remindStudents', { assignmentId: a.id }), { count: 1 });
+st = await state(student);
+const reminder = st.notifications.find((n) => n.assignmentId === a.id);
+assert(reminder && !reminder.read);
+checks++;
+await action(student, 'markNotificationsRead', { ids: [reminder.id] });
+st = await state(student);
+assert.equal(st.notifications.find((n) => n.id === reminder.id).read, true);
+checks++;
+await action(teacher, 'updateAssignment', { assignmentId: a.id, minWords: 1, maxWords: 2 });
+const overLimit = await request('/api/actions', {
+  who: student,
+  method: 'POST',
+  body: {
+    action: 'submitAssignment',
+    assignmentId: a.id,
+    content: 'Three separate words',
+    pledge: true,
+  },
+});
+assert.equal(overLimit.status, 400);
+checks++;
+await action(teacher, 'updateAssignment', { assignmentId: a.id, maxWords: null });
+st = await state(student);
+assert.equal(st.assignments.find((x) => x.id === a.id).maxWords, null);
+checks++;
 const badForm = new FormData();
 badForm.append('classId', c.id);
 badForm.append('file', new Blob(['MZnotpdf'], { type: 'application/pdf' }), 'renamed.pdf');
@@ -280,6 +308,44 @@ const overwrite = await fetch(p.data.uploadUrl, {
 assert.equal(overwrite.status, 200);
 const still = Buffer.from(await (await fetch(vr.headers.get('location'))).arrayBuffer());
 assert(still.equals(video), 'final verified key must resist presigned overwrite');
+checks++;
+const changedTitle = 'Edited integration assignment';
+await action(teacher, 'updateAssignment', {
+  assignmentId: a.id,
+  title: changedTitle,
+  minWords: 150,
+});
+st = await state(student);
+assert.equal(
+  st.submissions.find((s) => s.assignmentId === a.id).score,
+  90,
+  'editing requirements preserves returned grades',
+);
+checks++;
+const other = await action(teacher, 'createAssignment', {
+  classId: c.id,
+  title: 'Another assignment to preserve',
+  instructions: 'Keep this assignment.',
+  dueAt: new Date(Date.now() + 86400000).toISOString(),
+});
+assert.equal(other.minWords, 150);
+assert.equal(other.maxWords, null);
+await action(teacher, 'remindStudents', { assignmentId: other.id });
+const invalidDelete = await request('/api/actions', {
+  who: teacher,
+  method: 'POST',
+  body: { action: 'deleteAssignment', assignmentId: a.id, confirmTitle: 'Wrong assignment' },
+});
+assert.equal(invalidDelete.status, 409);
+checks++;
+await action(teacher, 'deleteAssignment', { assignmentId: a.id, confirmTitle: changedTitle });
+st = await state(student);
+assert(!st.assignments.some((x) => x.id === a.id));
+assert(!st.submissions.some((x) => x.assignmentId === a.id));
+assert(!st.notifications.some((x) => x.assignmentId === a.id));
+assert(st.notifications.some((x) => x.assignmentId === other.id));
+assert(st.assignments.some((x) => x.id === other.id));
+assert(st.lessons.some((x) => x.id === l.id));
 checks++;
 await action(teacher, 'archiveClass', { classId: c.id, archived: true });
 await action(teacher, 'archiveClass', { classId: c.id, archived: false });

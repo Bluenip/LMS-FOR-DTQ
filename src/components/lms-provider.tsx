@@ -47,6 +47,7 @@ export function LmsProvider({ children }: { children: ReactNode }) {
   const [error, setError] = useState('');
   const [menu, setMenu] = useState(false);
   const [notifications, setNotifications] = useState(false);
+  const [readingNotifications, setReadingNotifications] = useState(false);
   const pathname = usePathname();
   const publicAuthPage = PUBLIC_AUTH_ROUTES.includes(pathname);
   const router = useRouter();
@@ -200,6 +201,21 @@ export function LmsProvider({ children }: { children: ReactNode }) {
     );
   const teacher = state.user.role === 'TEACHER';
   const admin = state.user.isAdmin === true;
+  const sortedNotifications = [...state.notifications].sort((a, b) =>
+    b.createdAt.localeCompare(a.createdAt),
+  );
+  const unreadNotifications = sortedNotifications.filter((n) => !n.read);
+  const markRead = async (ids: string[]) => {
+    setReadingNotifications(true);
+    try {
+      for (let i = 0; i < ids.length; i += 2000)
+        await action('markNotificationsRead', { ids: ids.slice(i, i + 2000) });
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setReadingNotifications(false);
+    }
+  };
   const nav = teacher
     ? [
         ['/teacher/classes', 'Lớp giảng dạy'],
@@ -227,13 +243,16 @@ export function LmsProvider({ children }: { children: ReactNode }) {
             </nav>
             <div className="header-account">
               <IconButton
-                label={`Thông báo (${state.notifications.filter((n) => !n.read).length} chưa đọc)`}
-                onClick={() => {
-                  setNotifications(true);
-                  void action('markNotificationsRead').catch(() => {});
-                }}
+                className="notification-button"
+                label={`Thông báo (${unreadNotifications.length} chưa đọc)`}
+                onClick={() => setNotifications(true)}
               >
                 <Bell size={20} />
+                {unreadNotifications.length > 0 && (
+                  <span className="notification-badge" aria-hidden="true">
+                    {unreadNotifications.length > 99 ? '99+' : unreadNotifications.length}
+                  </span>
+                )}
               </IconButton>
               <div className="account-name">
                 <strong>{state.user.name}</strong>
@@ -272,6 +291,18 @@ export function LmsProvider({ children }: { children: ReactNode }) {
               {error}
             </p>
           )}
+          {unreadNotifications.length > 0 && (
+            <aside className="notice unread-notification" role="status" aria-live="polite">
+              <Bell size={20} aria-hidden="true" />
+              <div>
+                <strong>Bạn có {unreadNotifications.length} thông báo chưa đọc</strong>
+                <p>{unreadNotifications[0].content}</p>
+              </div>
+              <Button variant="secondary" onClick={() => setNotifications(true)}>
+                Xem thông báo
+              </Button>
+            </aside>
+          )}
           {children}
         </main>
         <footer className="app-footer">
@@ -287,12 +318,52 @@ export function LmsProvider({ children }: { children: ReactNode }) {
           </div>
         </footer>
         <Dialog open={notifications} title="Thông báo" onClose={() => setNotifications(false)}>
+          {unreadNotifications.length > 0 && (
+            <div className="row between">
+              <span className="small muted">{unreadNotifications.length} chưa đọc</span>
+              <Button
+                variant="ghost"
+                disabled={readingNotifications}
+                onClick={() => void markRead(unreadNotifications.map((n) => n.id))}
+              >
+                Đánh dấu tất cả đã đọc
+              </Button>
+            </div>
+          )}
           <div className="notification-list">
             {state.notifications.length ? (
-              state.notifications.map((n) => (
-                <div className="notification-item" key={n.id}>
+              sortedNotifications.map((n) => (
+                <div className={`notification-item ${n.read ? '' : 'unread'}`} key={n.id}>
+                  {!n.read && <strong className="small accent">Chưa đọc</strong>}
                   <p>{n.content}</p>
                   <small className="muted">{dateTime(n.createdAt)}</small>
+                  <div className="inline-actions">
+                    {n.assignmentId && state.assignments.some((a) => a.id === n.assignmentId) && (
+                      <Link
+                        className="button ghost"
+                        href={
+                          teacher
+                            ? `/teacher/assignments?assignment=${n.assignmentId}&class=${state.assignments.find((a) => a.id === n.assignmentId)!.classId}`
+                            : `/classes/${state.assignments.find((a) => a.id === n.assignmentId)!.classId}/assignments/${n.assignmentId}`
+                        }
+                        onClick={() => {
+                          setNotifications(false);
+                          if (!n.read) void markRead([n.id]);
+                        }}
+                      >
+                        Xem bài tập
+                      </Link>
+                    )}
+                    {!n.read && (
+                      <Button
+                        variant="ghost"
+                        disabled={readingNotifications}
+                        onClick={() => void markRead([n.id])}
+                      >
+                        Đánh dấu đã đọc
+                      </Button>
+                    )}
+                  </div>
                 </div>
               ))
             ) : (

@@ -30,6 +30,7 @@ export interface Classroom {
   id: string;
   title: string;
   description: string;
+  contentAuthor?: string;
   code: string;
   teacherId: string;
   status: 'ACTIVE' | 'ARCHIVED';
@@ -82,7 +83,7 @@ export interface Assignment {
   allowResubmit: boolean;
   maxAttempts: number;
   minWords: number;
-  maxWords: number;
+  maxWords: number | null;
   createdAt: string;
 }
 export interface Submission {
@@ -127,6 +128,7 @@ export interface Notification {
   content: string;
   createdAt: string;
   read: boolean;
+  assignmentId?: string;
 }
 export interface AppState {
   user: User;

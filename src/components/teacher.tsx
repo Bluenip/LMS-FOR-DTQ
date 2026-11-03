@@ -38,6 +38,7 @@ import {
   Tabs,
 } from '@/components/ui';
 import { uploadFile } from '@/lib/client';
+import { wordRequirement } from '@/lib/assignment-policy';
 import type { Assignment, Attachment, Classroom, Lesson, Submission } from '@/lib/types';
 
 const norm = (s: string) =>
@@ -559,6 +560,7 @@ function ClassForm({
 }) {
   const [title, setTitle] = useState(classroom?.title || '');
   const [description, setDescription] = useState(classroom?.description || '');
+  const [contentAuthor, setContentAuthor] = useState(classroom?.contentAuthor || '');
   const [capacity, setCapacity] = useState(classroom?.capacity || 50);
   const [schedule, setSchedule] = useState(classroom?.schedule || '');
   const [autoApprove, setAutoApprove] = useState(classroom?.autoApprove || false);
@@ -568,7 +570,15 @@ function ClassForm({
       className="stack"
       onSubmit={(e) => {
         e.preventDefault();
-        onSave({ title, description, capacity, schedule, autoApprove, enrollmentOpen });
+        onSave({
+          title,
+          description,
+          contentAuthor,
+          capacity,
+          schedule,
+          autoApprove,
+          enrollmentOpen,
+        });
       }}
     >
       <Field label="Tên lớp học (bắt buộc)">
@@ -576,6 +586,17 @@ function ClassForm({
       </Field>
       <Field label="Mô tả lớp học">
         <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={3} />
+      </Field>
+      <Field
+        label="Người giảng nội dung"
+        hint="Tên người trình bày bài giảng. Để trống nếu không cần hiển thị."
+      >
+        <input
+          value={contentAuthor}
+          aria-label="Người giảng nội dung"
+          onChange={(e) => setContentAuthor(e.target.value)}
+          maxLength={200}
+        />
       </Field>
       <div className="two-col">
         <Field label="Sĩ số tối đa (1–500)">
@@ -896,7 +917,7 @@ function LessonEditor({
 }) {
   const { state } = useLms();
   const [title, setTitle] = useState(lesson?.title || '');
-  const [chapter, setChapter] = useState(lesson?.chapter || 'Chương 2: Nhập Tắc Hiếu');
+  const [chapter, setChapter] = useState(lesson?.chapter || '');
   const [order, setOrder] = useState(lesson?.order || nextOrder);
   const [description, setDescription] = useState(lesson?.description || '');
   const [videoType, setVideoType] = useState<'YOUTUBE' | 'UPLOAD'>(lesson?.videoType || 'YOUTUBE');
@@ -1062,11 +1083,18 @@ function LessonEditor({
               value={chapter}
               onChange={(e) => setChapter(e.target.value)}
               list="chapter-options"
+              placeholder="Nhập chương mục của bài giảng"
             />
             <datalist id="chapter-options">
-              <option value="Chương 1: Tổng Cương" />
-              <option value="Chương 2: Nhập Tắc Hiếu" />
-              <option value="Chương 3: Xuất Tắc Đễ" />
+              {[
+                ...new Set(
+                  state.lessons.filter((l) => l.classId === classId).map((l) => l.chapter),
+                ),
+              ]
+                .filter(Boolean)
+                .map((value) => (
+                  <option key={value} value={value} />
+                ))}
             </datalist>
           </Field>
           <Field label="Thời lượng">
@@ -1202,6 +1230,7 @@ function LessonEditor({
                 busy ||
                 uploading ||
                 !title.trim() ||
+                !chapter.trim() ||
                 (!videoUrl && !videoFileId) ||
                 (videoType === 'YOUTUBE' && !youtubeId(videoUrl))
               }
@@ -1277,7 +1306,9 @@ export function TeacherAssignments() {
   const [gradingId, setGradingId] = useState<string | null>(null);
   const grading = state.submissions.find((s) => s.id === gradingId);
   const [gradingDirty, setGradingDirty] = useState(false);
-  const [creating, setCreating] = useState(false);
+  const [editor, setEditor] = useState<{ classId: string; assignment?: Assignment } | null>(null);
+  const [deleting, setDeleting] = useState<Assignment | null>(null);
+  const [deleteTitle, setDeleteTitle] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState('');
@@ -1306,8 +1337,14 @@ export function TeacherAssignments() {
     setError('');
     setBusy(true);
     try {
-      await action('remindStudents', { assignmentId: assignment!.id, userId });
-      setNotice('Đã gửi lời nhắc vào thông báo của học viên.');
+      const result = (await action('remindStudents', { assignmentId: assignment!.id, userId })) as {
+        count: number;
+      };
+      setNotice(
+        result.count
+          ? 'Đã gửi lời nhắc vào thông báo của học viên.'
+          : 'Học viên đã nộp bài hoặc không còn trong danh sách cần nhắc.',
+      );
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -1357,7 +1394,7 @@ export function TeacherAssignments() {
             </Button>
             <Button
               onClick={() => {
-                setCreating(true);
+                setEditor({ classId });
                 setError('');
               }}
               disabled={!classId}
@@ -1389,8 +1426,93 @@ export function TeacherAssignments() {
         </Field>
         {assignment && <p className="small muted">Hạn nộp: {date(assignment.dueAt)} (GMT+7)</p>}
       </div>
+      <ErrorLine error={error} />
+      {notice && (
+        <p role="status" className="notice">
+          {notice}
+        </p>
+      )}
+      <section className="panel stack">
+        <div className="section-heading">
+          <h2>Bài tập đã giao</h2>
+          <span className="small muted">{assignments.length} bài tập</span>
+        </div>
+        {assignments.length > 0 ? (
+          <div className="table-wrap">
+            <table className="table" aria-label="Quản lý bài tập đã giao">
+              <thead>
+                <tr>
+                  <th>Bài tập</th>
+                  <th>Hạn nộp (GMT+7)</th>
+                  <th>Yêu cầu số từ</th>
+                  <th>Đã nộp</th>
+                  <th>Thao tác</th>
+                </tr>
+              </thead>
+              <tbody>
+                {assignments.map((a) => (
+                  <tr key={a.id}>
+                    <td>
+                      <strong>{a.title}</strong>
+                      <small className="muted">
+                        {state.lessons.find((l) => l.id === a.lessonId)?.title ||
+                          'Không gắn bài học'}
+                      </small>
+                    </td>
+                    <td>{date(a.dueAt)}</td>
+                    <td>{wordRequirement(a)}</td>
+                    <td>
+                      {
+                        state.submissions.filter(
+                          (s) => s.assignmentId === a.id && s.status !== 'DRAFT',
+                        ).length
+                      }
+                      /{enrolled.length}
+                    </td>
+                    <td>
+                      <div className="inline-actions">
+                        <Button
+                          variant={a.id === assignment?.id ? 'secondary' : 'ghost'}
+                          aria-pressed={a.id === assignment?.id}
+                          onClick={() => set('assignment', a.id)}
+                        >
+                          Xem bài nộp
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          onClick={() => {
+                            setError('');
+                            setEditor({ classId, assignment: a });
+                          }}
+                        >
+                          <Edit3 size={15} />
+                          Sửa bài tập
+                        </Button>
+                        <Button
+                          variant="danger"
+                          onClick={() => {
+                            setError('');
+                            setDeleteTitle('');
+                            setDeleting(a);
+                          }}
+                        >
+                          <Trash2 size={15} />
+                          Xóa bài tập
+                        </Button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <p className="muted">Chưa có bài tập trong lớp này.</p>
+        )}
+      </section>
       {assignment ? (
         <>
+          <h2>Bài đang theo dõi: {assignment.title}</h2>
           <div className="stat-row">
             <div className="stat">
               <strong>
@@ -1442,12 +1564,6 @@ export function TeacherAssignments() {
                 placeholder="Tìm tên học viên…"
               />
             </div>
-            <ErrorLine error={error} />
-            {notice && (
-              <p role="status" className="notice">
-                {notice}
-              </p>
-            )}
             <div className="table-wrap">
               <table
                 className="table grade-table"
@@ -1606,16 +1722,85 @@ export function TeacherAssignments() {
           </Empty>
         )}
       </Dialog>
-      <Dialog open={creating} title="Giao bài tập mới" onClose={() => setCreating(false)} wide>
-        <AssignmentForm
-          classId={classId}
-          lessons={state.lessons.filter((l) => l.classId === classId)}
-          onClose={() => setCreating(false)}
-          onSave={async (data) => {
-            await action('createAssignment', { classId, ...data });
-            setCreating(false);
-          }}
-        />
+      <Dialog
+        open={!!editor}
+        title={editor?.assignment ? 'Sửa bài tập' : 'Giao bài tập mới'}
+        onClose={() => setEditor(null)}
+        wide
+      >
+        {editor && (
+          <AssignmentForm
+            key={editor.assignment?.id || `new-${editor.classId}`}
+            classId={editor.classId}
+            assignment={editor.assignment}
+            lessons={state.lessons.filter((l) => l.classId === editor.classId)}
+            onClose={() => setEditor(null)}
+            onSave={async (data) => {
+              const saved = (await action(
+                editor.assignment ? 'updateAssignment' : 'createAssignment',
+                {
+                  ...data,
+                  ...(editor.assignment ? { assignmentId: editor.assignment.id } : {}),
+                },
+              )) as Assignment;
+              setEditor(null);
+              set('assignment', saved.id);
+              setNotice(editor.assignment ? 'Đã cập nhật bài tập.' : 'Đã giao bài tập mới.');
+            }}
+          />
+        )}
+      </Dialog>
+      <Dialog
+        open={!!deleting}
+        title="Xóa bài tập?"
+        onClose={() => {
+          if (!busy) setDeleting(null);
+        }}
+      >
+        {deleting && (
+          <div className="stack">
+            <p>
+              Bạn đang xóa bài “{deleting.title}”. Các bản nháp, bài đã nộp, điểm và thông báo gắn
+              với bài tập này sẽ bị xóa. Thao tác này không thể hoàn tác.
+            </p>
+            <Field label="Nhập tên bài tập để xác nhận">
+              <input
+                value={deleteTitle}
+                onChange={(e) => setDeleteTitle(e.target.value)}
+                autoComplete="off"
+              />
+            </Field>
+            <ErrorLine error={error} />
+            <div className="dialog-footer">
+              <Button variant="secondary" disabled={busy} onClick={() => setDeleting(null)}>
+                Giữ lại
+              </Button>
+              <Button
+                variant="danger"
+                disabled={busy || deleteTitle.trim() !== deleting.title}
+                onClick={async () => {
+                  setBusy(true);
+                  setError('');
+                  try {
+                    await action('deleteAssignment', {
+                      assignmentId: deleting.id,
+                      confirmTitle: deleteTitle.trim(),
+                    });
+                    if (assignment?.id === deleting.id) set('assignment', '');
+                    setDeleting(null);
+                    setNotice('Đã xóa bài tập.');
+                  } catch (e) {
+                    setError((e as Error).message);
+                  } finally {
+                    setBusy(false);
+                  }
+                }}
+              >
+                Xác nhận xóa bài tập
+              </Button>
+            </div>
+          </div>
+        )}
       </Dialog>
     </div>
   );
@@ -1830,23 +2015,33 @@ function GradeForm({
 function AssignmentForm({
   classId,
   lessons,
+  assignment,
   onClose,
   onSave,
 }: {
   classId: string;
   lessons: Lesson[];
+  assignment?: Assignment;
   onClose: () => void;
   onSave: (data: Record<string, unknown>) => Promise<void>;
 }) {
-  const [title, setTitle] = useState('');
-  const [lessonId, setLessonId] = useState(lessons[0]?.id || '');
+  const localDueAt = assignment
+    ? new Date(Date.parse(assignment.dueAt) + 7 * 60 * 60 * 1000).toISOString()
+    : '';
+  const [title, setTitle] = useState(assignment?.title || '');
+  const [lessonId, setLessonId] = useState(assignment?.lessonId || '');
   const [instructions, setInstructions] = useState(
-    'Nêu hai tình huống thực tế và bài học rút ra. Viết bài cảm nhận 300–500 từ hoặc tải tệp bài làm.',
+    assignment?.instructions ||
+      'Nêu hai tình huống thực tế và bài học rút ra. Viết bài cảm nhận hoặc đính kèm tệp bài làm.',
   );
-  const [dueDate, setDueDate] = useState('');
-  const [dueTime, setDueTime] = useState('23:59');
-  const [allowLate, setAllowLate] = useState(false);
-  const [allowResubmit, setAllowResubmit] = useState(true);
+  const [dueDate, setDueDate] = useState(localDueAt.slice(0, 10));
+  const [dueTime, setDueTime] = useState(localDueAt.slice(11, 16) || '23:59');
+  const [minWords, setMinWords] = useState(String(assignment?.minWords ?? 150));
+  const [maxWords, setMaxWords] = useState(
+    assignment?.maxWords == null ? '' : String(assignment.maxWords),
+  );
+  const [allowLate, setAllowLate] = useState(assignment?.allowLate ?? false);
+  const [allowResubmit, setAllowResubmit] = useState(assignment?.allowResubmit ?? true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   return (
@@ -1857,17 +2052,19 @@ function AssignmentForm({
         setBusy(true);
         setError('');
         try {
+          if (maxWords !== '' && Number(maxWords) < Number(minWords))
+            throw new Error('Số từ tối đa phải lớn hơn hoặc bằng số từ tối thiểu.');
           await onSave({
             classId,
             title,
-            lessonId: lessonId || undefined,
+            lessonId: lessonId || null,
             instructions,
             dueAt: new Date(`${dueDate}T${dueTime}:00+07:00`).toISOString(),
             allowLate,
             allowResubmit,
-            maxAttempts: 2,
-            minWords: 300,
-            maxWords: 500,
+            maxAttempts: assignment?.maxAttempts ?? 2,
+            minWords: Number(minWords),
+            maxWords: maxWords === '' ? null : Number(maxWords),
           });
         } catch (e) {
           setError((e as Error).message);
@@ -1897,6 +2094,32 @@ function AssignmentForm({
           onChange={(e) => setInstructions(e.target.value)}
         />
       </Field>
+      <div className="two-col">
+        <Field label="Số từ tối thiểu" hint="Nhập 0 nếu không yêu cầu số từ tối thiểu.">
+          <input
+            type="number"
+            required
+            min={0}
+            max={20000}
+            step={1}
+            value={minWords}
+            aria-label="Số từ tối thiểu"
+            onChange={(e) => setMinWords(e.target.value)}
+          />
+        </Field>
+        <Field label="Số từ tối đa" hint="Để trống nếu không giới hạn số từ tối đa.">
+          <input
+            type="number"
+            min={1}
+            max={20000}
+            step={1}
+            value={maxWords}
+            aria-label="Số từ tối đa"
+            onChange={(e) => setMaxWords(e.target.value)}
+            placeholder="Không giới hạn"
+          />
+        </Field>
+      </div>
       <div className="two-col">
         <Field label="Ngày hết hạn">
           <input
@@ -1935,10 +2158,14 @@ function AssignmentForm({
           checked={allowResubmit}
           onChange={(e) => setAllowResubmit(e.target.checked)}
         />
-        Cho phép học viên nộp lại trước hạn (tối đa 2 lần)
+        Cho phép học viên nộp lại trước hạn (tối đa {assignment?.maxAttempts ?? 2} lần)
       </label>
       <ErrorLine error={error} />
-      <FormActions busy={busy} onClose={onClose} label="Giao bài tập" />
+      <FormActions
+        busy={busy}
+        onClose={onClose}
+        label={assignment ? 'Lưu thay đổi' : 'Giao bài tập'}
+      />
     </form>
   );
 }

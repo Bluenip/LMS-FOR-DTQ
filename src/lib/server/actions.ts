@@ -12,11 +12,35 @@ import type {
   Submission,
 } from '@/lib/types';
 import { HttpError, publicUser } from './auth';
+import { acceptsWordCount, wordRequirement } from '../assignment-policy';
 const id = z.string().min(1).max(120);
 const text = z.string().max(50000);
 const title = z.string().trim().min(2).max(200);
 const time = () => new Date().toISOString();
 const uid = () => randomUUID();
+const assignmentSchema = z.object({
+  classId: id,
+  lessonId: id.nullable().optional(),
+  title,
+  instructions: text,
+  dueAt: z.string().datetime(),
+  allowLate: z.boolean().default(false),
+  allowResubmit: z.boolean().default(true),
+  maxAttempts: z.number().int().min(1).max(5).default(2),
+  minWords: z.number().int().min(0).max(20000).default(150),
+  maxWords: z.number().int().min(1).max(20000).nullable().default(null),
+});
+function assignmentValues(db: Database, input: unknown) {
+  const values = assignmentSchema.parse(input);
+  if (
+    values.lessonId &&
+    !db.lessons.some((l) => l.id === values.lessonId && l.classId === values.classId)
+  )
+    throw new HttpError(400, 'Bài giảng không thuộc lớp.');
+  if (values.maxWords !== null && values.maxWords < values.minWords)
+    throw new HttpError(400, 'Số từ tối đa phải lớn hơn hoặc bằng số từ tối thiểu.');
+  return values;
+}
 function needed<T>(value: T | undefined, message = 'Không tìm thấy dữ liệu.'): T {
   if (!value) throw new HttpError(404, message);
   return value;
@@ -151,6 +175,9 @@ function deleteClassData(db: Database, classId: string) {
   db.lessons = db.lessons.filter((x) => x.classId !== classId);
   db.assignments = db.assignments.filter((x) => x.classId !== classId);
   db.submissions = db.submissions.filter((x) => !assignmentIds.has(x.assignmentId));
+  db.notifications = db.notifications.filter(
+    (n) => !n.assignmentId || !assignmentIds.has(n.assignmentId),
+  );
   db.progress = db.progress.filter((x) => !lessonIds.has(x.lessonId));
   db.notes = db.notes.filter((x) => !lessonIds.has(x.lessonId));
   db.discussions = db.discussions.filter((x) => !lessonIds.has(x.lessonId));
@@ -229,6 +256,7 @@ export function runAction(db: Database, user: StoredUser, input: Record<string, 
         .object({
           title,
           description: text.default(''),
+          contentAuthor: z.string().trim().max(200).default(''),
           capacity: z.number().int().min(1).max(500).default(50),
           schedule: z.string().max(200).default(''),
           autoApprove: z.boolean().default(false),
@@ -253,6 +281,7 @@ export function runAction(db: Database, user: StoredUser, input: Record<string, 
           classId: id,
           title: title.optional(),
           description: text.optional(),
+          contentAuthor: z.string().trim().max(200).optional(),
           capacity: z.number().int().min(1).max(500).optional(),
           schedule: z.string().max(200).optional(),
           enrollmentOpen: z.boolean().optional(),
@@ -484,27 +513,37 @@ export function runAction(db: Database, user: StoredUser, input: Record<string, 
       return d;
     }
     case 'createAssignment': {
-      const v = z
-        .object({
-          classId: id,
-          lessonId: id.optional(),
-          title,
-          instructions: text,
-          dueAt: z.string().datetime(),
-          allowLate: z.boolean().default(false),
-          allowResubmit: z.boolean().default(true),
-          maxAttempts: z.number().int().min(1).max(5).default(2),
-          minWords: z.number().int().min(0).max(10000).default(300),
-          maxWords: z.number().int().min(1).max(20000).default(500),
-        })
-        .parse(input);
+      const v = assignmentValues(db, input);
       active(teacherClass(db, user, v.classId));
-      if (v.lessonId && !db.lessons.some((l) => l.id === v.lessonId && l.classId === v.classId))
-        throw new HttpError(400, 'Bài giảng không thuộc lớp.');
-      if (v.maxWords < v.minWords) throw new HttpError(400, 'Giới hạn số từ không hợp lệ.');
-      const a: Assignment = { id: uid(), ...v, createdAt: time() };
+      const a: Assignment = {
+        id: uid(),
+        ...v,
+        lessonId: v.lessonId || undefined,
+        createdAt: time(),
+      };
       db.assignments.push(a);
       return a;
+    }
+    case 'updateAssignment': {
+      const a = needed(db.assignments.find((a) => a.id === input.assignmentId));
+      active(teacherClass(db, user, a.classId));
+      if (input.classId !== undefined && input.classId !== a.classId)
+        throw new HttpError(400, 'Không thể chuyển bài tập sang lớp khác.');
+      const v = assignmentValues(db, { ...a, ...input, classId: a.classId });
+      Object.assign(a, v);
+      if (!v.lessonId) delete a.lessonId;
+      return a;
+    }
+    case 'deleteAssignment': {
+      const v = z.object({ assignmentId: id, confirmTitle: title }).parse(input);
+      const a = needed(db.assignments.find((a) => a.id === v.assignmentId));
+      active(teacherClass(db, user, a.classId));
+      if (v.confirmTitle !== a.title)
+        throw new HttpError(409, 'Tên bài tập không khớp. Kiểm tra lại trước khi xóa.');
+      db.submissions = db.submissions.filter((s) => s.assignmentId !== a.id);
+      db.notifications = db.notifications.filter((n) => n.assignmentId !== a.id);
+      db.assignments = db.assignments.filter((assignment) => assignment.id !== a.id);
+      return null;
     }
     case 'saveSubmission':
     case 'submitAssignment': {
@@ -536,10 +575,10 @@ export function runAction(db: Database, user: StoredUser, input: Record<string, 
       if (action === 'submitAssignment') {
         if (!v.pledge) throw new HttpError(400, 'Vui lòng xác nhận bài làm của chính bạn.');
         const words = v.content.trim() ? v.content.trim().split(/\s+/u).length : 0;
-        if (!files.length && (words < a.minWords || words > a.maxWords))
+        if (!files.length && !acceptsWordCount(words, a))
           throw new HttpError(
             400,
-            `Bài viết cần từ ${a.minWords} đến ${a.maxWords} từ, hoặc đính kèm tệp bài làm.`,
+            `Bài viết cần ${wordRequirement(a)}, hoặc đính kèm tệp bài làm.`,
           );
       }
       if (!s) {
@@ -618,18 +657,20 @@ export function runAction(db: Database, user: StoredUser, input: Record<string, 
           content: `Bài “${a.title}” đã được chấm: ${s.score}/100.`,
           createdAt: time(),
           read: false,
+          assignmentId: a.id,
         });
       }
       return s;
     }
     case 'remindStudents': {
-      const a = needed(db.assignments.find((a) => a.id === input.assignmentId));
-      teacherClass(db, user, a.classId);
+      const v = z.object({ assignmentId: id, userId: id.optional() }).parse(input);
+      const a = needed(db.assignments.find((a) => a.id === v.assignmentId));
+      active(teacherClass(db, user, a.classId));
       const missing = db.enrollments.filter(
         (e) =>
           e.classId === a.classId &&
           e.status === 'APPROVED' &&
-          (!input.userId || e.userId === input.userId) &&
+          (!v.userId || e.userId === v.userId) &&
           !db.submissions.some(
             (s) => s.assignmentId === a.id && s.studentId === e.userId && s.status !== 'DRAFT',
           ),
@@ -641,11 +682,16 @@ export function runAction(db: Database, user: StoredUser, input: Record<string, 
           content: `Nhắc nộp bài: ${a.title}. Hạn nộp ${new Date(a.dueAt).toLocaleString('vi-VN')}.`,
           createdAt: time(),
           read: false,
+          assignmentId: a.id,
         });
       return { count: missing.length };
     }
     case 'markNotificationsRead': {
-      db.notifications.filter((n) => n.userId === user.id).forEach((n) => (n.read = true));
+      const v = z.object({ ids: z.array(id).max(2000).optional() }).parse(input);
+      const selected = v.ids ? new Set(v.ids) : null;
+      db.notifications
+        .filter((n) => n.userId === user.id && (!selected || selected.has(n.id)))
+        .forEach((n) => (n.read = true));
       return null;
     }
     default:

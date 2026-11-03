@@ -50,6 +50,7 @@ model Classroom {
   id             String       @id
   title          String
   description    String
+  contentAuthor  String       @default("")
   code           String       @unique
   teacherId      String
   teacher        User         @relation(fields: [teacherId], references: [id], onDelete: Restrict)
@@ -106,11 +107,11 @@ model Lesson {
 }
 
 model Assignment {
-  id            String       @id
+  id            String         @id
   classId       String
-  classroom     Classroom    @relation(fields: [classId], references: [id], onDelete: Cascade)
+  classroom     Classroom      @relation(fields: [classId], references: [id], onDelete: Cascade)
   lessonId      String?
-  lesson        Lesson?      @relation(fields: [lessonId], references: [id], onDelete: SetNull)
+  lesson        Lesson?        @relation(fields: [lessonId], references: [id], onDelete: SetNull)
   title         String
   instructions  String
   dueAt         String
@@ -118,9 +119,10 @@ model Assignment {
   allowResubmit Boolean
   maxAttempts   Int
   minWords      Int
-  maxWords      Int
+  maxWords      Int?
   createdAt     String
   submissions   Submission[]
+  notifications Notification[]
 
   @@index([classId])
 }
@@ -182,14 +184,17 @@ model Discussion {
 }
 
 model Notification {
-  id        String  @id
-  userId    String
-  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  content   String
-  createdAt String
-  read      Boolean @default(false)
+  id           String      @id
+  userId       String
+  user         User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  content      String
+  createdAt    String
+  read         Boolean     @default(false)
+  assignmentId String?
+  assignment   Assignment? @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+  @@index([assignmentId])
 }
 
 model StoredFile {

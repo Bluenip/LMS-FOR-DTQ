@@ -34,7 +34,13 @@ async function readPostgres(tx: unknown): Promise<Database> {
         await (tx as Record<string, { findMany: () => Promise<Record<string, unknown>[]> }>)[
           model
         ].findMany()
-      ).map((row) => Object.fromEntries(Object.entries(row).filter(([, value]) => value !== null)));
+      ).map((row) =>
+        Object.fromEntries(
+          Object.entries(row).filter(
+            ([field, value]) => value !== null || (key === 'assignments' && field === 'maxWords'),
+          ),
+        ),
+      );
     }),
   );
   return db;
@@ -55,7 +61,8 @@ async function writePostgres(tx: unknown, db: Database) {
         user: ['avatar'],
         authToken: ['consumedAt', 'pendingPasswordHash', 'pendingName'],
         lesson: ['videoFileId'],
-        assignment: ['lessonId'],
+        assignment: ['lessonId', 'maxWords'],
+        notification: ['assignmentId'],
         submission: ['submittedAt', 'score', 'gradedAt'],
       };
       for (const field of optional[model] || []) if (!(field in data)) data[field] = null;

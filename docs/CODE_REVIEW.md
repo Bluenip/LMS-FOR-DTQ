@@ -23,9 +23,17 @@ Nguồn chính: [nghiệp vụ và phân quyền](../src/lib/server/actions.ts),
 - Hoàn tất video kiểm tra lại quyền lớp/tài khoản trước khi ghi dữ liệu. CLI cấp giáo viên nhận mật khẩu khởi tạo riêng cho quản trị production.
 - Healthcheck thật qua PostgreSQL và Bash deploy có kiểm thử build lỗi, rollout lỗi/khôi phục image, lịch sử Git lệch, giữ cấu hình, khóa triển khai, giới hạn backup và tự thay script khi cập nhật.
 
+## Sửa theo phản hồi khi sử dụng
+
+- Thông báo nhắc nộp có badge chưa đọc, banner trên trang, lịch sử và liên kết bài tập. Không tự đánh dấu đọc khi chỉ mở chuông; chỉ cập nhật đúng ID đã đọc để tránh nuốt lời nhắc mới đến. Giáo viên nhận phản hồi đúng khi không còn học viên cần nhắc.
+- Giáo viên quản lý từng bài trong bảng riêng: chọn xem bài nộp, sửa đề/hạn/chính sách hoặc xóa với xác nhận tên. Quyền chỉnh sửa/xóa chỉ thuộc giáo viên của lớp; thao tác xóa không ảnh hưởng bài khác hay bài giảng.
+- Số từ do giáo viên đặt cho từng bài. Bài mới mặc định tối thiểu 150, tối đa không giới hạn (`maxWords: null`); giao diện và backend dùng chung quy tắc. Yêu cầu cũ không tự bị đổi, bài nộp/điểm đã có được giữ khi sửa đề.
+- Người giảng nội dung là trường riêng của lớp; để trống thì không hiện trên thẻ lớp. Bỏ tên người giảng và chương mục được gán cố định trong giao diện; gợi ý chương chỉ lấy từ chính lớp đó.
+- Migration mới cho phép `Assignment.maxWords` null, thêm `Classroom.contentAuthor` và liên kết thông báo với bài tập. Đã thử nâng cấp từ image production trước đó trong database biệt lập: giữ nguyên lớp, yêu cầu 300–500 từ cũ, bài nộp, điểm 90 và phiên đăng nhập đã ký. Xóa lớp/bài tập cũng dọn thông báo liên quan để không còn tham chiếu database bị lỗi.
+
 ## Phạm vi rà soát
 
-Đã đối chiếu các trang và Route Handlers trong `src/app`, giao diện/provider đồng bộ trong `src/components`, nghiệp vụ/xác thực/kho tệp trong `src/lib`, schema và ba migration, sáu script vận hành/kiểm thử, mười file test, cấu hình và tài liệu. Các font/giấy phép cùng 34 bản xuất Stitch được kiểm tra về vai trò tài nguyên và tài liệu tham chiếu.
+Đã đối chiếu các trang và Route Handlers trong `src/app`, giao diện/provider đồng bộ trong `src/components`, nghiệp vụ/xác thực/kho tệp trong `src/lib`, schema và bốn migration, sáu script vận hành/kiểm thử, mười hai file test, cấu hình và tài liệu. Các font/giấy phép cùng 34 bản xuất Stitch được kiểm tra về vai trò tài nguyên và tài liệu tham chiếu.
 
 Đã đọc hướng dẫn Next.js đóng gói cùng phiên bản đang cài trong `node_modules/next/dist/docs/`. Mười chín dependency trực tiếp trên máy phát triển khớp lockfile. Image Docker cũng cài mới bằng `npm ci` và build thành công trên server, không dùng `node_modules` hoặc `.next` của máy phát triển.
 
@@ -37,13 +45,13 @@ Nguồn chính: [nghiệp vụ và phân quyền](../src/lib/server/actions.ts),
 | ------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
 | TypeScript                                  | Đạt                                                                                                   |
 | Prettier mã nguồn                           | Đạt                                                                                                   |
-| Backend                                     | **72/72 đạt**, gồm backend, request, rate limit và Bash deploy                                        |
-| Playwright                                  | **12/12 đạt**, không bỏ qua ca nào; gồm giới hạn JSON/login đồng thời                                 |
+| Backend                                     | **81/81 đạt**, gồm backend, request, rate limit và Bash deploy                                        |
+| Playwright                                  | **15/15 đạt**, không bỏ qua ca nào; gồm giới hạn JSON/login đồng thời                                 |
 | Build production trên máy phát triển        | Đạt, Turbopack mặc định                                                                               |
 | Docker build trên server đích               | Đạt; Node.js 22.23.4, Next.js 16.4.4, Prisma 6.19.0                                                   |
 | Migration PostgreSQL trên server            | Ba migration chạy thành công trên PostgreSQL **17.11**                                                |
 | Bootstrap quản trị bằng CLI trong container | Tạo giáo viên, cấp quản trị và tạo học viên qua API thành công                                        |
-| PostgreSQL + S3 qua HTTP                    | **52/52 kiểm tra đạt**, gồm PDF, video, quyền tệp nháp, xóa điểm nháp, chống ghi đè video đã xác thực |
+| PostgreSQL + S3 qua HTTP                    | **72/72 kiểm tra đạt**, gồm PDF, video, quyền tệp nháp, xóa điểm nháp, chống ghi đè video đã xác thực |
 | User chạy ứng dụng                          | UID 1000, không phải root                                                                             |
 | Cookie production                           | Có Secure và HttpOnly trong kiểm tra HTTP nội bộ                                                      |
 | Dependency ứng dụng                         | `npm ci` trong Docker báo 0 lỗ hổng đã biết tại thời điểm chạy                                        |
