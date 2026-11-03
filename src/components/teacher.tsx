@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import {
@@ -39,6 +39,13 @@ import {
 } from '@/components/ui';
 import { uploadFile } from '@/lib/client';
 import { wordRequirement } from '@/lib/assignment-policy';
+import {
+  assignmentRows,
+  assignmentStats,
+  submissionStatus,
+  assignmentCsv,
+  assignmentCsvFilename,
+} from '@/lib/assignment-grading';
 import type { Assignment, Attachment, Classroom, Lesson, Submission } from '@/lib/types';
 
 const norm = (s: string) =>
@@ -1305,61 +1312,183 @@ function LessonEditor({
   );
 }
 
+function AssignmentActions({
+  assignment,
+  onEdit,
+  onDelete,
+}: {
+  assignment: Assignment;
+  onEdit: () => void;
+  onDelete: () => void;
+}) {
+  return (
+    <details
+      className="assignment-menu"
+      onKeyDown={(event) => {
+        if (event.key === 'Escape') {
+          event.currentTarget.open = false;
+          event.currentTarget.querySelector('summary')?.focus();
+        }
+      }}
+    >
+      <summary aria-label={`Thao tác cho bài ${assignment.title}`} title="Thao tác bài tập">
+        <span aria-hidden="true">⋯</span>
+      </summary>
+      <div className="assignment-menu-actions">
+        <button
+          type="button"
+          onClick={(event) => {
+            event.currentTarget.closest('details')?.removeAttribute('open');
+            onEdit();
+          }}
+        >
+          <Edit3 size={15} /> Sửa bài tập
+        </button>
+        <button
+          type="button"
+          className="assignment-delete"
+          onClick={(event) => {
+            event.currentTarget.closest('details')?.removeAttribute('open');
+            onDelete();
+          }}
+        >
+          <Trash2 size={15} /> Xóa bài tập
+        </button>
+      </div>
+    </details>
+  );
+}
+
+function assignmentUrl(classId: string, assignmentId?: string) {
+  const params = new URLSearchParams({ class: classId });
+  if (assignmentId) params.set('assignment', assignmentId);
+  return `/teacher/assignments?${params.toString()}`;
+}
+
 export function TeacherAssignments() {
   const { state, action } = useLms();
-  const { params, set } = useQuery();
+  const params = useSearchParams();
+  const router = useRouter();
   const classes = state.classes.filter((c) => c.teacherId === state.user.id);
-  const classId = params.get('class') || classes[0]?.id || '';
+  const requestedClass = params.get('class');
+  const requestedAssignment = params.get('assignment');
+  const knownAssignment = requestedAssignment
+    ? state.assignments.find(
+        (a) => a.id === requestedAssignment && classes.some((c) => c.id === a.classId),
+      )
+    : undefined;
+  const classId = requestedClass ?? knownAssignment?.classId ?? classes[0]?.id ?? '';
+  const classroom = classes.find((c) => c.id === classId);
   const assignments = state.assignments.filter((a) => a.classId === classId);
-  const assignment = assignments.find((a) => a.id === params.get('assignment')) || assignments[0];
+  const assignment = requestedAssignment
+    ? assignments.find((a) => a.id === requestedAssignment)
+    : undefined;
   const search = params.get('q') || '';
-  const setSearch = (v: string) => set('q', v);
-  const filter = params.get('status') || 'all';
-  const page = Math.max(1, Number(params.get('page')) || 1);
-  const setPage = (value: number | ((current: number) => number)) =>
-    set('page', String(typeof value === 'function' ? value(page) : value));
+  const filter = ['pending', 'graded', 'missing'].includes(params.get('status') || '')
+    ? params.get('status')!
+    : 'all';
+  const requestedPage = Math.max(1, Math.floor(Number(params.get('page')) || 1));
   const [gradingId, setGradingId] = useState<string | null>(null);
-  const grading = state.submissions.find((s) => s.id === gradingId);
+  const [openedSubmission, setOpenedSubmission] = useState<Submission | null>(null);
+  // Teachers no longer receive the submission while it is withdrawn. Keep the opened
+  // attempt in the dialog so unsaved grading is not discarded during synchronization.
+  const grading =
+    state.submissions.find((s) => s.id === gradingId) ??
+    (openedSubmission?.id === gradingId
+      ? { ...openedSubmission, status: 'DRAFT' as const }
+      : undefined);
   const [gradingDirty, setGradingDirty] = useState(false);
   const [editor, setEditor] = useState<{ classId: string; assignment?: Assignment } | null>(null);
   const [deleting, setDeleting] = useState<Assignment | null>(null);
   const [deleteTitle, setDeleteTitle] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
-  const [notice, setNotice] = useState('');
-  const enrolled = state.enrollments.filter(
-    (e) => e.classId === classId && e.status === 'APPROVED',
-  );
-  const submissions = state.submissions.filter(
-    (s) => s.assignmentId === assignment?.id && s.status !== 'DRAFT',
-  );
-  const graded = submissions.filter((s) => s.status === 'GRADED');
-  const rows = enrolled
-    .map((e) => ({
-      user: state.users.find((u) => u.id === e.userId),
-      submission: submissions.find((s) => s.studentId === e.userId),
-    }))
-    .filter(
-      (r) =>
-        r.user &&
-        norm(r.user.name).includes(norm(search)) &&
-        (filter === 'all' ||
-          (filter === 'pending' && r.submission?.status === 'SUBMITTED') ||
-          (filter === 'graded' && r.submission?.status === 'GRADED') ||
-          (filter === 'missing' && !r.submission)),
-    );
-  async function remind(userId: string) {
+  const [notice, setNotice] = useState<{
+    classId: string;
+    assignmentId?: string;
+    text: string;
+    openAssignmentId?: string;
+  } | null>(null);
+  const contextKey = JSON.stringify([classId, requestedAssignment]);
+  const previousContext = useRef(contextKey);
+  useEffect(() => {
+    if (previousContext.current === contextKey) return;
+    previousContext.current = contextKey;
     setError('');
+    setNotice((current) =>
+      current?.classId === classId && (current.assignmentId || null) === requestedAssignment
+        ? current
+        : null,
+    );
+    if (!gradingDirty) setGradingId(null);
+  }, [contextKey, classId, requestedAssignment, gradingDirty]);
+
+  // A modal blocks page links, but the browser's Back button can still leave the editor.
+  useEffect(() => {
+    if (!gradingDirty) return;
+    const currentUrl = window.location.href;
+    const onPopState = () => {
+      if (!window.confirm('Bài chấm có thay đổi chưa lưu. Bạn muốn bỏ thay đổi và rời trang?')) {
+        window.history.pushState(null, '', currentUrl);
+      } else {
+        setGradingDirty(false);
+        setGradingId(null);
+      }
+    };
+    window.addEventListener('popstate', onPopState);
+    return () => window.removeEventListener('popstate', onPopState);
+  }, [gradingDirty]);
+
+  const allRows = assignment ? assignmentRows(state, assignment) : [];
+  const stats = assignmentStats(allRows);
+  const rows = allRows.filter(
+    ({ user, submission }) =>
+      norm(user?.name || '').includes(norm(search)) &&
+      (filter === 'all' ||
+        (filter === 'pending' && submission?.status === 'SUBMITTED') ||
+        (filter === 'graded' && submission?.status === 'GRADED') ||
+        (filter === 'missing' && !submission)),
+  );
+  const pageCount = Math.max(1, Math.ceil(rows.length / 8));
+  const page = Math.min(requestedPage, pageCount);
+  const visibleNotice =
+    notice?.classId === classId && (notice.assignmentId || null) === requestedAssignment
+      ? notice
+      : null;
+
+  function updateFilters(changes: Record<string, string | null>) {
+    const next = new URLSearchParams(window.location.search);
+    for (const [key, value] of Object.entries(changes)) {
+      if (value) next.set(key, value);
+      else next.delete(key);
+    }
+    window.history.replaceState(null, '', `/teacher/assignments?${next.toString()}`);
+  }
+  function openEditor(a?: Assignment) {
+    setError('');
+    setEditor({ classId, assignment: a });
+  }
+  function openDelete(a: Assignment) {
+    setError('');
+    setDeleteTitle('');
+    setDeleting(a);
+  }
+  async function remind(userId: string) {
+    if (!assignment) return;
+    setError('');
+    setNotice(null);
     setBusy(true);
     try {
-      const result = (await action('remindStudents', { assignmentId: assignment!.id, userId })) as {
+      const result = (await action('remindStudents', { assignmentId: assignment.id, userId })) as {
         count: number;
       };
-      setNotice(
-        result.count
-          ? 'Đã gửi lời nhắc vào thông báo của học viên.'
+      setNotice({
+        classId,
+        assignmentId: assignment.id,
+        text: result.count
+          ? `Đã gửi lời nhắc nộp bài “${assignment.title}” vào thông báo của học viên.`
           : 'Học viên đã nộp bài hoặc không còn trong danh sách cần nhắc.',
-      );
+      });
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -1367,340 +1496,405 @@ export function TeacherAssignments() {
     }
   }
   function exportCsv() {
-    const safe = (v: unknown) => {
-      const s = String(v ?? '');
-      return `"${/^[=+@-]/.test(s) ? "'" : ''}${s.replace(/"/g, '""')}"`;
-    };
-    const data = [
-      ['Học viên', 'Email', 'Trạng thái', 'Điểm', 'Nộp lúc'],
-      ...enrolled.map((e) => {
-        const u = state.users.find((u) => u.id === e.userId);
-        const s = submissions.find((s) => s.studentId === e.userId);
-        return [
-          u?.name,
-          u?.email,
-          s?.status === 'GRADED' ? 'Đã chấm' : s ? 'Chờ chấm' : 'Chưa nộp',
-          s?.score ?? '',
-          date(s?.submittedAt),
-        ];
-      }),
-    ]
-      .map((r) => r.map(safe).join(','))
-      .join('\r\n');
-    const url = URL.createObjectURL(
-      new Blob(['\uFEFF' + data], { type: 'text/csv;charset=utf-8' }),
-    );
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `bang-diem-${state.classes.find((c) => c.id === classId)?.code || 'lop'}.csv`;
-    a.click();
+    if (!assignment || !classroom) return;
+    const data = assignmentCsv(allRows, classroom, assignment, date);
+    const url = URL.createObjectURL(new Blob([data], { type: 'text/csv;charset=utf-8' }));
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = assignmentCsvFilename(classroom, assignment);
+    link.click();
     URL.revokeObjectURL(url);
   }
+  const classSelector = classroom && (
+    <div className="assignment-class-selector">
+      <Field label="Lớp học">
+        <select
+          value={classId}
+          onChange={(event) => router.push(assignmentUrl(event.target.value))}
+        >
+          {classes.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.title} ({c.code})
+            </option>
+          ))}
+        </select>
+      </Field>
+    </div>
+  );
   return (
-    <div className="stack">
-      <PageHeading
-        title="Chấm bài & phản hồi"
-        description="Đọc bài cảm nhận, đánh giá theo tiêu chí và đồng hành cùng học viên."
-        actions={
-          <div className="inline-actions">
-            <Button variant="secondary" onClick={exportCsv} disabled={!assignment}>
-              <Download size={16} />
-              Xuất bảng điểm
-            </Button>
-            <Button
-              onClick={() => {
-                setEditor({ classId });
-                setError('');
-              }}
-              disabled={!classId}
-            >
-              <Plus size={17} />
-              Giao bài tập
-            </Button>
-          </div>
-        }
-      />
-      <div className="toolbar">
-        <Field label="Lớp học">
-          <select value={classId} onChange={(e) => set('class', e.target.value)}>
-            {classes.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.title}
-              </option>
-            ))}
-          </select>
-        </Field>
-        <Field label="Bài tập">
-          <select value={assignment?.id || ''} onChange={(e) => set('assignment', e.target.value)}>
-            {assignments.map((a) => (
-              <option key={a.id} value={a.id}>
-                {a.title}
-              </option>
-            ))}
-          </select>
-        </Field>
-        {assignment && <p className="small muted">Hạn nộp: {date(assignment.dueAt)} (GMT+7)</p>}
-      </div>
-      <ErrorLine error={error} />
-      {notice && (
-        <p role="status" className="notice">
-          {notice}
-        </p>
-      )}
-      <section className="panel stack">
-        <div className="section-heading">
-          <h2>Bài tập đã giao</h2>
-          <span className="small muted">{assignments.length} bài tập</span>
-        </div>
-        {assignments.length > 0 ? (
-          <div className="table-wrap">
-            <table className="table" aria-label="Quản lý bài tập đã giao">
-              <thead>
-                <tr>
-                  <th>Bài tập</th>
-                  <th>Hạn nộp (GMT+7)</th>
-                  <th>Yêu cầu số từ</th>
-                  <th>Đã nộp</th>
-                  <th>Thao tác</th>
-                </tr>
-              </thead>
-              <tbody>
-                {assignments.map((a) => (
-                  <tr key={a.id}>
-                    <td>
-                      <strong>{a.title}</strong>
-                      <small className="muted">
-                        {state.lessons.find((l) => l.id === a.lessonId)?.title ||
-                          'Không gắn bài học'}
-                      </small>
-                    </td>
-                    <td>{date(a.dueAt)}</td>
-                    <td>{wordRequirement(a)}</td>
-                    <td>
-                      {
-                        state.submissions.filter(
-                          (s) => s.assignmentId === a.id && s.status !== 'DRAFT',
-                        ).length
-                      }
-                      /{enrolled.length}
-                    </td>
-                    <td>
-                      <div className="inline-actions">
-                        <Button
-                          variant={a.id === assignment?.id ? 'secondary' : 'ghost'}
-                          aria-pressed={a.id === assignment?.id}
-                          onClick={() => set('assignment', a.id)}
-                        >
-                          Xem bài nộp
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          onClick={() => {
-                            setError('');
-                            setEditor({ classId, assignment: a });
-                          }}
-                        >
-                          <Edit3 size={15} />
-                          Sửa bài tập
-                        </Button>
-                        <Button
-                          variant="danger"
-                          onClick={() => {
-                            setError('');
-                            setDeleteTitle('');
-                            setDeleting(a);
-                          }}
-                        >
-                          <Trash2 size={15} />
-                          Xóa bài tập
-                        </Button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          <p className="muted">Chưa có bài tập trong lớp này.</p>
-        )}
-      </section>
-      {assignment ? (
-        <>
-          <h2>Bài đang theo dõi: {assignment.title}</h2>
-          <div className="stat-row">
-            <div className="stat">
-              <strong>
-                {submissions.length}
-                <small> / {enrolled.length}</small>
-              </strong>
-              <span>Học viên đã nộp</span>
-            </div>
-            <div className="stat">
-              <strong>{graded.length}</strong>
-              <span>Đã chấm điểm</span>
-            </div>
-            <div className="stat">
-              <strong>{submissions.length - graded.length}</strong>
-              <span>Bài cần chấm</span>
-            </div>
-            <div className="stat">
-              <strong>{enrolled.length - submissions.length}</strong>
-              <span>Học viên chưa nộp</span>
-            </div>
-            <div className="stat">
-              <strong>
-                {graded.length
-                  ? (graded.reduce((sum, s) => sum + (s.score || 0), 0) / graded.length).toFixed(1)
-                  : '—'}
-              </strong>
-              <span>Điểm trung bình / 100</span>
-            </div>
-          </div>
-          <section className="panel stack">
-            <div className="toolbar">
-              <Tabs
-                value={filter}
-                onChange={(v) => {
-                  set('status', v);
-                }}
-                items={[
-                  { id: 'all', label: 'Tất cả', count: enrolled.length },
-                  { id: 'pending', label: 'Cần chấm', count: submissions.length - graded.length },
-                  { id: 'graded', label: 'Đã chấm', count: graded.length },
-                  { id: 'missing', label: 'Chưa nộp', count: enrolled.length - submissions.length },
-                ]}
-              />
-              <Search
-                value={search}
-                onChange={(v) => {
-                  setSearch(v);
-                }}
-                placeholder="Tìm tên học viên…"
-              />
-            </div>
-            <div className="table-wrap">
-              <table
-                className="table grade-table"
-                role="table"
-                aria-label="Theo dõi và chấm bài học viên"
-              >
-                <thead>
-                  <tr>
-                    <th scope="col">Học viên</th>
-                    <th scope="col">Thời gian nộp</th>
-                    <th scope="col">Bài làm</th>
-                    <th scope="col">Trạng thái</th>
-                    <th scope="col">Điểm</th>
-                    <th scope="col">Thao tác</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {rows.slice((page - 1) * 8, page * 8).map(({ user: u, submission: s }) => (
-                    <tr key={u!.id}>
-                      <td data-label="Học viên">
-                        <div className="member-name">
-                          <span className="avatar">{initials(u!.name)}</span>
-                          <span>
-                            {u!.name}
-                            <small className="muted">{u!.email}</small>
-                          </span>
-                        </div>
-                      </td>
-                      <td data-label="Thời gian nộp">
-                        {date(s?.submittedAt)}
-                        {s?.submittedAt && (
-                          <small
-                            className={
-                              new Date(s.submittedAt) > new Date(assignment.dueAt)
-                                ? 'error'
-                                : 'muted'
-                            }
-                          >
-                            {new Date(s.submittedAt) > new Date(assignment.dueAt)
-                              ? 'Nộp muộn'
-                              : 'Đúng hạn'}
-                          </small>
-                        )}
-                      </td>
-                      <td data-label="Bài làm">
-                        {s ? (
-                          <span className="small">
-                            {s.attachments.length
-                              ? `${s.attachments.length} tệp đính kèm`
-                              : 'Bài viết trực tiếp'}
-                          </span>
-                        ) : (
-                          '—'
-                        )}
-                      </td>
-                      <td data-label="Trạng thái">
-                        <Badge
-                          tone={s?.status === 'GRADED' ? 'success' : s ? 'warning' : 'neutral'}
-                        >
-                          {s?.status === 'GRADED' ? 'Đã chấm' : s ? 'Chờ chấm' : 'Chưa nộp'}
-                        </Badge>
-                      </td>
-                      <td data-label="Điểm">
-                        <strong>{s?.score ?? '—'}</strong>
-                      </td>
-                      <td data-label="Thao tác">
-                        {s ? (
-                          <Button
-                            variant="secondary"
-                            onClick={() => {
-                              setGradingId(s.id);
-                              setGradingDirty(false);
-                            }}
-                          >
-                            {s.status === 'GRADED' ? 'Xem lại' : 'Chấm bài'}
-                          </Button>
-                        ) : (
-                          <Button variant="ghost" disabled={busy} onClick={() => remind(u!.id)}>
-                            Nhắc nộp
-                          </Button>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            {!rows.length && (
-              <Empty
-                title="Không có học viên phù hợp"
-                description="Thử thay đổi bộ lọc hoặc từ khóa tìm kiếm."
-              />
-            )}
-            <div className="row small">
-              <span className="muted">{rows.length} học viên</span>
-              <div className="inline-actions">
-                <IconButton
-                  label="Trang trước"
-                  disabled={page === 1}
-                  onClick={() => setPage((p) => p - 1)}
-                >
-                  <ChevronLeft size={18} />
-                </IconButton>
-                <span>
-                  Trang {page} / {Math.max(1, Math.ceil(rows.length / 8))}
-                </span>
-                <IconButton
-                  label="Trang sau"
-                  disabled={page * 8 >= rows.length}
-                  onClick={() => setPage((p) => p + 1)}
-                >
-                  <ChevronRight size={18} />
-                </IconButton>
-              </div>
-            </div>
-          </section>
-        </>
-      ) : (
+    <div className="stack assignments-page">
+      {requestedClass !== null && !classroom ? (
         <Empty
-          title="Chưa giao bài tập"
-          description="Tạo bài tập thực hành đầu tiên cho lớp học này."
-        />
+          title="Không tìm thấy lớp hoặc bạn không có quyền truy cập"
+          description="Vui lòng chọn một lớp trong danh sách lớp giảng dạy."
+        >
+          <Link href="/teacher/classes" className="button secondary">
+            Lớp giảng dạy
+          </Link>
+        </Empty>
+      ) : !classroom ? (
+        <Empty
+          title="Bạn chưa phụ trách lớp nào"
+          description="Quản lý lớp giảng dạy để bắt đầu giao bài tập."
+        >
+          <Link href="/teacher/classes" className="button secondary">
+            Lớp giảng dạy
+          </Link>
+        </Empty>
+      ) : requestedAssignment && !assignment ? (
+        <Empty
+          title="Bài tập không còn khả dụng"
+          description="Bài tập đã bị xóa, không thuộc lớp này hoặc bạn không còn quyền truy cập."
+        >
+          <Link href={assignmentUrl(classId)} className="button secondary">
+            ← Danh sách bài tập
+          </Link>
+        </Empty>
+      ) : (
+        <>
+          {assignment ? (
+            <PageHeading
+              breadcrumb={<Link href={assignmentUrl(classId)}>← Danh sách bài tập</Link>}
+              title={assignment.title}
+              description={`Lớp ${classroom.title} (${classroom.code}) · Hạn nộp: ${date(assignment.dueAt)} (GMT+7)`}
+              actions={
+                <div className="inline-actions">
+                  <Button
+                    variant="secondary"
+                    onClick={exportCsv}
+                    aria-label={`Xuất điểm bài này: ${assignment.title}`}
+                  >
+                    <Download size={16} /> Xuất điểm bài này
+                  </Button>
+                  <AssignmentActions
+                    assignment={assignment}
+                    onEdit={() => openEditor(assignment)}
+                    onDelete={() => openDelete(assignment)}
+                  />
+                </div>
+              }
+            />
+          ) : (
+            <PageHeading
+              title="Bài cần chấm"
+              description="Quản lý bài tập và theo dõi bài nộp của từng lớp."
+              actions={
+                <Button onClick={() => openEditor()}>
+                  <Plus size={17} /> Giao bài tập
+                </Button>
+              }
+            />
+          )}
+          {classSelector}
+          {assignment && (
+            <p className="assignment-details muted">
+              {state.lessons.find((l) => l.id === assignment.lessonId)?.title ||
+                'Không gắn bài học'}
+              {' · '}Yêu cầu số từ: {wordRequirement(assignment)}
+            </p>
+          )}
+          <ErrorLine error={error} />
+          {visibleNotice && (
+            <div role="status" className="notice assignment-notice">
+              <span>{visibleNotice.text}</span>
+              {visibleNotice.openAssignmentId && (
+                <Link
+                  href={assignmentUrl(classId, visibleNotice.openAssignmentId)}
+                  className="text-link"
+                >
+                  Xem bài nộp
+                </Link>
+              )}
+              <IconButton label="Đóng thông báo" onClick={() => setNotice(null)}>
+                <X size={16} />
+              </IconButton>
+            </div>
+          )}
+          {!assignment ? (
+            <section className="panel stack">
+              <div className="section-heading">
+                <h2>Bài tập đã giao</h2>
+                <span className="small muted">{assignments.length} bài tập</span>
+              </div>
+              {assignments.length ? (
+                <div className="table-wrap">
+                  <table
+                    className="table assignment-list-table"
+                    aria-label="Quản lý bài tập đã giao"
+                  >
+                    <thead>
+                      <tr>
+                        <th scope="col">Bài tập</th>
+                        <th scope="col">Hạn nộp (GMT+7)</th>
+                        <th scope="col">Yêu cầu số từ</th>
+                        <th scope="col">Đã nộp</th>
+                        <th scope="col">Cần chấm</th>
+                        <th scope="col">Thao tác</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {assignments.map((a) => {
+                        const counts = assignmentStats(assignmentRows(state, a));
+                        return (
+                          <tr key={a.id}>
+                            <td>
+                              <Link
+                                className="text-link assignment-title"
+                                href={assignmentUrl(classId, a.id)}
+                              >
+                                {a.title}
+                              </Link>
+                              <small className="muted">
+                                {state.lessons.find((l) => l.id === a.lessonId)?.title ||
+                                  'Không gắn bài học'}
+                              </small>
+                            </td>
+                            <td>{date(a.dueAt)}</td>
+                            <td>{wordRequirement(a)}</td>
+                            <td>
+                              {counts.submitted}/{counts.total}
+                            </td>
+                            <td>{counts.pending}</td>
+                            <td>
+                              <div className="inline-actions assignment-row-actions">
+                                <Link
+                                  className="button secondary assignment-open"
+                                  href={assignmentUrl(classId, a.id)}
+                                >
+                                  Xem bài nộp
+                                </Link>
+                                <AssignmentActions
+                                  assignment={a}
+                                  onEdit={() => openEditor(a)}
+                                  onDelete={() => openDelete(a)}
+                                />
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <Empty
+                  title="Lớp này chưa có bài tập"
+                  description="Giao bài tập đầu tiên cho lớp này."
+                >
+                  <Button onClick={() => openEditor()}>
+                    <Plus size={17} /> Giao bài tập
+                  </Button>
+                </Empty>
+              )}
+            </section>
+          ) : (
+            <>
+              <div className="stat-row assignment-stats" aria-label="Thống kê bài tập">
+                <div className="stat">
+                  <strong>
+                    {stats.submitted}
+                    <small> / {stats.total}</small>
+                  </strong>
+                  <span>Đã nộp</span>
+                </div>
+                <div className="stat">
+                  <strong>{stats.pending}</strong>
+                  <span>Cần chấm</span>
+                </div>
+                <div className="stat">
+                  <strong>{stats.graded}</strong>
+                  <span>Đã chấm</span>
+                </div>
+                <div className="stat">
+                  <strong>{stats.missing}</strong>
+                  <span>Chưa nộp</span>
+                </div>
+                <div className="stat">
+                  <strong>{stats.average === null ? '—' : Number(stats.average.toFixed(1))}</strong>
+                  <span>Điểm trung bình / 100</span>
+                </div>
+              </div>
+              <section className="panel stack">
+                <div className="toolbar">
+                  <Tabs
+                    value={filter}
+                    onChange={(value) =>
+                      updateFilters({ status: value === 'all' ? null : value, page: null })
+                    }
+                    items={[
+                      { id: 'all', label: 'Tất cả', count: stats.total },
+                      { id: 'pending', label: 'Cần chấm', count: stats.pending },
+                      { id: 'graded', label: 'Đã chấm', count: stats.graded },
+                      { id: 'missing', label: 'Chưa nộp', count: stats.missing },
+                    ]}
+                  />
+                  <Search
+                    value={search}
+                    onChange={(value) => updateFilters({ q: value || null, page: null })}
+                    placeholder="Tìm tên học viên…"
+                  />
+                </div>
+                {stats.total === 0 ? (
+                  <Empty
+                    title="Lớp chưa có học viên chính thức"
+                    description="Học viên được duyệt vào lớp sẽ xuất hiện tại đây."
+                  />
+                ) : (
+                  <>
+                    {stats.submitted === 0 && (
+                      <p className="muted">
+                        Chưa có bài nộp. Bạn vẫn có thể nhắc học viên nộp bài.
+                      </p>
+                    )}
+                    {rows.length > 0 ? (
+                      <div className="table-wrap">
+                        <table
+                          className="table grade-table"
+                          aria-label="Theo dõi và chấm bài học viên"
+                        >
+                          <thead>
+                            <tr>
+                              <th scope="col">Học viên</th>
+                              <th scope="col">Thời gian nộp</th>
+                              <th scope="col">Bài làm</th>
+                              <th scope="col">Trạng thái</th>
+                              <th scope="col">Điểm</th>
+                              <th scope="col">Thao tác</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {rows
+                              .slice((page - 1) * 8, page * 8)
+                              .map(({ studentId, user, submission }) => (
+                                <tr key={studentId}>
+                                  <td data-label="Học viên">
+                                    <div className="member-name">
+                                      <span className="avatar">{initials(user?.name || 'HV')}</span>
+                                      <span>
+                                        {user?.name || 'Học viên không còn khả dụng'}
+                                        <small className="muted">{user?.email}</small>
+                                      </span>
+                                    </div>
+                                  </td>
+                                  <td data-label="Thời gian nộp">
+                                    {date(submission?.submittedAt)}
+                                    {submission?.submittedAt && (
+                                      <small
+                                        className={
+                                          new Date(submission.submittedAt) >
+                                          new Date(assignment.dueAt)
+                                            ? 'error'
+                                            : 'muted'
+                                        }
+                                      >
+                                        {new Date(submission.submittedAt) >
+                                        new Date(assignment.dueAt)
+                                          ? 'Nộp muộn'
+                                          : 'Đúng hạn'}
+                                      </small>
+                                    )}
+                                  </td>
+                                  <td data-label="Bài làm">
+                                    {submission ? (
+                                      <span className="small">
+                                        {submission.attachments.length
+                                          ? `${submission.attachments.length} tệp đính kèm`
+                                          : 'Bài viết trực tiếp'}
+                                      </span>
+                                    ) : (
+                                      '—'
+                                    )}
+                                  </td>
+                                  <td data-label="Trạng thái">
+                                    <Badge
+                                      tone={
+                                        submission?.status === 'GRADED'
+                                          ? 'success'
+                                          : submission
+                                            ? 'warning'
+                                            : 'neutral'
+                                      }
+                                    >
+                                      {submissionStatus(submission)}
+                                    </Badge>
+                                  </td>
+                                  <td data-label="Điểm">
+                                    <strong>
+                                      {submission?.score != null
+                                        ? `${submission.score}${submission.status === 'SUBMITTED' ? ' (nháp)' : ''}`
+                                        : '—'}
+                                    </strong>
+                                  </td>
+                                  <td data-label="Thao tác">
+                                    {submission ? (
+                                      <Button
+                                        variant="secondary"
+                                        onClick={() => {
+                                          setOpenedSubmission(submission);
+                                          setGradingId(submission.id);
+                                          setGradingDirty(false);
+                                        }}
+                                      >
+                                        {submission.status === 'GRADED' ? 'Xem lại' : 'Chấm bài'}
+                                      </Button>
+                                    ) : (
+                                      <Button
+                                        variant="secondary"
+                                        disabled={busy}
+                                        onClick={() => remind(studentId)}
+                                      >
+                                        Nhắc nộp
+                                      </Button>
+                                    )}
+                                  </td>
+                                </tr>
+                              ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    ) : (
+                      <Empty
+                        title="Không có học viên phù hợp"
+                        description="Thử thay đổi bộ lọc hoặc từ khóa tìm kiếm."
+                      >
+                        <Button
+                          variant="secondary"
+                          onClick={() => updateFilters({ status: null, q: null, page: null })}
+                        >
+                          Xóa bộ lọc
+                        </Button>
+                      </Empty>
+                    )}
+                    <div className="row small">
+                      <span className="muted">{rows.length} học viên</span>
+                      <div className="inline-actions">
+                        <IconButton
+                          label="Trang trước"
+                          disabled={page === 1}
+                          onClick={() =>
+                            updateFilters({ page: page > 2 ? String(page - 1) : null })
+                          }
+                        >
+                          <ChevronLeft size={18} />
+                        </IconButton>
+                        <span>
+                          Trang {page} / {pageCount}
+                        </span>
+                        <IconButton
+                          label="Trang sau"
+                          disabled={page >= pageCount}
+                          onClick={() => updateFilters({ page: String(page + 1) })}
+                        >
+                          <ChevronRight size={18} />
+                        </IconButton>
+                      </div>
+                    </div>
+                  </>
+                )}
+              </section>
+            </>
+          )}
+        </>
       )}
       <Dialog
         open={!!gradingId}
@@ -1709,8 +1903,10 @@ export function TeacherAssignments() {
           if (
             !gradingDirty ||
             window.confirm('Bài chấm có thay đổi chưa lưu. Bạn muốn bỏ thay đổi và đóng?')
-          )
+          ) {
             setGradingId(null);
+            setGradingDirty(false);
+          }
         }}
         wide
       >
@@ -1720,10 +1916,23 @@ export function TeacherAssignments() {
             submission={grading}
             assignment={state.assignments.find((a) => a.id === grading.assignmentId)}
             onDirty={setGradingDirty}
-            onClose={() => setGradingId(null)}
+            onClose={() => {
+              setGradingId(null);
+              setGradingDirty(false);
+            }}
             onSave={async (data) => {
+              const gradedAssignment = state.assignments.find((a) => a.id === grading.assignmentId);
               await action('gradeSubmission', { submissionId: grading.id, ...data });
               setGradingId(null);
+              setGradingDirty(false);
+              if (gradedAssignment)
+                setNotice({
+                  classId: gradedAssignment.classId,
+                  assignmentId: gradedAssignment.id,
+                  text: data.returnGrade
+                    ? `Đã trả điểm bài “${gradedAssignment.title}”.`
+                    : `Đã lưu điểm nháp bài “${gradedAssignment.title}”.`,
+                });
             }}
           />
         ) : (
@@ -1731,7 +1940,13 @@ export function TeacherAssignments() {
             title="Bài nộp không còn khả dụng"
             description="Học viên đã thu hồi bài hoặc bài tập đã được xóa. Đóng cửa sổ để quay lại danh sách."
           >
-            <Button variant="secondary" onClick={() => setGradingId(null)}>
+            <Button
+              variant="secondary"
+              onClick={() => {
+                setGradingId(null);
+                setGradingDirty(false);
+              }}
+            >
               Đóng
             </Button>
           </Empty>
@@ -1751,16 +1966,20 @@ export function TeacherAssignments() {
             lessons={state.lessons.filter((l) => l.classId === editor.classId)}
             onClose={() => setEditor(null)}
             onSave={async (data) => {
-              const saved = (await action(
-                editor.assignment ? 'updateAssignment' : 'createAssignment',
-                {
-                  ...data,
-                  ...(editor.assignment ? { assignmentId: editor.assignment.id } : {}),
-                },
-              )) as Assignment;
+              const edited = Boolean(editor.assignment);
+              const saved = (await action(edited ? 'updateAssignment' : 'createAssignment', {
+                ...data,
+                ...(editor.assignment ? { assignmentId: editor.assignment.id } : {}),
+              })) as Assignment;
               setEditor(null);
-              set('assignment', saved.id);
-              setNotice(editor.assignment ? 'Đã cập nhật bài tập.' : 'Đã giao bài tập mới.');
+              setNotice({
+                classId: editor.classId,
+                assignmentId: edited && requestedAssignment === saved.id ? saved.id : undefined,
+                text: edited
+                  ? `Đã cập nhật bài tập “${saved.title}”.`
+                  : `Đã giao bài tập “${saved.title}”.`,
+                openAssignmentId: edited ? undefined : saved.id,
+              });
             }}
           />
         )}
@@ -1801,9 +2020,9 @@ export function TeacherAssignments() {
                       assignmentId: deleting.id,
                       confirmTitle: deleteTitle.trim(),
                     });
-                    if (assignment?.id === deleting.id) set('assignment', '');
                     setDeleting(null);
-                    setNotice('Đã xóa bài tập.');
+                    setNotice({ classId, text: `Đã xóa bài tập “${deleting.title}”.` });
+                    if (requestedAssignment === deleting.id) router.push(assignmentUrl(classId));
                   } catch (e) {
                     setError((e as Error).message);
                   } finally {
@@ -1845,9 +2064,10 @@ function GradeForm({
   const submissionChanged =
     submission.attempt !== openedAttempt.attempt ||
     submission.submittedAt !== openedAttempt.submittedAt;
-  const gradingBlocked = submission.status === 'DRAFT' || submissionChanged;
-  const staleMessage =
-    submission.status === 'DRAFT'
+  const gradingBlocked = !assignment || submission.status === 'DRAFT' || submissionChanged;
+  const staleMessage = !assignment
+    ? 'Bài tập không còn khả dụng. Đóng cửa sổ để quay về danh sách bài tập.'
+    : submission.status === 'DRAFT'
       ? 'Học viên đã thu hồi bài. Đóng cửa sổ và chờ bài nộp mới trước khi chấm.'
       : 'Học viên đã nộp lại bài. Đóng và mở lại bài chấm để đánh giá lần nộp mới.';
   const [busy, setBusy] = useState(false);

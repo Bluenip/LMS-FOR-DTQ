@@ -495,8 +495,12 @@ test('teacher creates and publishes a lesson, approves enrollment and returns a 
 
     await page.getByRole('tab', { name: /Đã chấm/ }).click();
     const download = page.waitForEvent('download');
-    await page.getByRole('button', { name: 'Xuất bảng điểm', exact: true }).click();
-    expect((await download).suggestedFilename()).toBe(`bang-diem-${classroom.code}.csv`);
+    await page
+      .getByRole('button', { name: `Xuất điểm bài này: ${assignment.title}`, exact: true })
+      .click();
+    const filename = (await download).suggestedFilename();
+    expect(filename).toContain(classroom.code);
+    expect(filename).toContain(assignment.id);
   } finally {
     if (classroom)
       await action(page.request, 'deleteClass', { classId: classroom.id, code: classroom.code });

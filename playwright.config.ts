@@ -19,9 +19,9 @@ export default defineConfig({
     ...devices['Desktop Chrome'],
   },
   webServer: {
-    command: `npm run dev -- --port ${port}`,
+    command: `npm run dev -- --port ${port}${process.env.E2E_WEBPACK === 'true' ? ' --webpack' : ''}`,
     url: baseURL,
-    reuseExistingServer: true,
+    reuseExistingServer: process.env.E2E_ISOLATED !== 'true',
     timeout: 120_000,
   },
 });

@@ -69,7 +69,9 @@ Hoàn thành bài học là thao tác đánh dấu thủ công. Ứng dụng ch�
 
 ## Quản lý bài tập và thông báo
 
-Trong **Bài cần chấm**, bảng **Bài tập đã giao** hiển thị từng đề, hạn nộp, yêu cầu số từ và số học viên đã nộp. Thầy cô chọn **Xem bài nộp**, **Sửa bài tập** hoặc **Xóa bài tập**. Xóa yêu cầu nhập đúng tên; bài nộp, điểm và thông báo gắn với bài đó cũng bị xóa. Các bài khác và bài giảng được giữ nguyên.
+Trong **Bài cần chấm**, chọn lớp để xem danh sách bài tập, số học viên đã nộp và số bài cần chấm. Chọn tên bài hoặc **Xem bài nộp** để mở thống kê và danh sách học viên; thao tác sửa/xóa nằm trong menu của từng bài. Xóa yêu cầu nhập đúng tên; bài nộp, điểm và thông báo gắn với bài đó cũng bị xóa. Các bài khác và bài giảng được giữ nguyên.
+
+Ở chi tiết bài, điểm nháp được ghi rõ và vẫn thuộc nhóm **Cần chấm** cho tới khi trả bài. **Xuất điểm bài này** tải CSV của toàn bộ học viên chính thức trong lớp cho bài đang mở, không phụ thuộc bộ lọc; điểm nháp không xuất thành điểm chính thức. Tệp có mã lớp, tên và ID bài tập.
 
 Khi tạo hoặc sửa bài, giáo viên đặt **Số từ tối thiểu** và **Số từ tối đa**. Mặc định bài mới là tối thiểu **150 từ**, không giới hạn tối đa; để trống ô tối đa để bỏ giới hạn, nhập 0 ở ô tối thiểu để bỏ mức tối thiểu. Học viên nhận đúng yêu cầu hiện hành khi trang đang mở; bản nháp đang viết không bị thay thế khi thầy cô sửa đề. Các bài đã giao trước bản cập nhật giữ yêu cầu cũ cho tới khi giáo viên sửa.
 
@@ -238,7 +240,7 @@ npx playwright install chromium
 npm run test:e2e
 ```
 
-Playwright mặc định dùng `http://localhost:3000`, tái sử dụng server đang chạy hoặc tự khởi động `next dev`. Các test thay đổi dữ liệu; dùng dữ liệu kiểm thử riêng. `E2E_BASE_URL` đổi địa chỉ kiểm thử; `APP_URL` của server phải khớp địa chỉ đó.
+Playwright mặc định dùng `http://localhost:3000`, tái sử dụng server đang chạy hoặc tự khởi động `next dev`. Các test thay đổi dữ liệu; dùng bản sao ứng dụng và dữ liệu kiểm thử riêng. Đặt `E2E_ISOLATED=true` để Playwright từ chối tái sử dụng server có sẵn, chọn cổng riêng qua `E2E_BASE_URL`, và đặt `APP_URL` của server trùng với địa chỉ đó. Không trỏ bộ test vào server thật.
 
 Hai ca quản trị/hồ sơ cần `ADMIN_E2E_EMAIL` và `ADMIN_E2E_PASSWORD` của tài khoản quản trị thử nghiệm riêng; thiếu thông tin thì bị bỏ qua. Các ca dùng tài khoản mẫu cần môi trường cho phép các tài khoản đó. Không trỏ bộ test này vào dữ liệu thật.
 

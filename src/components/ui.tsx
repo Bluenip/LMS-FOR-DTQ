@@ -74,7 +74,10 @@ export function Dialog({
     <dialog
       ref={ref}
       className={wide ? 'dialog wide' : 'dialog'}
-      onCancel={onClose}
+      onCancel={(event) => {
+        event.preventDefault();
+        onClose();
+      }}
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}

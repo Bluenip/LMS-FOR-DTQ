@@ -427,3 +427,114 @@ progress.progress::-moz-progress-bar {
     width: 100%;
   }
 }
+
+/* Assignment list and gradebook controls. */
+.assignment-class-selector .field {
+  max-width: 420px;
+}
+.assignment-class-selector select {
+  width: 100%;
+}
+.assignment-details {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.assignments-page .page-heading h1 {
+  overflow-wrap: anywhere;
+}
+.assignment-list-table td:first-child {
+  min-width: 200px;
+  max-width: 360px;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.assignment-title {
+  font-weight: 600;
+}
+.assignment-open {
+  border-color: var(--color-accent);
+}
+.assignment-row-actions {
+  align-items: flex-start;
+  flex-wrap: nowrap;
+}
+.assignment-menu {
+  position: relative;
+  min-width: 42px;
+}
+.assignment-menu summary {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 42px;
+  min-height: 42px;
+  border: 1px solid var(--color-muted);
+  border-radius: 8px;
+  background: var(--color-white);
+  color: var(--color-ink);
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+  list-style: none;
+}
+.assignment-menu summary::-webkit-details-marker {
+  display: none;
+}
+.assignment-menu summary:hover {
+  background: var(--color-paper-2);
+}
+.assignment-menu summary:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 3px;
+}
+.assignment-menu-actions {
+  display: grid;
+  gap: 4px;
+  padding-top: 6px;
+}
+.assignment-menu-actions button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px;
+  border: 0;
+  border-radius: 6px;
+  background: var(--color-paper-2);
+  color: var(--color-ink);
+  white-space: nowrap;
+  text-align: left;
+}
+.assignment-menu-actions button:hover {
+  background: var(--color-paper-3);
+}
+.assignment-menu-actions .assignment-delete {
+  color: var(--color-error);
+}
+.assignment-notice {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.assignment-notice .icon-button {
+  margin-left: auto;
+}
+.assignment-stats {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+@media (max-width: 760px) {
+  .assignment-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .assignment-stats .stat {
+    border-bottom: 1px solid var(--color-line);
+  }
+  .assignment-stats .stat:nth-child(even),
+  .assignment-stats .stat:last-child {
+    border-right: 0;
+  }
+  .assignment-stats .stat:last-child {
+    border-bottom: 0;
+  }
+}
