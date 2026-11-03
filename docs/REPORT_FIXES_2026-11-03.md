@@ -20,7 +20,7 @@ Nguồn: `bao-cao-kiem-thu-lms-2026-11-03.md`, bản gốc `aec7037150f7`.
 | 17–20, 22 | API yêu cầu revision/thời điểm tham gia đúng bản đang xác nhận; từ chối yêu cầu cũ. Chấm điểm tăng revision để thu hồi cũ không xóa điểm nháp. |
 | 21 | Chặn nhắc nộp bài chưa công bố. |
 
-Phát hiện bổ sung: đổi tab bài học liên tục có thể kết thúc ở tab cũ do các điều hướng chồng nhau. Dùng History API được Next.js hỗ trợ cho trạng thái query tại trang. Tên backup thêm PID để tránh hai lượt trong cùng giây ghi đè.
+Phát hiện bổ sung: đổi tab bài học liên tục có thể kết thúc ở tab cũ do các điều hướng chồng nhau. Dùng History API được Next.js hỗ trợ cho trạng thái query tại trang. Tên backup thêm PID để tránh hai lượt trong cùng giây ghi đè. Thông báo lỗi bài giảng chỉ hiển thị tại vùng đang thao tác, tránh hiện trùng giữa form và hộp xác nhận xóa.
 
 ## Vận hành
 
@@ -31,6 +31,18 @@ Quy trình: build và thử PostgreSQL/S3 trên stack riêng → dừng ghi LMS 
 ## Kiểm thử
 
 - 139 kiểm thử Node (nghiệp vụ, phiên đăng nhập, storage, backup và deploy) đạt; TypeScript, Prettier và build production đạt.
+- 28 kịch bản trình duyệt đạt, không bỏ qua: 26 đạt trong lượt toàn bộ; hai ca lỗi được sửa mã hiển thị/thông tin tài khoản thử rồi chạy lại đạt. Bao gồm desktop/điện thoại, quản trị tài khoản, nhiều giáo viên, đồng bộ phiên và ba hồi quy mới của báo cáo.
 - PostgreSQL 17 và S3rver trên stack `lms-validation` riêng: 148 kiểm tra HTTP đạt; gồm quyền truy cập, thông báo, revision, cookie logout và tải tệp.
 - Lượt backup do systemd hẹn giờ ngày 03/11/2026 lúc 15:44 UTC tới máy mới hoàn tất không tương tác (`Result=success`, exit 0); archive mã hóa được giải mã và kiểm tra danh sách PostgreSQL thành công. Đây xác minh chạy theo lịch, không giả định mọi ngày tương lai đều thành công.
 - Không chạy kiểm thử ghi hoặc đo tải vào lớp thật. Kho tệp thật chưa cấu hình; các kiểm tra upload sử dụng S3 giả lập riêng.
+
+
+## Xác minh sau chuyển máy
+
+Chuyển ngày 03/11/2026, khoảng 15:47 UTC. Bản sửa đầu tiên `7efdc0310748` được build trên máy mới; migration hoàn tất, app/PostgreSQL healthy. Dump cuối cùng có SHA-256 khớp ở hai đầu; 12 bảng ứng dụng khớp số dòng và checksum nội dung (bỏ hai cột công bố mới khi đối chiếu). Dữ liệu có 3 tài khoản, 1 lớp, 0 tệp kho. Không seed dữ liệu thử vào production.
+
+HTTPS `https://zimaos.click/api/health` trả `{"status":"ok","storage":"unconfigured"}`; trang đăng nhập trả 200. DNS gốc trỏ tunnel `aa718ade-b412-4440-879f-eb85105ff889` (`lms-orlab`). `https://thaituan.site` vẫn trả 200; tunnel Anki cũ và các container Anki/Home Assistant không thay đổi.
+
+Máy mới bật Docker, user lingering, `lms-tunnel.service` và `lms-dtq-update.timer` để tự chạy khi khởi động. Máy cũ chỉ dừng hai container LMS và tắt timer cập nhật LMS/restart policy của chúng; giữ nguyên volume, image và backup cuối trong `.deploy/migration/`. Backup hằng ngày trên máy có ổ `/mnt/BACKUP` đã đổi host thành `bluenip@100.71.200.54` và chạy thành công sau chuyển. Chưa reboot toàn máy.
+
+Phép đo PostgreSQL với 100 bài giảng giả, 10 yêu cầu đồng thời: đọc p95 51 ms, ghi p95 116 ms, không lỗi. Phương pháp và giới hạn tại [INTEGRATION.md](INTEGRATION.md).

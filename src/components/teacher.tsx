@@ -1507,7 +1507,7 @@ function LessonEditor({
               ))}
             </section>
           )}
-          <ErrorLine error={localError || error} />
+          <ErrorLine error={localError || (!deleting ? error : '')} />
           {uploading && (
             <p role="status" className="notice">
               Đang tải tệp lên kho lưu trữ…
@@ -1597,7 +1597,7 @@ function LessonEditor({
           bị gỡ liên kết. Bài tập đang ẩn sẽ tiếp tục ẩn cho đến khi giáo viên chủ động công bố.
           Thao tác này không thể hoàn tác.
         </p>
-        <ErrorLine error={error} />
+        {deleting && <ErrorLine error={error} />}
         <div className="dialog-footer">
           <Button variant="secondary" onClick={() => setDeleting(false)}>
             Giữ lại
