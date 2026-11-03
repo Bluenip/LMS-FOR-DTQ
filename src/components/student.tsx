@@ -23,7 +23,6 @@ import {
   Trash2,
   Send,
   Info,
-  Megaphone,
   Calendar,
   Video,
   MessageSquare,
@@ -36,6 +35,9 @@ import { DiscussionPanel } from './discussion';
 import { Button, IconButton, Badge, Empty, Dialog, Field, PageHeading, Search, Tabs } from './ui';
 import { dateTime, fold, initials, uploadFile, words, youtubeId } from '@/lib/client';
 import { acceptsWordCount, wordRequirement } from '@/lib/assignment-policy';
+import { classTeacherNames, managesClass } from '@/lib/class-teachers';
+import { useUnsavedWarning } from '@/lib/use-unsaved-warning';
+import { readSessionDraft, removeSessionDraft, writeSessionDraft } from '@/lib/session-draft';
 import type { Classroom, Lesson, Assignment, Attachment } from '@/lib/types';
 function useQuery() {
   const params = useSearchParams();
@@ -139,33 +141,34 @@ export function ClassList() {
     description: string;
     autoApprove: boolean;
   } | null>(null);
-  const enrollments = state.enrollments.filter((e) => e.userId === state.user.id);
-  const all = state.classes.filter(
-    (c) => state.user.role === 'TEACHER' || enrollments.some((e) => e.classId === c.id),
+  const enrollments = state.enrollments.filter(
+    (e) => e.userId === state.user.id && e.status !== 'REMOVED',
   );
+  const all = state.classes.filter((c) => enrollments.some((e) => e.classId === c.id));
   function inTab(c: Classroom, t: string) {
     const e = enrollments.find((e) => e.classId === c.id);
     return t === 'archived'
       ? c.status === 'ARCHIVED'
       : t === 'pending'
         ? e?.status === 'PENDING'
-        : c.status === 'ACTIVE' && (state.user.role === 'TEACHER' || e?.status === 'APPROVED');
+        : c.status === 'ACTIVE' && e?.status === 'APPROVED';
   }
   const list = all.filter(
     (c) =>
       inTab(c, tab) &&
-      fold(
-        c.title + ' ' + c.code + ' ' + state.users.find((u) => u.id === c.teacherId)?.name,
-      ).includes(fold(search)),
+      fold(c.title + ' ' + c.code + ' ' + classTeacherNames(c, state.users)).includes(fold(search)),
   );
-  const tasks = state.assignments
+  const allTasks = state.assignments
     .filter(
       (a) =>
+        all.some((c) => c.id === a.classId && c.status === 'ACTIVE') &&
+        enrollments.some((e) => e.classId === a.classId && e.status === 'APPROVED') &&
         !state.submissions.some(
           (s) => s.assignmentId === a.id && s.studentId === state.user.id && s.status !== 'DRAFT',
         ),
     )
-    .slice(0, 3);
+    .sort((a, b) => a.dueAt.localeCompare(b.dueAt));
+  const tasks = allTasks.slice(0, 3);
   return (
     <>
       <div className="welcome">
@@ -233,8 +236,8 @@ export function ClassList() {
                     p.completed &&
                     lessons.some((l) => l.id === p.lessonId),
                 ).length;
-                const teacher = state.users.find((u) => u.id === c.teacherId);
-                const task = tasks.find((a) => a.classId === c.id);
+                const teachers = classTeacherNames(c, state.users);
+                const task = allTasks.find((a) => a.classId === c.id);
                 const pending = enrollments.find((e) => e.classId === c.id)?.status === 'PENDING';
                 return (
                   <article className="class-card" key={c.id}>
@@ -251,7 +254,7 @@ export function ClassList() {
                       </div>
                       <div>
                         <h2>{c.title}</h2>
-                        <p>Căn bản đạo làm con</p>
+                        {c.description && <p>{c.description}</p>}
                       </div>
                     </div>
                     <div className="class-body">
@@ -261,7 +264,7 @@ export function ClassList() {
                         </span>
                         <div>
                           <small>Giáo viên phụ trách</small>
-                          <strong>{teacher?.name || 'Giáo viên'}</strong>
+                          <strong>{teachers}</strong>
                           {c.contentAuthor && <small>Nội dung: {c.contentAuthor}</small>}
                         </div>
                       </div>
@@ -270,7 +273,7 @@ export function ClassList() {
                         <div className="class-assignment">
                           <ClipboardList size={18} />
                           <div>
-                            <span>Bài tập sắp đến hạn</span>
+                            <span>Bài tập chưa nộp</span>
                             <strong>{task.title}</strong>
                             <time>Hạn nộp: {dateTime(task.dueAt)}</time>
                           </div>
@@ -303,10 +306,35 @@ export function ClassList() {
                             Hủy yêu cầu
                           </Button>
                         ) : (
-                          <Link className="button primary" href={`/classes/${c.id}`}>
-                            Vào lớp
-                            <ArrowRight size={16} />
-                          </Link>
+                          <div className="inline-actions">
+                            {c.status === 'ACTIVE' && (
+                              <Button
+                                variant="ghost"
+                                disabled={busy}
+                                onClick={async () => {
+                                  if (
+                                    !window.confirm(
+                                      'Rời lớp? Bài làm, điểm và lịch sử được giữ lại nếu bạn tham gia lại.',
+                                    )
+                                  )
+                                    return;
+                                  setBusy(true);
+                                  try {
+                                    await action('leaveClass', { classId: c.id });
+                                  } catch (e) {
+                                    setError((e as Error).message);
+                                  } finally {
+                                    setBusy(false);
+                                  }
+                                }}
+                              >
+                                Rời lớp
+                              </Button>
+                            )}
+                            <Link className="button primary" href={`/classes/${c.id}`}>
+                              Vào lớp <ArrowRight size={16} />
+                            </Link>
+                          </div>
                         )}
                       </div>
                     </div>
@@ -346,7 +374,7 @@ export function ClassList() {
         </section>
         <aside className="student-aside">
           <div className="side-note">
-            <h3>Việc học sắp tới</h3>
+            <h3>Bài tập chưa nộp</h3>
             {tasks.length ? (
               tasks.map((a) => (
                 <Link key={a.id} href={`/classes/${a.classId}/assignments/${a.id}`}>
@@ -358,7 +386,7 @@ export function ClassList() {
                 </Link>
               ))
             ) : (
-              <p>Bạn đã hoàn thành các bài tập hiện có.</p>
+              <p>Không có bài tập chưa nộp trong các lớp đang học.</p>
             )}
           </div>
           <div className="side-note">
@@ -412,7 +440,7 @@ export function ClassList() {
               Nhập mã được giáo viên chia sẻ. Bạn có thể cần chờ giáo viên phê duyệt trước khi vào
               lớp.
             </p>
-            <Field label="Mã lớp học" hint="Ví dụ: DTQ-2026">
+            <Field label="Mã lớp học" hint="Nhập mã do giáo viên cung cấp.">
               <input
                 value={code}
                 onChange={(e) => {
@@ -421,7 +449,7 @@ export function ClassList() {
                 }}
                 required
                 maxLength={30}
-                placeholder="DTQ-2026"
+                placeholder="Nhập mã lớp"
                 autoFocus
               />
             </Field>
@@ -468,6 +496,7 @@ export function ClassDetail({ classId }: { classId: string }) {
   const done = state.progress.filter(
     (p) => p.userId === state.user.id && p.completed && lessons.some((l) => l.id === p.lessonId),
   ).length;
+  const completedAll = lessons.length > 0 && done === lessons.length;
   const next =
     lessons.find(
       (l) =>
@@ -475,8 +504,10 @@ export function ClassDetail({ classId }: { classId: string }) {
           (p) => p.lessonId === l.id && p.userId === state.user.id && p.completed,
         ),
     ) || lessons[0];
-  const assignments = state.assignments.filter((a) => a.classId === classId);
-  const teacher = state.users.find((u) => u.id === c.teacherId);
+  const assignments = state.assignments
+    .filter((a) => a.classId === classId)
+    .sort((a, b) => a.dueAt.localeCompare(b.dueAt));
+  const teachers = classTeacherNames(c, state.users);
   return (
     <>
       <PageHeading
@@ -496,10 +527,10 @@ export function ClassDetail({ classId }: { classId: string }) {
             {next && (
               <Link className="button primary" href={`/classes/${classId}/lessons/${next.id}`}>
                 <Play size={16} />
-                Học tiếp
+                {completedAll ? 'Học lại' : 'Học tiếp'}
               </Link>
             )}
-            {state.user.role === 'TEACHER' && (
+            {managesClass(c, state.user) && (
               <Link href="/teacher/classes" className="button secondary">
                 <Settings size={16} />
                 Quản lý lớp
@@ -537,11 +568,11 @@ export function ClassDetail({ classId }: { classId: string }) {
             <p className="reading-copy">{c.description}</p>
             <div className="list-row">
               <span>Giáo viên phụ trách</span>
-              <strong>{teacher?.name}</strong>
+              <strong>{teachers}</strong>
             </div>
             <div className="list-row">
               <span>Lịch học</span>
-              <strong>{c.schedule || 'Học chủ động theo tiến độ'}</strong>
+              <strong>{c.schedule || 'Chưa có lịch học'}</strong>
             </div>
             <div className="list-row">
               <span>Trạng thái lớp</span>
@@ -562,27 +593,10 @@ export function ClassDetail({ classId }: { classId: string }) {
       ) : (
         <div className="split">
           <div className="stack">
-            <section className="panel">
-              <div className="section-heading">
-                <div className="row">
-                  <Megaphone size={20} className="accent" />
-                  <h2>Thông báo lớp học</h2>
-                </div>
-                <Badge>Mới nhất</Badge>
-              </div>
-              <p className="reading-copy">
-                Chào các bạn học viên! Hãy hoàn thành bài giảng, ghi lại điều tâm đắc và liên hệ với
-                những việc thực tế trong gia đình. Thầy cô sẽ đồng hành cùng các bạn trong mỗi bài
-                thực hành.
-              </p>
-              <p className="small muted" style={{ marginTop: 16 }}>
-                {teacher?.name}
-              </p>
-            </section>
             {next ? (
               <section className="continue-panel">
                 <div className="row between">
-                  <Badge>Tiếp tục học tập</Badge>
+                  <Badge>{completedAll ? 'Đã hoàn thành' : 'Tiếp tục học tập'}</Badge>
                   <span className="small muted">
                     {done}/{lessons.length} bài hoàn thành
                   </span>
@@ -595,7 +609,7 @@ export function ClassDetail({ classId }: { classId: string }) {
                 <div className="row between" style={{ marginTop: 20 }}>
                   <span className="small muted">Học từng bài, thực hành mỗi ngày.</span>
                   <Link className="button primary" href={`/classes/${classId}/lessons/${next.id}`}>
-                    Tiếp tục học
+                    {completedAll ? 'Học lại' : 'Tiếp tục học'}
                     <ArrowRight size={16} />
                   </Link>
                 </div>
@@ -614,9 +628,9 @@ export function ClassDetail({ classId }: { classId: string }) {
             <section className="panel stack">
               <h2>Giảng đường của bạn</h2>
               <div className="member-profile">
-                <span className="avatar">{initials(teacher?.name || 'Tuệ Tâm')}</span>
+                <span className="avatar">{initials(teachers)}</span>
                 <div>
-                  <strong>{teacher?.name}</strong>
+                  <strong>{teachers}</strong>
                   <p>Giáo viên phụ trách</p>
                 </div>
               </div>
@@ -632,7 +646,7 @@ export function ClassDetail({ classId }: { classId: string }) {
               </div>
               <div>
                 <span className="small muted">Lịch học</span>
-                <p className="small">{c.schedule || 'Học theo tiến độ cá nhân'}</p>
+                <p className="small">{c.schedule || 'Chưa có lịch học'}</p>
               </div>
               <Link className="text-link small" href={`/classes/${classId}/members`}>
                 Gặp gỡ thành viên
@@ -744,16 +758,27 @@ export function LessonPage({ classId, lessonId }: { classId: string; lessonId: s
   const c = state.classes.find((c) => c.id === classId);
   const lesson = state.lessons.find((l) => l.id === lessonId && l.classId === classId);
   const [note, setNote] = useState('');
+  const [noteDirty, setNoteDirty] = useState(false);
+  const [noteVersion, setNoteVersion] = useState<string | null>(null);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [saved, setSaved] = useState(false);
+  const noteKey = `lms-draft:note:${state.user.id}:${lessonId}`;
+  useUnsavedWarning(noteDirty);
   useEffect(() => {
-    setNote(
-      state.notes.find((n) => n.lessonId === lessonId && n.userId === state.user.id)?.content || '',
+    const savedNote = state.notes.find(
+      (n) => n.lessonId === lessonId && n.userId === state.user.id,
     );
+    const draft = readSessionDraft<{ content: string; version: string | null }>(noteKey);
+    setNote(draft?.content ?? savedNote?.content ?? '');
+    setNoteVersion(draft ? draft.version : savedNote?.updatedAt || null);
+    setNoteDirty(!!draft);
     setError('');
     setSaved(false);
   }, [lessonId, state.user.id]);
+  useEffect(() => {
+    if (noteDirty) writeSessionDraft(noteKey, { content: note, version: noteVersion });
+  }, [noteDirty, note, noteVersion, noteKey]);
   if (!c || !lesson) return <NotFound />;
   const lessons = state.lessons
     .filter((l) => l.classId === classId && l.published)
@@ -761,9 +786,11 @@ export function LessonPage({ classId, lessonId }: { classId: string; lessonId: s
   const progress = state.progress.find(
     (p) => p.lessonId === lessonId && p.userId === state.user.id,
   );
-  const related =
-    state.assignments.find((a) => a.lessonId === lessonId) ||
-    state.assignments.find((a) => a.classId === classId);
+  const related = state.assignments.filter((a) => a.classId === classId && a.lessonId === lessonId);
+  const learner =
+    state.enrollments.some(
+      (e) => e.classId === classId && e.userId === state.user.id && e.status === 'APPROVED',
+    ) && !managesClass(c, state.user);
   const yid = youtubeId(lesson.videoUrl);
   async function run(name: string, payload: Record<string, unknown>) {
     setBusy(true);
@@ -806,11 +833,8 @@ export function LessonPage({ classId, lessonId }: { classId: string; lessonId: s
               ) : (
                 <div className="video-placeholder">
                   <Video size={40} strokeWidth={1.3} />
-                  <h3>Video đang được chuẩn bị</h3>
-                  <p>
-                    Nội dung bài học và tài liệu vẫn có sẵn bên dưới. Giáo viên sẽ cập nhật video
-                    trong thời gian tới.
-                  </p>
+                  <h3>Bài học không có video</h3>
+                  <p>Xem nội dung và tài liệu bài học bên dưới.</p>
                 </div>
               )}
             </div>
@@ -818,7 +842,7 @@ export function LessonPage({ classId, lessonId }: { classId: string; lessonId: s
               <div className="row">
                 <Clock size={15} />
                 <span className="small muted">{lesson.duration || 'Học theo tiến độ của bạn'}</span>
-                {state.user.role === 'STUDENT' && (
+                {learner && c.status === 'ACTIVE' && (
                   <IconButton
                     label={progress?.bookmarked ? 'Bỏ lưu bài học' : 'Lưu bài học'}
                     disabled={busy}
@@ -830,7 +854,7 @@ export function LessonPage({ classId, lessonId }: { classId: string; lessonId: s
                   </IconButton>
                 )}
               </div>
-              {state.user.role === 'STUDENT' && (
+              {learner && c.status === 'ACTIVE' && (
                 <Button
                   variant={progress?.completed ? 'secondary' : 'primary'}
                   disabled={busy}
@@ -869,9 +893,11 @@ export function LessonPage({ classId, lessonId }: { classId: string; lessonId: s
                     className="note-editor"
                     value={note}
                     maxLength={10000}
+                    disabled={busy || c.status === 'ARCHIVED'}
                     onChange={(e) => {
                       setNote(e.target.value);
                       setSaved(false);
+                      setNoteDirty(true);
                     }}
                     placeholder="Điều tôi học được hôm nay…"
                   />
@@ -881,9 +907,25 @@ export function LessonPage({ classId, lessonId }: { classId: string; lessonId: s
                     {saved ? 'Ghi chép đã được lưu.' : `${note.length}/10.000 ký tự`}
                   </span>
                   <Button
-                    disabled={busy}
+                    disabled={busy || c.status === 'ARCHIVED'}
                     onClick={async () => {
-                      if (await run('saveNote', { lessonId, content: note })) setSaved(true);
+                      setBusy(true);
+                      setError('');
+                      try {
+                        const result = (await action('saveNote', {
+                          lessonId,
+                          content: note,
+                          expectedUpdatedAt: noteVersion,
+                        })) as { updatedAt: string };
+                        setNoteVersion(result.updatedAt);
+                        setNoteDirty(false);
+                        removeSessionDraft(noteKey);
+                        setSaved(true);
+                      } catch (e) {
+                        setError((e as Error).message);
+                      } finally {
+                        setBusy(false);
+                      }
                     }}
                   >
                     Lưu ghi chép
@@ -893,10 +935,9 @@ export function LessonPage({ classId, lessonId }: { classId: string; lessonId: s
             ) : tab === 'discussion' ? null : (
               <div className="stack">
                 <div>
-                  <h2>Điều tâm đắc từ bài học</h2>
+                  <h2>Mô tả bài học</h2>
                   <p className="reading-copy" style={{ marginTop: 14 }}>
-                    {lesson.description ||
-                      'Lắng nghe bài giảng, suy ngẫm và thử thực hành một điều tốt trong sinh hoạt hằng ngày.'}
+                    {lesson.description || 'Giáo viên chưa bổ sung mô tả cho bài học này.'}
                   </p>
                 </div>
                 {lesson.timestamps.length > 0 && (
@@ -930,7 +971,9 @@ export function LessonPage({ classId, lessonId }: { classId: string; lessonId: s
               <DiscussionPanel key={lessonId} lessonId={lessonId} classId={classId} />
             </div>
           </section>
-          {related && <AssignmentCard assignment={related} />}
+          {related.map((assignment) => (
+            <AssignmentCard key={assignment.id} assignment={assignment} />
+          ))}
         </div>
         <aside className="panel" style={{ padding: 0 }}>
           <div className="curriculum-heading">
@@ -972,7 +1015,15 @@ export function LessonPage({ classId, lessonId }: { classId: string; lessonId: s
     </>
   );
 }
-function FileAttachment({ file, onRemove }: { file: Attachment; onRemove?: () => void }) {
+function FileAttachment({
+  file,
+  onRemove,
+  disabled,
+}: {
+  file: Attachment;
+  onRemove?: () => void;
+  disabled?: boolean;
+}) {
   return (
     <div className="attachment">
       <FileText size={17} />
@@ -981,7 +1032,7 @@ function FileAttachment({ file, onRemove }: { file: Attachment; onRemove?: () =>
       </a>
       <small>{(file.size / 1024 / 1024).toFixed(1)} MB</small>
       {onRemove ? (
-        <IconButton label="Gỡ tệp" onClick={onRemove}>
+        <IconButton label="Gỡ tệp" onClick={onRemove} disabled={disabled}>
           <Trash2 size={15} />
         </IconButton>
       ) : (
@@ -1012,29 +1063,70 @@ export function AssignmentPage({
   const [error, setError] = useState('');
   const [saved, setSaved] = useState(false);
   const [confirm, setConfirm] = useState(false);
+  const [dirty, setDirty] = useState(false);
+  const [revision, setRevision] = useState(submission?.revision || '');
+  const draftKey = `lms-draft:submission:${state.user.id}:${assignmentId}`;
+  useUnsavedWarning(dirty);
   const editing = !submission || submission.status === 'DRAFT';
   useEffect(() => {
-    setContent(submission?.content || '');
-    setLink(submission?.link || '');
-    setFiles(submission?.attachments || []);
+    const draft = readSessionDraft<{
+      content: string;
+      link: string;
+      files: Attachment[];
+      revision: string;
+    }>(draftKey);
+    setContent(draft?.content ?? submission?.content ?? '');
+    setLink(draft?.link ?? submission?.link ?? '');
+    setFiles(draft?.files ?? submission?.attachments ?? []);
+    setRevision(draft?.revision ?? submission?.revision ?? '');
+    setDirty(!!draft);
     setPledge(false);
     setError('');
-  }, [assignmentId]);
+  }, [assignmentId, state.user.id]);
+  useEffect(() => {
+    if (dirty) writeSessionDraft(draftKey, { content, link, files, revision });
+  }, [dirty, draftKey, content, link, files, revision]);
   if (!c || !assignment) return <NotFound />;
+  if (managesClass(c, state.user))
+    return (
+      <>
+        <PageHeading
+          title={assignment.title}
+          description={`Hạn nộp: ${dateTime(assignment.dueAt)} (GMT+7)`}
+          breadcrumb={<ClassBreadcrumb classroom={c} tail="Bài tập" />}
+        />
+        <section className="panel stack">
+          <h2>Đề bài & hướng dẫn</h2>
+          <p className="reading-copy">{assignment.instructions}</p>
+          <Link
+            className="button primary"
+            href={`/teacher/assignments?class=${c.id}&assignment=${assignment.id}`}
+          >
+            Xem và chấm bài
+          </Link>
+        </section>
+      </>
+    );
   const a = assignment;
   const count = words(content);
   const hasSubmitted = !!submission && submission.status !== 'DRAFT';
+  const archived = c.status === 'ARCHIVED';
+  const pastDue = !a.allowLate && Date.now() > Date.parse(a.dueAt);
   async function save(submit: boolean) {
     setBusy(true);
     setError('');
     try {
-      await action(submit ? 'submitAssignment' : 'saveSubmission', {
+      const result = (await action(submit ? 'submitAssignment' : 'saveSubmission', {
         assignmentId,
         content,
         link,
         attachments: files,
         pledge,
-      });
+        expectedRevision: revision,
+      })) as { revision?: string };
+      setRevision(result.revision || '');
+      setDirty(false);
+      removeSessionDraft(draftKey);
       setConfirm(false);
       setSaved(true);
     } catch (e) {
@@ -1087,7 +1179,7 @@ export function AssignmentPage({
                 <span className="small muted"> / 100 điểm</span>
               </div>
               <p className="reading-copy">
-                {submission.feedback || 'Giáo viên đã chấm bài của bạn.'}
+                {submission.feedback || 'Giáo viên chưa để lại nhận xét.'}
               </p>
               {submission.rubric && (
                 <div className="rubric-list">
@@ -1125,9 +1217,11 @@ export function AssignmentPage({
                     aria-label="Bài thu hoạch"
                     value={content}
                     maxLength={50000}
+                    disabled={busy || uploading || archived}
                     onChange={(e) => {
                       setContent(e.target.value);
                       setSaved(false);
+                      setDirty(true);
                     }}
                     placeholder="Chia sẻ điều bạn hiểu và một tình huống bạn đã thực hành trong cuộc sống…"
                   />
@@ -1139,7 +1233,13 @@ export function AssignmentPage({
                     <span>PDF, DOCX, JPG, PNG; tối đa 25 MB</span>
                     <input
                       type="file"
-                      disabled={uploading || busy}
+                      disabled={
+                        uploading ||
+                        busy ||
+                        archived ||
+                        !state.storageConfigured ||
+                        files.length >= 10
+                      }
                       accept=".pdf,.docx,.jpg,.jpeg,.png"
                       onChange={async (e) => {
                         const f = e.target.files?.[0];
@@ -1155,6 +1255,7 @@ export function AssignmentPage({
                           const uploaded = await uploadFile(f, classId, 'assignment');
                           setFiles((prev) => [...prev, uploaded]);
                           setSaved(false);
+                          setDirty(true);
                         } catch (e) {
                           setError((e as Error).message);
                         } finally {
@@ -1163,13 +1264,21 @@ export function AssignmentPage({
                       }}
                     />
                   </label>
+                  {!state.storageConfigured && (
+                    <p className="small muted">
+                      Kho tệp chưa được cấu hình; bạn có thể viết bài trực tiếp.
+                    </p>
+                  )}
+                  <p className="small muted">{files.length}/10 tệp đính kèm</p>
                   {files.map((f) => (
                     <FileAttachment
                       key={f.id}
                       file={f}
+                      disabled={busy || uploading || archived}
                       onRemove={() => {
                         setFiles(files.filter((x) => x.id !== f.id));
                         setSaved(false);
+                        setDirty(true);
                       }}
                     />
                   ))}
@@ -1178,9 +1287,11 @@ export function AssignmentPage({
                   <input
                     type="url"
                     value={link}
+                    disabled={busy || uploading || archived}
                     onChange={(e) => {
                       setLink(e.target.value);
                       setSaved(false);
+                      setDirty(true);
                     }}
                     placeholder="https://…"
                   />
@@ -1189,6 +1300,7 @@ export function AssignmentPage({
                   <input
                     type="checkbox"
                     checked={pledge}
+                    disabled={busy || uploading || archived}
                     onChange={(e) => setPledge(e.target.checked)}
                   />
                   <span>Tôi xác nhận đây là bài làm của mình và các chia sẻ đều trung thực.</span>
@@ -1198,6 +1310,10 @@ export function AssignmentPage({
                     {error}
                   </p>
                 )}
+                {archived && <p className="notice">Lớp đã lưu trữ; bài làm chỉ được xem.</p>}
+                {!archived && pastDue && (
+                  <p className="notice">Đã hết hạn nộp. Bạn vẫn có thể lưu bản nháp.</p>
+                )}
                 <div className="row between">
                   <span className="small muted" role="status">
                     {saved ? 'Bản nháp đã lưu.' : 'Bài làm chưa được gửi cho giáo viên.'}
@@ -1205,17 +1321,21 @@ export function AssignmentPage({
                   <div className="inline-actions">
                     <Button
                       variant="secondary"
-                      disabled={busy || uploading}
+                      disabled={busy || uploading || archived}
                       onClick={() => void save(false)}
                     >
                       Lưu nháp
                     </Button>
                     <Button
-                      disabled={busy || uploading}
+                      disabled={busy || uploading || archived || pastDue}
                       onClick={() => {
                         setError('');
                         if (!pledge) {
                           setError('Vui lòng xác nhận bài làm trung thực trước khi nộp.');
+                          return;
+                        }
+                        if (!content.trim() && !files.length && !link.trim()) {
+                          setError('Vui lòng nhập bài làm, đính kèm tệp hoặc liên kết minh chứng.');
                           return;
                         }
                         if (!files.length && !acceptsWordCount(count, a)) {
@@ -1257,7 +1377,8 @@ export function AssignmentPage({
                     theo dõi kết quả tại đây.
                   </span>
                 </div>
-                {a.allowResubmit &&
+                {!archived &&
+                  a.allowResubmit &&
                   submission?.status === 'SUBMITTED' &&
                   (submission?.attempt || 0) < a.maxAttempts &&
                   Date.now() <= new Date(a.dueAt).getTime() && (
@@ -1268,7 +1389,10 @@ export function AssignmentPage({
                         setBusy(true);
                         setError('');
                         try {
-                          await action('withdrawSubmission', { assignmentId });
+                          const result = (await action('withdrawSubmission', { assignmentId })) as {
+                            revision?: string;
+                          };
+                          setRevision(result.revision || '');
                           setContent(submission.content);
                           setLink(submission.link);
                           setFiles(submission.attachments);
@@ -1367,7 +1491,7 @@ export function MembersPage({ classId }: { classId: string }) {
   const page = Math.max(1, Number(query.get('page', '1')) || 1);
   const c = state.classes.find((c) => c.id === classId);
   if (!c) return <NotFound />;
-  const teacher = state.users.find((u) => u.id === c.teacherId);
+  const teachers = classTeacherNames(c, state.users);
   const members = state.enrollments
     .filter((e) => e.classId === classId && e.status === 'APPROVED')
     .map((e) => ({ ...e, user: state.users.find((u) => u.id === e.userId) }))
@@ -1394,9 +1518,9 @@ export function MembersPage({ classId }: { classId: string }) {
             <Badge tone="success">Đồng hành cùng lớp</Badge>
           </div>
           <div className="member-profile">
-            <span className="avatar">{initials(teacher?.name || 'Tuệ Tâm')}</span>
+            <span className="avatar">{initials(teachers)}</span>
             <div>
-              <strong>{teacher?.name}</strong>
+              <strong>{teachers}</strong>
               <p>Hướng dẫn học tập và phản hồi bài thực hành</p>
             </div>
           </div>
@@ -1453,7 +1577,7 @@ export function MembersPage({ classId }: { classId: string }) {
                   <tr>
                     <th>Học viên</th>
                     <th>Nhóm học tập</th>
-                    <th>Ngày tham gia</th>
+                    <th>Ngày gửi yêu cầu</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1512,18 +1636,26 @@ export function MyAssignments() {
   const query = useQuery();
   const tab = query.get('status', 'todo');
   const search = query.get('q');
-  const list = state.assignments.filter((a) => {
-    const sub = state.submissions.find(
-      (s) => s.assignmentId === a.id && s.studentId === state.user.id,
-    );
-    return (
-      fold(a.title).includes(fold(search)) &&
-      (tab === 'all' ||
-        (tab === 'todo' && (!sub || sub.status === 'DRAFT')) ||
-        (tab === 'submitted' && sub?.status === 'SUBMITTED') ||
-        (tab === 'graded' && sub?.status === 'GRADED'))
-    );
-  });
+  const list = state.assignments
+    .filter((a) => {
+      if (
+        !state.enrollments.some(
+          (e) => e.classId === a.classId && e.userId === state.user.id && e.status === 'APPROVED',
+        )
+      )
+        return false;
+      const sub = state.submissions.find(
+        (s) => s.assignmentId === a.id && s.studentId === state.user.id,
+      );
+      return (
+        fold(a.title).includes(fold(search)) &&
+        (tab === 'all' ||
+          (tab === 'todo' && (!sub || sub.status === 'DRAFT')) ||
+          (tab === 'submitted' && sub?.status === 'SUBMITTED') ||
+          (tab === 'graded' && sub?.status === 'GRADED'))
+      );
+    })
+    .sort((a, b) => a.dueAt.localeCompare(b.dueAt));
   return (
     <>
       <PageHeading

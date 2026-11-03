@@ -27,6 +27,9 @@ export default function Profile() {
         title="Thông tin cá nhân"
         description="Cập nhật họ tên và mật khẩu đăng nhập của bạn."
       />
+      {user.mustChangePassword && (
+        <p className="notice">Vui lòng đổi mật khẩu tạm trước khi sử dụng hệ thống.</p>
+      )}
       <div className="two-col">
         <section className="panel stack">
           <div className="section-heading">

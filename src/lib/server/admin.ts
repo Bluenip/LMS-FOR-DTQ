@@ -1,10 +1,11 @@
-import { randomUUID } from 'node:crypto';
+import { randomBytes, randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import type { AdminState, AdminUser, Database, StoredUser } from '@/lib/types';
-import { DEFAULT_ACCOUNT_PASSWORD } from '@/lib/account-policy';
+import { assignedTeacherIds, managesClass } from '@/lib/class-teachers';
 import { accountInput, emailSchema } from './accounts';
 import {
   assertOrigin,
+  accountEnabled,
   errorResponse,
   hashPassword,
   HttpError,
@@ -31,7 +32,7 @@ export function adminUser(db: Database, user: StoredUser): AdminUser {
     emailVerified: user.emailVerified !== false,
     disabled: user.disabled === true,
     isDemo: isDemoAccount(user),
-    classCount: db.classes.filter((c) => c.teacherId === user.id).length,
+    classCount: db.classes.filter((c) => managesClass(c, user)).length,
     enrollmentCount: db.enrollments.filter((e) => e.userId === user.id && e.status === 'APPROVED')
       .length,
   };
@@ -41,6 +42,7 @@ export function adminState(db: Database, userId: string | null): AdminState {
   const users = db.users.map((user) => adminUser(db, user));
   return {
     users,
+    managedClasses: db.classes.map(({ id, title, teacherId }) => ({ id, title, teacherId })),
     summary: {
       teachers: users.filter((u) => u.role === 'TEACHER').length,
       students: users.filter((u) => u.role === 'STUDENT').length,
@@ -70,12 +72,14 @@ export function createManagedUser(db: Database, actorId: string | null, input: u
     .parse(input);
   if (db.users.some((u) => u.email.toLowerCase() === v.email))
     throw new HttpError(409, 'Email đã có tài khoản. Vui lòng dùng địa chỉ khác.');
+  const temporaryPassword = randomBytes(12).toString('base64url');
   const user: StoredUser = {
     id: randomUUID(),
     name: v.name,
     email: v.email,
     role: v.role,
-    passwordHash: hashPassword(DEFAULT_ACCOUNT_PASSWORD),
+    passwordHash: hashPassword(temporaryPassword),
+    mustChangePassword: true,
     emailVerified: true,
     isAdmin: false,
     disabled: false,
@@ -85,7 +89,8 @@ export function createManagedUser(db: Database, actorId: string | null, input: u
   db.users.push(user);
   return {
     user: adminUser(db, user),
-    message: 'Đã tạo tài khoản. Người dùng có thể đăng nhập bằng mật khẩu mặc định.',
+    message: 'Đã tạo tài khoản. Hãy chuyển mật khẩu tạm riêng cho người dùng.',
+    temporaryPassword,
   };
 }
 export function updateManagedUser(
@@ -98,24 +103,43 @@ export function updateManagedUser(
   const v = z
     .object({
       name: nameSchema.optional(),
+      role: z.enum(['TEACHER', 'STUDENT']).optional(),
       disabled: z.boolean().optional(),
       emailVerified: z.literal(true).optional(),
     })
     .strict()
     .refine(
-      (v) => v.name !== undefined || v.disabled !== undefined || v.emailVerified !== undefined,
+      (v) =>
+        v.name !== undefined ||
+        v.role !== undefined ||
+        v.disabled !== undefined ||
+        v.emailVerified !== undefined,
       'Chưa có thay đổi để lưu.',
     )
     .parse(input);
   const user = managedUser(db, id);
   if ((v.disabled !== undefined || v.emailVerified !== undefined) && user.isAdmin)
     throw new HttpError(403, 'Không thể thay đổi trạng thái tài khoản quản trị tại đây.');
+  const roleChanged = v.role !== undefined && v.role !== user.role;
+  if (roleChanged) {
+    if (user.isAdmin)
+      throw new HttpError(403, 'Không thể đổi vai trò của tài khoản quản trị tại đây.');
+    if (
+      v.role === 'STUDENT' &&
+      db.classes.some((c) => c.teacherId === user.id || assignedTeacherIds(c).includes(user.id))
+    )
+      throw new HttpError(
+        409,
+        'Hãy chuyển quyền quản lý và gỡ phân công giáo viên trước khi đổi vai trò.',
+      );
+    user.role = v.role!;
+  }
   if (v.name !== undefined) user.name = v.name;
   const statusChanged = v.disabled !== undefined && v.disabled !== (user.disabled === true);
   const activated = v.emailVerified === true && user.emailVerified === false;
   if (v.disabled !== undefined) user.disabled = v.disabled;
   if (v.emailVerified === true) user.emailVerified = true;
-  if (statusChanged || activated) {
+  if (statusChanged || activated || roleChanged) {
     user.sessionVersion = (user.sessionVersion ?? 0) + 1;
     db.authTokens = db.authTokens.filter((t) => t.userId !== user.id);
   }
@@ -131,6 +155,37 @@ export function updateManagedUser(
           : 'Đã cập nhật thông tin tài khoản.',
   };
 }
+export function transferClassOwner(
+  db: Database,
+  actorId: string | null,
+  classId: string,
+  input: unknown,
+) {
+  requireAdmin(db, actorId);
+  const v = z
+    .object({ teacherId: z.string().min(1), expectedTeacherId: z.string().min(1) })
+    .strict()
+    .parse(input);
+  const classroom = db.classes.find((c) => c.id === classId);
+  if (!classroom) throw new HttpError(404, 'Không tìm thấy lớp học.');
+  if (classroom.teacherId !== v.expectedTeacherId)
+    throw new HttpError(409, 'Chủ lớp đã thay đổi. Hãy tải lại danh sách.');
+  const teacher = db.users.find((u) => u.id === v.teacherId);
+  if (!teacher || teacher.role !== 'TEACHER' || !accountEnabled(teacher))
+    throw new HttpError(400, 'Chọn một giáo viên đang hoạt động.');
+  if (
+    db.enrollments.some(
+      (e) => e.classId === classroom.id && e.userId === teacher.id && e.status !== 'REMOVED',
+    )
+  )
+    throw new HttpError(
+      409,
+      'Giáo viên đang là học viên lớp này; cần rời lớp trước khi chuyển quyền.',
+    );
+  classroom.teacherId = teacher.id;
+  classroom.revision = randomUUID();
+  return { message: 'Đã chuyển quyền quản lý lớp. Danh sách giáo viên phụ trách được giữ nguyên.' };
+}
 export function resetManagedPassword(
   db: Database,
   actorId: string | null,
@@ -142,11 +197,14 @@ export function resetManagedPassword(
   const user = managedUser(db, id);
   if (user.isAdmin)
     throw new HttpError(403, 'Không thể đặt lại mật khẩu tài khoản quản trị tại đây.');
-  user.passwordHash = hashPassword(DEFAULT_ACCOUNT_PASSWORD);
+  const temporaryPassword = randomBytes(12).toString('base64url');
+  user.passwordHash = hashPassword(temporaryPassword);
+  user.mustChangePassword = true;
   user.sessionVersion = (user.sessionVersion ?? 0) + 1;
   db.authTokens = db.authTokens.filter((t) => t.userId !== user.id);
   return {
-    message: 'Đã khôi phục mật khẩu mặc định và đăng xuất các phiên cũ.',
+    message: 'Đã tạo mật khẩu tạm mới và đăng xuất các phiên cũ.',
+    temporaryPassword,
   };
 }
 const attempts = new Map<string, { count: number; reset: number }>();

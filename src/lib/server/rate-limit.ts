@@ -15,6 +15,7 @@ export class RateLimit {
     private limit: number,
     private windowMs: number,
     private maxKeys = 10000,
+    private message = 'Đăng nhập quá nhiều lần. Vui lòng thử lại sau 15 phút.',
   ) {}
   consume(key: string, now = Date.now()) {
     const previous = this.entries.get(key);
@@ -24,7 +25,7 @@ export class RateLimit {
         throw new HttpError(429, 'Hệ thống đang nhận nhiều yêu cầu. Vui lòng thử lại sau.');
     }
     if (previous && previous.reset > now && previous.count >= this.limit)
-      throw new HttpError(429, 'Đăng nhập quá nhiều lần. Vui lòng thử lại sau 15 phút.');
+      throw new HttpError(429, this.message);
     this.entries.set(key, {
       count: previous && previous.reset > now ? previous.count + 1 : 1,
       reset: previous && previous.reset > now ? previous.reset : now + this.windowMs,

@@ -1,10 +1,13 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Edit3, Send, Trash2 } from 'lucide-react';
 import type { Discussion } from '@/lib/types';
 import { dateTime, initials } from '@/lib/client';
 import { useLms } from './lms-provider';
+import { managesClass } from '@/lib/class-teachers';
+import { useUnsavedWarning } from '@/lib/use-unsaved-warning';
+import { readSessionDraft, removeSessionDraft, writeSessionDraft } from '@/lib/session-draft';
 import { Button, Dialog, Field } from './ui';
 
 export function DiscussionPanel({ lessonId, classId }: { lessonId: string; classId: string }) {
@@ -15,7 +18,21 @@ export function DiscussionPanel({ lessonId, classId }: { lessonId: string; class
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const discussions = state.discussions.filter((d) => d.lessonId === lessonId);
-  const moderator = state.classes.find((c) => c.id === classId)?.teacherId === state.user.id;
+  const classroom = state.classes.find((c) => c.id === classId);
+  const [dirty, setDirty] = useState(false);
+  const draftKey = `lms-draft:discussion:${state.user.id}:${lessonId}`;
+  useUnsavedWarning(dirty);
+  useEffect(() => {
+    const saved = readSessionDraft<string>(draftKey);
+    if (saved !== null) {
+      setDraft(saved);
+      setDirty(true);
+    }
+  }, [draftKey]);
+  useEffect(() => {
+    if (dirty) writeSessionDraft(draftKey, draft);
+  }, [dirty, draft, draftKey]);
+  const moderator = !!classroom && managesClass(classroom, state.user);
   const currentEdit = discussions.find((d) => d.id === editing?.original.id);
   const currentDelete = discussions.find((d) => d.id === deleting?.id);
   const editChanged = !!editing && currentEdit?.content !== editing.original.content;
@@ -99,23 +116,32 @@ export function DiscussionPanel({ lessonId, classId }: { lessonId: string; class
         onSubmit={async (e) => {
           e.preventDefault();
           const submitted = draft;
-          if (await mutate('comment', { lessonId, content: submitted }))
+          if (await mutate('comment', { lessonId, content: submitted })) {
             setDraft((current) => (current === submitted ? '' : current));
+            setDirty(false);
+            removeSessionDraft(draftKey);
+          }
         }}
       >
         <Field label="Chia sẻ cùng lớp">
           <textarea
             aria-label="Chia sẻ cùng lớp"
             value={draft}
-            onChange={(e) => setDraft(e.target.value)}
+            onChange={(e) => {
+              setDraft(e.target.value);
+              setDirty(true);
+            }}
             required
             maxLength={5000}
-            disabled={busy}
+            disabled={busy || classroom?.status === 'ARCHIVED'}
             placeholder="Đặt câu hỏi hoặc chia sẻ trải nghiệm thực hành…"
           />
         </Field>
         <div>
-          <Button type="submit" disabled={busy || !draft.trim()}>
+          <Button
+            type="submit"
+            disabled={busy || !draft.trim() || classroom?.status === 'ARCHIVED'}
+          >
             <Send size={15} />
             Gửi thảo luận
           </Button>
@@ -154,7 +180,7 @@ export function DiscussionPanel({ lessonId, classId }: { lessonId: string; class
                       {own && (
                         <Button
                           variant="ghost"
-                          disabled={busy}
+                          disabled={busy || classroom?.status === 'ARCHIVED'}
                           onClick={() => {
                             setEditing({ original: { ...d }, content: d.content });
                             setError('');
@@ -167,7 +193,7 @@ export function DiscussionPanel({ lessonId, classId }: { lessonId: string; class
                       {(own || moderator) && (
                         <Button
                           variant="ghost"
-                          disabled={busy}
+                          disabled={busy || classroom?.status === 'ARCHIVED'}
                           onClick={() => {
                             setDeleting({ ...d });
                             setError('');

@@ -1,5 +1,7 @@
 # Kết quả rà soát và sửa lỗi LMS
 
+> Báo cáo lịch sử của đợt rà soát trước. Chính sách tài khoản và phân quyền lớp hiện hành được cập nhật trong README; một số giới hạn được liệt kê bên dưới đã thay đổi ở phiên bản sau.
+
 Cập nhật **03/11/2026**. Bốn lỗi được phát hiện trong lượt rà soát đầu đã được sửa trong mã nguồn và có kiểm thử hồi quy. Ứng dụng đã được triển khai thường trực tại https://zimaos.click bằng Docker với PostgreSQL riêng. Kiểm thử kho S3 dùng một stack tạm biệt lập; production chưa có bucket vì R2 của tài khoản chưa bật.
 
 ## Những lỗi đã sửa

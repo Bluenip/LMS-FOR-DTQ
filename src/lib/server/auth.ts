@@ -2,6 +2,7 @@ import { createHmac, randomBytes, scryptSync, timingSafeEqual } from 'node:crypt
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { cookies } from 'next/headers';
 import type { Database, StoredUser, User } from '@/lib/types';
+import { DEFAULT_ACCOUNT_PASSWORD } from '@/lib/account-policy';
 export const COOKIE = 'dtq_session';
 export function hashPassword(password: string) {
   const salt = randomBytes(16).toString('hex');
@@ -113,22 +114,32 @@ export function sessionMatches(
 export async function sessionUserId() {
   const session = await readSession((await cookies()).get(COOKIE)?.value);
   if (!session) return null;
-  const { withDatabase } = await import('./repository');
-  return withDatabase((db) =>
-    sessionMatches(
-      db.users.find((user) => user.id === session.id),
-      session,
-    )
-      ? session.id
-      : null,
-  );
+  const { findSessionUser } = await import('./repository');
+  return sessionMatches(await findSessionUser(session.id), session) ? session.id : null;
 }
-export function requireUser(db: Database, id: string | null): StoredUser {
+const legacyPasswordCache = new Map<string, boolean>();
+export function needsPasswordChange(user: StoredUser) {
+  if (user.mustChangePassword) return true;
+  if (isDemoAccount(user)) return false;
+  const cached = legacyPasswordCache.get(user.passwordHash);
+  if (cached !== undefined) return cached;
+  const legacy = verifyPassword(DEFAULT_ACCOUNT_PASSWORD, user.passwordHash);
+  if (legacyPasswordCache.size >= 10000) legacyPasswordCache.clear();
+  legacyPasswordCache.set(user.passwordHash, legacy);
+  return legacy;
+}
+export function requireUser(
+  db: Database,
+  id: string | null,
+  allowPasswordChange = false,
+): StoredUser {
   const user = db.users.find((u) => u.id === id);
   if (!user || !accountEnabled(user)) throw new HttpError(401, 'Vui lòng đăng nhập để tiếp tục.');
+  if (!allowPasswordChange && needsPasswordChange(user))
+    throw new HttpError(403, 'Vui lòng đổi mật khẩu trước khi tiếp tục.');
   return user;
 }
-export function publicUser(user: StoredUser): User {
+export function publicUser(user: StoredUser, includePasswordState = true): User {
   const { id, name, email, role, avatar } = user;
   return {
     id,
@@ -137,6 +148,7 @@ export function publicUser(user: StoredUser): User {
     role,
     ...(avatar ? { avatar } : {}),
     ...(user.isAdmin ? { isAdmin: true } : {}),
+    ...(includePasswordState && needsPasswordChange(user) ? { mustChangePassword: true } : {}),
   };
 }
 export class HttpError extends Error {

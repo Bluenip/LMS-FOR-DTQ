@@ -7,7 +7,7 @@ import {
 } from '@/lib/server/auth';
 import { withDatabase } from '@/lib/server/repository';
 import { finalizeObject, verifyObject } from '@/lib/server/storage';
-import { accessClass } from '@/lib/server/actions';
+import { accessClass, teacherClass } from '@/lib/server/actions';
 import { readJsonObject } from '@/lib/server/request';
 import { z } from 'zod';
 export const runtime = 'nodejs';
@@ -22,7 +22,10 @@ export async function POST(request: Request) {
       const user = requireUser(db, userId);
       const f = db.files.find((f) => f.id === fileId && f.ownerId === user.id);
       if (!f) throw new HttpError(404, 'Không tìm thấy tệp.');
-      accessClass(db, user, f.classId);
+      const classroom = f.mimeType.startsWith('video/')
+        ? teacherClass(db, user, f.classId)
+        : accessClass(db, user, f.classId);
+      if (classroom.status === 'ARCHIVED') throw new HttpError(409, 'Lớp học đã lưu trữ.');
       return f;
     });
     if (file.verified)
@@ -37,7 +40,10 @@ export async function POST(request: Request) {
     const finalKey = await finalizeObject(file, etag);
     await withDatabase((db) => {
       const user = requireUser(db, userId);
-      accessClass(db, user, file.classId);
+      const classroom = file.mimeType.startsWith('video/')
+        ? teacherClass(db, user, file.classId)
+        : accessClass(db, user, file.classId);
+      if (classroom.status === 'ARCHIVED') throw new HttpError(409, 'Lớp học đã lưu trữ.');
       const f = db.files.find((f) => f.id === file.id);
       if (f) {
         f.verified = true;

@@ -1,3 +1,4 @@
+import { versionedAction } from './versioned-action';
 import { expect, test, type APIRequestContext, type Page } from '@playwright/test';
 import { mkdir } from 'node:fs/promises';
 import type { AppState, Assignment, Classroom, Lesson, Submission } from '../src/lib/types';
@@ -17,7 +18,9 @@ async function action<T>(
   name: string,
   data: Record<string, unknown> = {},
 ): Promise<T> {
-  const response = await api.post('/api/actions', { data: { action: name, ...data } });
+  const response = await api.post('/api/actions', {
+    data: { action: name, ...(await versionedAction(api, name, data)) },
+  });
   expect(response.ok(), await response.text()).toBeTruthy();
   return (await response.json()).result as T;
 }
@@ -380,7 +383,7 @@ test('teacher creates and publishes a lesson, approves enrollment and returns a 
     await page
       .getByLabel('Mô tả bài học', { exact: true })
       .fill('Lắng nghe và thực hành bằng việc làm cụ thể.');
-    await expect(page.getByRole('button', { name: 'Xuất bản', exact: true })).toBeDisabled();
+    await expect(page.getByRole('button', { name: 'Xuất bản', exact: true })).toBeEnabled();
     const drafted = actionResponse(page, 'saveLesson');
     await page.getByRole('button', { name: 'Lưu nháp', exact: true }).click();
     const draftResponse = await drafted;

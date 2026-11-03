@@ -1,0 +1,2 @@
+ALTER TABLE "Classroom" ADD COLUMN "revision" TEXT NOT NULL DEFAULT '';
+ALTER TABLE "Assignment" ADD COLUMN "revision" TEXT NOT NULL DEFAULT '';

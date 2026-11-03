@@ -34,6 +34,53 @@ async function login(who, email, password) {
   checks++;
 }
 async function action(who, name, payload = {}) {
+  if (
+    [
+      'saveSubmission',
+      'submitAssignment',
+      'saveNote',
+      'gradeSubmission',
+      'updateClass',
+      'updateAssignment',
+    ].includes(name) ||
+    (name === 'saveLesson' && (payload.id || payload.lessonId))
+  ) {
+    const current = await state(who);
+    if (name === 'updateClass') {
+      payload = {
+        expectedRevision:
+          current.classes.find((entry) => entry.id === payload.classId)?.revision || '',
+        ...payload,
+      };
+    } else if (name === 'updateAssignment') {
+      payload = {
+        expectedRevision:
+          current.assignments.find((entry) => entry.id === payload.assignmentId)?.revision || '',
+        ...payload,
+      };
+    } else if (name === 'saveSubmission' || name === 'submitAssignment') {
+      const submission = current.submissions.find(
+        (s) => s.assignmentId === payload.assignmentId && s.studentId === current.user.id,
+      );
+      payload = { expectedRevision: submission?.revision || '', ...payload };
+    } else if (name === 'saveNote') {
+      const note = current.notes.find(
+        (n) => n.lessonId === payload.lessonId && n.userId === current.user.id,
+      );
+      payload = { expectedUpdatedAt: note?.updatedAt || null, ...payload };
+    } else if (name === 'saveLesson') {
+      const lesson = current.lessons.find((entry) => entry.id === (payload.id || payload.lessonId));
+      payload = { expectedRevision: lesson?.revision || '', ...payload };
+    } else {
+      const submission = current.submissions.find((entry) => entry.id === payload.submissionId);
+      payload = {
+        expectedGradeRevision: submission?.gradeRevision || '',
+        expectedAttempt: submission?.attempt || 1,
+        expectedSubmittedAt: submission?.submittedAt || null,
+        ...payload,
+      };
+    }
+  }
   const r = await request('/api/actions', {
     who,
     method: 'POST',
@@ -223,7 +270,9 @@ const a = await action(teacher, 'createAssignment', {
 });
 assert.deepEqual(await action(teacher, 'remindStudents', { assignmentId: a.id }), { count: 1 });
 st = await state(student);
-const reminder = st.notifications.find((n) => n.assignmentId === a.id);
+const reminder = st.notifications.find(
+  (n) => n.assignmentId === a.id && n.content.startsWith('Nhắc nộp bài:'),
+);
 assert(reminder && !reminder.read);
 checks++;
 await action(student, 'markNotificationsRead', { ids: [reminder.id] });
@@ -239,6 +288,7 @@ const overLimit = await request('/api/actions', {
     assignmentId: a.id,
     content: 'Three separate words',
     pledge: true,
+    expectedRevision: '',
   },
 });
 assert.equal(overLimit.status, 400);
@@ -328,6 +378,7 @@ const staleGrade = await request('/api/actions', {
     returnGrade: true,
     expectedAttempt: s.attempt,
     expectedSubmittedAt: s.submittedAt,
+    expectedGradeRevision: '',
   },
 });
 assert.equal(staleGrade.status, 409, 'a stale form must not grade a newer submission');

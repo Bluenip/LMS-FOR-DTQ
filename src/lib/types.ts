@@ -6,6 +6,7 @@ export interface User {
   role: Role;
   avatar?: string;
   isAdmin?: boolean;
+  mustChangePassword?: boolean;
 }
 export interface AdminUser extends User {
   isAdmin: boolean;
@@ -17,6 +18,7 @@ export interface AdminUser extends User {
 }
 export interface AdminState {
   users: AdminUser[];
+  managedClasses: { id: string; title: string; teacherId: string }[];
   summary: {
     teachers: number;
     students: number;
@@ -33,6 +35,8 @@ export interface Classroom {
   contentAuthor?: string;
   code: string;
   teacherId: string;
+  teacherIds?: string[];
+  revision?: string;
   status: 'ACTIVE' | 'ARCHIVED';
   capacity: number;
   enrollmentOpen: boolean;
@@ -45,7 +49,7 @@ export interface Enrollment {
   id: string;
   classId: string;
   userId: string;
-  status: 'APPROVED' | 'PENDING';
+  status: 'APPROVED' | 'PENDING' | 'REMOVED';
   group: number;
   joinedAt: string;
 }
@@ -61,6 +65,7 @@ export interface Lesson {
   videoFileId?: string;
   duration: string;
   published: boolean;
+  revision?: string;
   timestamps: { time: string; title: string }[];
   documents: Attachment[];
   createdAt: string;
@@ -85,6 +90,7 @@ export interface Assignment {
   minWords: number;
   maxWords: number | null;
   createdAt: string;
+  revision?: string;
 }
 export interface Submission {
   id: string;
@@ -100,6 +106,8 @@ export interface Submission {
   rubric?: { understanding: number; application: number; presentation: number };
   feedback: string;
   gradedAt?: string;
+  revision?: string;
+  gradeRevision?: string;
 }
 export interface Progress {
   id: string;

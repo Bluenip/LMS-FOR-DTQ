@@ -14,6 +14,7 @@ import { BookOpen, Bell, LogOut, Menu, GraduationCap, RefreshCw } from 'lucide-r
 import type { AppState } from '@/lib/types';
 import { APP_NAME } from '@/lib/brand';
 import { PUBLIC_AUTH_ROUTES } from '@/lib/auth-routes';
+import { managesClass } from '@/lib/class-teachers';
 import { api, ApiError, dateTime, initials } from '@/lib/client';
 import { Button, Dialog, IconButton } from './ui';
 const Context = createContext<{
@@ -136,6 +137,10 @@ export function LmsProvider({ children }: { children: ReactNode }) {
     };
   }, [cancelRefresh, refresh, pathname, publicAuthPage]);
   useEffect(() => setMenu(false), [pathname]);
+  useEffect(() => {
+    if (state?.user.mustChangePassword && pathname !== '/profile' && !publicAuthPage)
+      router.replace('/profile');
+  }, [state?.user.mustChangePassword, pathname, publicAuthPage, router]);
   if (publicAuthPage) return children;
   const action = async (name: string, payload: Record<string, unknown> = {}) => {
     pendingMutations.current++;
@@ -221,6 +226,8 @@ export function LmsProvider({ children }: { children: ReactNode }) {
         ['/teacher/classes', 'Lớp giảng dạy'],
         ['/teacher/lessons', 'Kho bài giảng'],
         ['/teacher/assignments', 'Bài cần chấm'],
+        ['/classes', 'Lớp của tôi'],
+        ['/assignments', 'Bài tập của tôi'],
       ]
     : [
         ['/classes', 'Lớp của tôi'],
@@ -342,7 +349,14 @@ export function LmsProvider({ children }: { children: ReactNode }) {
                       <Link
                         className="button ghost"
                         href={
-                          teacher
+                          managesClass(
+                            state.classes.find(
+                              (c) =>
+                                c.id ===
+                                state.assignments.find((a) => a.id === n.assignmentId)!.classId,
+                            )!,
+                            state.user,
+                          )
                             ? `/teacher/assignments?assignment=${n.assignmentId}&class=${state.assignments.find((a) => a.id === n.assignmentId)!.classId}`
                             : `/classes/${state.assignments.find((a) => a.id === n.assignmentId)!.classId}/assignments/${n.assignmentId}`
                         }

@@ -5,7 +5,7 @@ export async function GET() {
   try {
     const id = await sessionUserId();
     return Response.json(
-      { user: await withDatabase((db) => publicUser(requireUser(db, id))) },
+      { user: await withDatabase((db) => publicUser(requireUser(db, id, true))) },
       { headers: { 'Cache-Control': 'no-store' } },
     );
   } catch (e) {

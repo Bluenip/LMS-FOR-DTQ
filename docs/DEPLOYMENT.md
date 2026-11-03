@@ -108,7 +108,7 @@ unset ACCOUNT_INITIAL_PASSWORD
 docker compose --env-file .env.production -f compose.production.yml run --rm -T migrate npm run account:grant-admin -- admin@zimaos.click
 ```
 
-CLI từ chối ghi đè tài khoản đã tồn tại. Nếu đã có tài khoản thật đang hoạt động, chỉ cấp quyền quản trị. Khi bỏ trống `ACCOUNT_INITIAL_PASSWORD`, CLI dùng mật khẩu mặc định `123@123aA`; nên đặt mật khẩu riêng cho quản trị ngay từ đầu. Tài khoản tạo/reset từ giao diện vẫn dùng mật khẩu mặc định và hiện chưa bắt buộc đổi ở lần đăng nhập đầu. Người dùng đổi tại `/profile`; cấp các tài khoản còn lại từ `/admin`.
+CLI từ chối ghi đè tài khoản đã tồn tại và yêu cầu `ACCOUNT_INITIAL_PASSWORD` riêng. Nếu đã có tài khoản thật đang hoạt động, chỉ cấp quyền quản trị. Tài khoản tạo/reset từ giao diện nhận mật khẩu tạm ngẫu nhiên chỉ hiển thị một lần và phải đổi tại `/profile` trước khi sử dụng; cấp các tài khoản còn lại từ `/admin`.
 
 ## Cloudflare Tunnel
 
@@ -127,6 +127,10 @@ Tài khoản Cloudflare hiện báo R2 chưa bật khi kiểm tra. Khi chưa c�
 ## Backup và phục hồi
 
 Backup trước deploy nằm tại `.deploy/backups/`, quyền truy cập chỉ dành cho tài khoản triển khai. Ba bản gần nhất nằm trên cùng ổ đĩa server, không thay thế backup định kỳ ra nơi khác. Nếu không có commit mới, updater không tạo backup mới. Tệp backup chứa dữ liệu người dùng, không commit hoặc công khai.
+
+Máy có ổ backup riêng có thể chạy `scripts/pull-production-backup.sh` để lấy PostgreSQL qua SSH, mã hóa AES256, kiểm tra giải mã và danh sách archive mà không khôi phục vào database thật. Đặt `LMS_BACKUP_HOST` dạng `user@host`, hoặc ghi giá trị đó vào `~/.config/lms-dtq-backup/host` để lịch tự động sử dụng. Mặc định lưu trong `/mnt/BACKUP/LMS-backups`, khóa nằm trong `~/.config/lms-dtq-backup/encryption-key` với quyền riêng tư. Phải giữ thêm bản sao khóa ở nơi an toàn: mất khóa sẽ không giải mã được backup. Chạy `scripts/install-backup-timer.sh` trên máy đó để cài lịch hằng ngày; máy và ổ phải sẵn sàng, lịch bị lỡ sẽ thử lại khi máy chạy. Script không tự xóa các bản sao cũ. Có thể cấu hình `LMS_BACKUP_MOUNT`, `LMS_BACKUP_DIR` và `LMS_BACKUP_CONFIG_DIR`; bảo đảm đích thực sự là ổ khác. Việc này sao lưu database, chưa sao lưu các object trong S3/R2.
+
+Khi đã cấu hình kho S3/R2, `npm run storage:prune` chỉ thống kê object LMS không còn tham chiếu và cũ trên 30 ngày. `npm run storage:prune -- --apply` mới xóa các object đủ điều kiện sau khi rà kết quả; nó không quét namespace khác hoặc tệp còn liên kết. Cần có bản sao dữ liệu tệp trước khi dọn. Không chạy lệnh này với bucket chưa được kiểm chứng.
 
 Tạo backup thủ công sau khi nạp image hiện hành:
 

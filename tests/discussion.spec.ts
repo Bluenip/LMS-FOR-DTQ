@@ -1,3 +1,4 @@
+import { versionedAction } from './versioned-action';
 import { expect, test, type APIRequestContext, type Page } from '@playwright/test';
 import type { AppState, Classroom, Discussion, Lesson } from '../src/lib/types';
 
@@ -6,7 +7,9 @@ async function login(api: APIRequestContext, email: string) {
   expect(r.ok(), await r.text()).toBeTruthy();
 }
 async function action<T>(api: APIRequestContext, action: string, payload: Record<string, unknown>) {
-  const r = await api.post('/api/actions', { data: { action, ...payload } });
+  const r = await api.post('/api/actions', {
+    data: { action, ...(await versionedAction(api, action, payload)) },
+  });
   expect(r.ok(), await r.text()).toBeTruthy();
   return (await r.json()).result as T;
 }

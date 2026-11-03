@@ -1,3 +1,4 @@
+import { versionedAction } from './versioned-action';
 import { expect, test, type APIRequestContext, type Page } from '@playwright/test';
 import type { AppState, Assignment, Classroom, Lesson, Submission } from '../src/lib/types';
 
@@ -13,7 +14,9 @@ async function mutate<T>(
   action: string,
   data: Record<string, unknown>,
 ): Promise<T> {
-  const response = await api.post('/api/actions', { data: { action, ...data } });
+  const response = await api.post('/api/actions', {
+    data: { action, ...(await versionedAction(api, action, data)) },
+  });
   expect(response.ok(), await response.text()).toBeTruthy();
   return (await response.json()).result as T;
 }

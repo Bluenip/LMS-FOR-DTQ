@@ -53,13 +53,16 @@ export async function POST(request: Request) {
     });
     const record = await withDatabase((db) => {
       const user = requireUser(db, userId);
-      accessClass(db, user, v.classId);
+      const classroom = accessClass(db, user, v.classId);
+      if (classroom.status === 'ARCHIVED') throw new HttpError(409, 'Lớp học đã lưu trữ.');
       return fileRecord(user.id, v);
     });
     await putDocument(record, Buffer.from(await f.arrayBuffer()));
     record.verified = true;
     await withDatabase((db) => {
-      requireUser(db, userId);
+      const user = requireUser(db, userId);
+      const classroom = accessClass(db, user, v.classId);
+      if (classroom.status === 'ARCHIVED') throw new HttpError(409, 'Lớp học đã lưu trữ.');
       db.files.push(record);
     }, true);
     return Response.json({

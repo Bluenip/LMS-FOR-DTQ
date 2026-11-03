@@ -1,4 +1,4 @@
-# LMS Đệ Tử Quy — Lớp Học Đạo
+# LMS — Lớp Học Đạo
 
 Ứng dụng quản lý lớp học trực tuyến bằng tiếng Việt: giáo viên tổ chức bài giảng và bài tập, học viên học và nộp bài, quản trị viên cấp tài khoản. Frontend và API cùng chạy trong một ứng dụng Next.js; PostgreSQL lưu dữ liệu vận hành, kho S3 tương thích lưu tệp và video.
 
@@ -59,7 +59,7 @@ Dữ liệu demo có lớp, bài tập và tiến độ mẫu; không kèm video
 | `/classes/[id]/assignments/[assignmentId]` | Lưu nháp, nộp bài viết/tệp, xác nhận trung thực, thu hồi/nộp lại theo chính sách, xem điểm đã trả                                |
 | `/classes/[id]/members`                    | Danh sách thành viên, tìm tên không dấu, lọc nhóm, phân trang                                                                    |
 | `/assignments`                             | Tổng hợp bài cần làm, đã nộp và đã chấm                                                                                          |
-| `/teacher/classes`                         | Tạo/sửa/lưu trữ/khôi phục/xóa lớp, đổi mã, giới hạn sĩ số, duyệt học viên, cấu hình người giảng nội dung                         |
+| `/teacher/classes`                         | Tạo/sửa/lưu trữ/khôi phục/xóa lớp, phân công giáo viên, đổi mã, giới hạn sĩ số, duyệt học viên và cấu hình người giảng nội dung  |
 | `/teacher/lessons`                         | Soạn chương/bài, YouTube/video tải lên, tài liệu, mốc nội dung, bản nháp và xuất bản                                             |
 | `/teacher/assignments`                     | Tạo/sửa/xóa bài tập, đặt số từ từng bài, chấm theo tiêu chí 40/40/20, lưu điểm nháp, trả điểm, nhắc nộp trong ứng dụng, xuất CSV |
 
@@ -77,6 +77,8 @@ Khi tạo hoặc sửa bài, giáo viên đặt **Số từ tối thiểu** và 
 
 Nhắc nộp và trả điểm tạo thông báo trong ứng dụng: chuông có số chưa đọc, trang hiển thị nội dung thông báo mới và hộp thông báo có liên kết tới bài tập. Mở chuông không tự đánh dấu đã đọc; người dùng chọn đánh dấu hoặc mở bài liên quan. Dữ liệu cập nhật theo polling khoảng 3 giây khi trang đang hiển thị.
 
+Người quản lý lớp chọn **Lớp giảng dạy → Giáo viên phụ trách** để phân công nhiều tài khoản giáo viên. Giáo viên được phân công được quản lý bài giảng, xét duyệt học viên và chấm bài; người quản lý lớp thay đổi cài đặt và phân công. Quản trị viên có thể chuyển quyền quản lý khi tài khoản cũ bị khóa. Tên người trình bày nội dung là trường riêng. Giáo viên có thể tham gia lớp khác như học viên; mã lớp không cấp quyền dạy. Học viên có thể rời lớp hoặc được đưa ra khỏi lớp mà không xóa lịch sử; nếu được duyệt lại, dữ liệu được giữ nguyên.
+
 Ở **Lớp giảng dạy → Cài đặt → Người giảng nội dung**, nhập tên riêng cho từng lớp hoặc để trống để ẩn dòng này trên thẻ lớp. Chương mục của bài giảng mới để trống và chỉ gợi ý những chương đã có trong chính lớp đang chọn; không gán tên người giảng hoặc chương mẫu cho lớp thật.
 
 ## Thảo luận trong bài học
@@ -89,7 +91,7 @@ Giáo viên có thể vào **Kho bài giảng → chọn bài → Xem thảo lu�
 
 Tài khoản do quản trị viên cấp. Các trang `/register`, `/verify-email`, `/forgot-password`, `/reset-password` chuyển về `/login`; API công khai tương ứng trả `403`. Luồng đang sử dụng không cần SMTP. Mã xử lý email/token cũ vẫn còn trong `src/lib/server/accounts.ts` và `mail.ts`, nhưng không được các API công khai này gọi.
 
-Tài khoản mới và tài khoản được quản trị viên reset dùng mật khẩu mặc định **`123@123aA`**. Người dùng tự đổi tại `/profile`; mật khẩu mới phải khác mật khẩu hiện tại, dài 8–128 ký tự và xác nhận trùng khớp. **Hiện chưa có cơ chế bắt buộc đổi mật khẩu ở lần đăng nhập đầu tiên.**
+Tài khoản mới hoặc được reset nhận mật khẩu tạm ngẫu nhiên riêng, chỉ hiển thị một lần cho quản trị viên. Người dùng phải đổi mật khẩu tại `/profile` trước khi dùng chức năng khác. Tài khoản cũ vẫn dùng mật khẩu chung trước đây cũng được yêu cầu đổi; tài khoản có mật khẩu riêng được giữ nguyên. Mật khẩu mới phải khác mật khẩu hiện tại, dài 8–128 ký tự và xác nhận trùng khớp.
 
 Quyền quản trị (`isAdmin`) tách biệt với vai trò `TEACHER` / `STUDENT`. Giáo viên thông thường không được quản trị tài khoản. Không có tài khoản quản trị demo được cấp sẵn. Bảng quản trị không cho khóa hoặc reset tài khoản có quyền quản trị.
 
@@ -145,12 +147,12 @@ Khởi tạo schema và tài khoản thật đầu tiên:
 ```bash
 npm run db:generate
 npm run db:migrate
-npm run account:create-teacher -- owner@example.com "Tên quản trị viên"
+ACCOUNT_INITIAL_PASSWORD="$LMS_INITIAL_PASSWORD" npm run account:create-teacher -- owner@example.com "Tên quản trị viên"
 npm run account:grant-admin -- owner@example.com
 npm run dev
 ```
 
-CLI có thể nhận `ACCOUNT_INITIAL_PASSWORD` từ môi trường để đặt mật khẩu riêng ngay khi cấp tài khoản; không in mật khẩu riêng ra log. Nếu không đặt biến này thì dùng mật khẩu mặc định. Đổi mật khẩu tại `/profile` khi cần. Từ `/admin`, tạo các tài khoản còn lại. Nếu tài khoản thật đã có sẵn và đang hoạt động, chỉ cần chạy `account:grant-admin`.
+Trước khi chạy, đặt `LMS_INITIAL_PASSWORD` bằng một mật khẩu tạm riêng. CLI yêu cầu `ACCOUNT_INITIAL_PASSWORD` từ môi trường và không in mật khẩu riêng ra log. Người dùng phải đổi mật khẩu tại `/profile` sau khi đăng nhập. Từ `/admin`, tạo các tài khoản còn lại. Nếu tài khoản thật đã có sẵn và đang hoạt động, chỉ cần chạy `account:grant-admin`.
 
 ### Dữ liệu minh họa trên PostgreSQL
 
@@ -287,4 +289,4 @@ npm start
 
 Đặt `APP_URL=https://lms.example.com` đúng origin của tên miền thật và dùng khóa phiên riêng. Hướng dẫn bao gồm cổng nội bộ, tunnel, database, kho video, backup và cách kiểm tra sau triển khai: [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
 
-Repository hiện đọc toàn bộ dữ liệu vào snapshot; mỗi lần ghi có transaction/advisory lock và upsert lại toàn bộ snapshot. Cách này còn hạn chế khi dữ liệu hoặc số phiên đồng thời tăng, nhất là với polling 3 giây. Chưa có số đo chịu tải để cam kết số học viên đồng thời. Các giới hạn còn lại được ghi trong [báo cáo kiểm tra](docs/CODE_REVIEW.md).
+Trạng thái học tập và kiểm tra phiên PostgreSQL chỉ đọc dữ liệu của tài khoản/lớp liên quan. Thao tác ghi vẫn đọc snapshot và dùng transaction/advisory lock, nhưng chỉ ghi hoặc xóa bản ghi thực sự thay đổi. Cách này vẫn còn hạn chế khi dữ liệu hoặc số phiên đồng thời tăng. Chưa có số đo chịu tải để cam kết số học viên đồng thời. Các nhận xét lịch sử nằm trong [báo cáo kiểm tra](docs/CODE_REVIEW.md).

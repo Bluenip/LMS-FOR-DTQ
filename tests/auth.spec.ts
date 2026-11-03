@@ -1,6 +1,5 @@
 import { randomUUID } from 'node:crypto';
 import { expect, test } from '@playwright/test';
-import { DEFAULT_ACCOUNT_PASSWORD } from '../src/lib/account-policy';
 
 test('login contains only credentials and no public account or demo controls', async ({ page }) => {
   await page.goto('/login');
@@ -47,7 +46,7 @@ test('public registration and email recovery pages redirect and their APIs rejec
       data: {
         name: 'Không được tạo',
         email: `e2e-denied-${randomUUID()}@example.invalid`,
-        password: DEFAULT_ACCOUNT_PASSWORD,
+        password: 'DeniedTestPassword26',
         token: 'a'.repeat(64),
       },
     });
@@ -83,30 +82,25 @@ test('an issued account edits its profile and changes its own password without b
       data: { role: 'STUDENT', name: 'Học viên thông tin cá nhân', email },
     });
     expect(created.ok(), await created.text()).toBeTruthy();
+    const { temporaryPassword } = await created.json();
     expect(
       (
         await otherSession.post('/api/auth/login', {
-          data: { email, password: DEFAULT_ACCOUNT_PASSWORD },
+          data: { email, password: temporaryPassword },
         })
       ).ok(),
     ).toBeTruthy();
     await page.goto('/login');
     await page.getByRole('textbox', { name: 'Địa chỉ email', exact: true }).fill(email);
-    await page.getByLabel('Mật khẩu', { exact: true }).fill(DEFAULT_ACCOUNT_PASSWORD);
+    await page.getByLabel('Mật khẩu', { exact: true }).fill(temporaryPassword);
     await page.getByRole('button', { name: 'Đăng nhập', exact: true }).click();
-    await expect(page).toHaveURL(/\/classes$/);
-    await page.getByRole('link', { name: 'Thông tin cá nhân', exact: true }).click();
+    await expect(page).toHaveURL(/\/profile$/);
     await expect(
       page.getByRole('heading', { name: 'Thông tin cá nhân', exact: true }),
     ).toBeVisible();
     await expect(
       page.getByRole('textbox', { name: 'Email đăng nhập', exact: false }),
     ).toHaveAttribute('readonly', '');
-    await page
-      .getByRole('textbox', { name: 'Họ và tên', exact: true })
-      .fill('Tên học viên đã cập nhật');
-    await page.getByRole('button', { name: 'Lưu thông tin', exact: true }).click();
-    await expect(page.locator('.account-name')).toContainText('Tên học viên đã cập nhật');
     await page.getByLabel('Mật khẩu hiện tại', { exact: true }).fill('SaiMat26');
     await page.getByLabel('Mật khẩu mới', { exact: true }).fill('Custom28');
     await page.getByLabel('Nhập lại mật khẩu mới', { exact: true }).fill('Custom28');
@@ -114,20 +108,25 @@ test('an issued account edits its profile and changes its own password without b
     await expect(page.locator('main').getByRole('alert')).toContainText(
       'Mật khẩu hiện tại chưa đúng',
     );
-    await page.getByLabel('Mật khẩu hiện tại', { exact: true }).fill(DEFAULT_ACCOUNT_PASSWORD);
+    await page.getByLabel('Mật khẩu hiện tại', { exact: true }).fill(temporaryPassword);
     const response = page.waitForResponse(
       (r) => r.url().endsWith('/api/profile') && r.request().method() === 'PATCH',
     );
     await page.getByRole('button', { name: 'Lưu mật khẩu mới', exact: true }).click();
     expect((await response).ok()).toBeTruthy();
     await expect(page.getByRole('status').filter({ hasText: 'Đã đổi mật khẩu' })).toBeVisible();
+    await page
+      .getByRole('textbox', { name: 'Họ và tên', exact: true })
+      .fill('Tên học viên đã cập nhật');
+    await page.getByRole('button', { name: 'Lưu thông tin', exact: true }).click();
+    await expect(page.locator('.account-name')).toContainText('Tên học viên đã cập nhật');
     await expect(page).toHaveURL(/\/profile$/);
     expect((await page.request.get('/api/state')).status()).toBe(200);
     expect((await otherSession.get('/api/state')).status()).toBe(401);
     expect(
       (
         await otherSession.post('/api/auth/login', {
-          data: { email, password: DEFAULT_ACCOUNT_PASSWORD },
+          data: { email, password: temporaryPassword },
         })
       ).status(),
     ).toBe(401);

@@ -13,7 +13,6 @@ import {
   UserRoundPlus,
 } from 'lucide-react';
 import { useLms } from '@/components/lms-provider';
-import { DEFAULT_ACCOUNT_PASSWORD } from '@/lib/account-policy';
 import { Badge, Button, Dialog, Empty, Field, PageHeading, Search, Tabs } from '@/components/ui';
 import { api, ApiError, fold, initials } from '@/lib/client';
 import type { AdminState, AdminUser, Role } from '@/lib/types';
@@ -117,6 +116,7 @@ export function AdminAccounts() {
   const { data, error, refresh } = useAdminAccounts(!!state.user.isAdmin, state.user.id);
   const [editor, setEditor] = useState<Editor>(null);
   const [notice, setNotice] = useState('');
+  const [temporaryPassword, setTemporaryPassword] = useState('');
   const params = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
@@ -132,9 +132,13 @@ export function AdminAccounts() {
     router.replace(`${pathname}?${next}`, { scroll: false });
   }
   async function mutate(path: string, method: 'POST' | 'PATCH', body: Record<string, unknown>) {
-    const reply = await api<{ message?: string }>(path, { method, body: JSON.stringify(body) });
+    const reply = await api<{ message?: string; temporaryPassword?: string }>(path, {
+      method,
+      body: JSON.stringify(body),
+    });
     setEditor(null);
     setNotice(reply.message || 'Thay đổi đã được lưu.');
+    if (reply.temporaryPassword) setTemporaryPassword(reply.temporaryPassword);
     if ('BroadcastChannel' in window) {
       const channel = new BroadcastChannel('dtq-state');
       channel.postMessage('state-changed');
@@ -171,7 +175,7 @@ export function AdminAccounts() {
     editor?.kind === 'create'
       ? 'Tạo tài khoản'
       : editor?.kind === 'edit'
-        ? 'Sửa tên tài khoản'
+        ? 'Sửa tài khoản'
         : editor?.kind === 'password'
           ? 'Đặt lại mật khẩu'
           : editor?.kind === 'activate'
@@ -330,7 +334,7 @@ export function AdminAccounts() {
                             onClick={() => setEditor({ kind: 'edit', userId: user.id })}
                           >
                             <Pencil size={14} />
-                            Sửa tên
+                            Sửa tài khoản
                           </Button>
                           {!user.isAdmin && (
                             <>
@@ -425,6 +429,14 @@ export function AdminAccounts() {
           cho từng người. Khóa tài khoản vẫn giữ nguyên dữ liệu học tập.
         </p>
       </div>
+      {data && data.managedClasses.length > 0 && (
+        <ClassOwnershipManager
+          data={data}
+          onTransfer={(classId, teacherId, expectedTeacherId) =>
+            mutate(`/api/admin/classes/${classId}/owner`, 'POST', { teacherId, expectedTeacherId })
+          }
+        />
+      )}
       <Dialog open={!!editor} title={dialogTitle} onClose={close}>
         {editor?.kind === 'create' ? (
           <CreateAccountForm
@@ -438,7 +450,12 @@ export function AdminAccounts() {
               key={`name-${selected.id}`}
               user={selected}
               onClose={close}
-              onSave={(name) => mutate(`/api/admin/users/${selected.id}`, 'PATCH', { name })}
+              onSave={(name, role) =>
+                mutate(`/api/admin/users/${selected.id}`, 'PATCH', {
+                  name,
+                  ...(selected.isAdmin ? {} : { role }),
+                })
+              }
             />
           ) : editor?.kind === 'password' ? (
             <ResetAccountForm
@@ -480,7 +497,112 @@ export function AdminAccounts() {
           )
         )}
       </Dialog>
+      <Dialog
+        open={!!temporaryPassword}
+        title="Mật khẩu tạm"
+        onClose={() => setTemporaryPassword('')}
+      >
+        <div className="stack">
+          <p>
+            Mật khẩu tạm chỉ được hiển thị lần này. Hãy sao chép và chuyển riêng cho người dùng.
+          </p>
+          <p className="notice">
+            <strong>{temporaryPassword}</strong>
+          </p>
+          <p className="small muted">Người dùng phải đổi mật khẩu trước khi vào lớp.</p>
+          <div className="dialog-footer">
+            <Button
+              variant="secondary"
+              onClick={() => void navigator.clipboard.writeText(temporaryPassword)}
+            >
+              Sao chép
+            </Button>
+            <Button onClick={() => setTemporaryPassword('')}>Đã lưu lại</Button>
+          </div>
+        </div>
+      </Dialog>
     </div>
+  );
+}
+
+function ClassOwnershipManager({
+  data,
+  onTransfer,
+}: {
+  data: AdminState;
+  onTransfer: (classId: string, teacherId: string, expectedTeacherId: string) => Promise<void>;
+}) {
+  const [classId, setClassId] = useState('');
+  const [teacherId, setTeacherId] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const classroom = data.managedClasses.find((c) => c.id === classId);
+  return (
+    <details className="panel stack">
+      <summary>Chuyển quyền quản lý lớp</summary>
+      <form
+        className="stack"
+        onSubmit={async (event) => {
+          event.preventDefault();
+          if (
+            !classroom ||
+            !window.confirm(`Chuyển quyền quản lý lớp ${classroom.title} cho giáo viên đã chọn?`)
+          )
+            return;
+          setBusy(true);
+          setError('');
+          try {
+            await onTransfer(classroom.id, teacherId, classroom.teacherId);
+            setClassId('');
+            setTeacherId('');
+          } catch (cause) {
+            setError((cause as Error).message);
+          } finally {
+            setBusy(false);
+          }
+        }}
+      >
+        <p className="small muted">
+          Dùng khi người quản lý lớp thay đổi hoặc tài khoản cũ bị khóa. Bài học và danh sách giáo
+          viên vẫn được giữ.
+        </p>
+        <Field label="Lớp học">
+          <select required value={classId} onChange={(e) => setClassId(e.target.value)}>
+            <option value="">Chọn lớp</option>
+            {data.managedClasses.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.title}
+              </option>
+            ))}
+          </select>
+        </Field>
+        {classroom && (
+          <p className="small">
+            Người quản lý hiện tại:{' '}
+            {data.users.find((u) => u.id === classroom.teacherId)?.name || 'Không còn khả dụng'}
+          </p>
+        )}
+        <Field label="Người quản lý mới">
+          <select required value={teacherId} onChange={(e) => setTeacherId(e.target.value)}>
+            <option value="">Chọn giáo viên</option>
+            {data.users
+              .filter((u) => u.role === 'TEACHER' && !u.disabled && u.emailVerified)
+              .map((u) => (
+                <option key={u.id} value={u.id}>
+                  {u.name} ({u.email})
+                </option>
+              ))}
+          </select>
+        </Field>
+        <ErrorLine message={error} />
+        <Button
+          type="submit"
+          disabled={busy || !classroom || !teacherId || teacherId === classroom?.teacherId}
+        >
+          Chuyển quyền
+        </Button>
+      </form>
+    </details>
   );
 }
 
@@ -542,12 +664,8 @@ function CreateAccountForm({
           placeholder="nguoidung@example.com"
         />
       </Field>
-      <p className="notice">
-        Mật khẩu mặc định: <strong>{DEFAULT_ACCOUNT_PASSWORD}</strong>
-      </p>
       <p className="small muted">
-        Tài khoản được kích hoạt và có thể đăng nhập ngay. Người dùng đổi mật khẩu trong Thông tin
-        cá nhân sau khi đăng nhập.
+        Hệ thống tạo mật khẩu tạm riêng và yêu cầu người dùng đổi mật khẩu sau khi đăng nhập.
       </p>
       <ErrorLine message={error} />
       <div className="dialog-footer">
@@ -569,9 +687,10 @@ function NameForm({
 }: {
   user: AdminUser;
   onClose: () => void;
-  onSave: (name: string) => Promise<void>;
+  onSave: (name: string, role: Role) => Promise<void>;
 }) {
   const [name, setName] = useState(user.name);
+  const [role, setRole] = useState<Role>(user.role);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   return (
@@ -582,7 +701,7 @@ function NameForm({
         setBusy(true);
         setError('');
         try {
-          await onSave(name.trim());
+          await onSave(name.trim(), role);
         } catch (cause) {
           setError((cause as Error).message);
         } finally {
@@ -600,13 +719,21 @@ function NameForm({
           onChange={(event) => setName(event.target.value)}
         />
       </Field>
+      {!user.isAdmin && (
+        <Field label="Vai trò">
+          <select value={role} onChange={(event) => setRole(event.target.value as Role)}>
+            <option value="STUDENT">Học viên</option>
+            <option value="TEACHER">Giáo viên</option>
+          </select>
+        </Field>
+      )}
       <ErrorLine message={error} />
       <div className="dialog-footer">
         <Button variant="ghost" onClick={onClose}>
           Hủy
         </Button>
         <Button type="submit" disabled={busy}>
-          {busy ? 'Đang lưu…' : 'Lưu tên'}
+          {busy ? 'Đang lưu…' : 'Lưu thay đổi'}
         </Button>
       </div>
     </form>
@@ -645,14 +772,11 @@ function ResetAccountForm({
       }}
     >
       <p>
-        Đưa mật khẩu của <strong>{user.name}</strong> ({user.email}) về mặc định?
-      </p>
-      <p className="notice">
-        Mật khẩu mặc định: <strong>{DEFAULT_ACCOUNT_PASSWORD}</strong>
+        Tạo mật khẩu tạm mới cho <strong>{user.name}</strong> ({user.email})?
       </p>
       <p className="small muted">
-        Các phiên đăng nhập hiện tại sẽ hết hiệu lực. Người dùng đổi mật khẩu trong Thông tin cá
-        nhân sau khi đăng nhập.
+        Các phiên đăng nhập hiện tại sẽ hết hiệu lực. Người dùng phải đổi mật khẩu sau khi đăng
+        nhập.
       </p>
       <label className="check-label">
         <input
@@ -661,7 +785,7 @@ function ResetAccountForm({
           checked={acknowledged}
           onChange={(event) => setAcknowledged(event.target.checked)}
         />
-        <span>Tôi hiểu người dùng sẽ phải đăng nhập lại bằng mật khẩu mặc định.</span>
+        <span>Tôi hiểu người dùng sẽ phải đăng nhập lại bằng mật khẩu tạm mới.</span>
       </label>
       <ErrorLine message={error} />
       <div className="dialog-footer">

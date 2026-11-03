@@ -538,3 +538,27 @@ progress.progress::-moz-progress-bar {
     border-bottom: 0;
   }
 }
+
+.class-teacher-options {
+  display: grid;
+  gap: 12px;
+  max-height: 300px;
+  overflow-y: auto;
+  border: 1px solid var(--color-line);
+  border-radius: 8px;
+  padding: var(--space-md);
+}
+.class-teacher-options legend {
+  padding: 0 var(--space-xs);
+  font-weight: 600;
+}
+.class-teacher-options .check-label {
+  align-items: flex-start;
+  overflow-wrap: anywhere;
+}
+.form-controls {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+}

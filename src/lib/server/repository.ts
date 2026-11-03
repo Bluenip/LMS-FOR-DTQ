@@ -1,7 +1,7 @@
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
 import { Prisma, type PrismaClient } from '@prisma/client';
-import type { Database } from '@/lib/types';
+import type { Database, StoredUser } from '@/lib/types';
 import { seedData } from './seed-data';
 let prisma: PrismaClient | undefined;
 let queue = Promise.resolve();
@@ -26,6 +26,154 @@ async function client() {
   }
   return prisma;
 }
+function cleanRow<T>(row: unknown): T {
+  return Object.fromEntries(
+    Object.entries(row as Record<string, unknown>).filter(([, value]) => value !== null),
+  ) as T;
+}
+/** Session checks need one user, not a snapshot of every class and submission. */
+export async function findSessionUser(userId: string): Promise<StoredUser | undefined> {
+  if (!process.env.DATABASE_URL) return withDatabase((db) => db.users.find((u) => u.id === userId));
+  const row = await (await client()).user.findUnique({ where: { id: userId } });
+  return row ? cleanRow<StoredUser>(row) : undefined;
+}
+
+/** Build the state from only the caller's classes; writes continue to use the locked snapshot. */
+export async function withScopedState<T>(
+  userId: string | null,
+  fn: (db: Database) => T,
+): Promise<T> {
+  if (!userId)
+    return fn({
+      users: [],
+      classes: [],
+      enrollments: [],
+      lessons: [],
+      assignments: [],
+      submissions: [],
+      progress: [],
+      notes: [],
+      discussions: [],
+      notifications: [],
+      files: [],
+      authTokens: [],
+    });
+  if (!process.env.DATABASE_URL) return withDatabase(fn);
+  const pg = await client();
+  return pg.$transaction(
+    async (tx) => {
+      const userRow = await tx.user.findUnique({ where: { id: userId } });
+      if (!userRow)
+        return fn({
+          users: [],
+          classes: [],
+          enrollments: [],
+          lessons: [],
+          assignments: [],
+          submissions: [],
+          progress: [],
+          notes: [],
+          discussions: [],
+          notifications: [],
+          files: [],
+          authTokens: [],
+        });
+      const user = cleanRow<StoredUser>(userRow);
+      const own = await tx.enrollment.findMany({ where: { userId, status: { not: 'REMOVED' } } });
+      const classrooms = await tx.classroom.findMany({
+        where: {
+          OR: [
+            { teacherId: userId },
+            { teacherIds: { has: userId } },
+            { id: { in: own.map((e) => e.classId) } },
+          ],
+        },
+      });
+      const managed = classrooms
+        .filter(
+          (c) =>
+            user.role === 'TEACHER' && (c.teacherId === userId || c.teacherIds.includes(userId)),
+        )
+        .map((c) => c.id);
+      const learning = own.filter((e) => e.status === 'APPROVED').map((e) => e.classId);
+      const classIds = classrooms.map((c) => c.id);
+      const enrollments = await tx.enrollment.findMany({
+        where: {
+          OR: [
+            { classId: { in: managed } },
+            { classId: { in: learning }, status: 'APPROVED' },
+            { classId: { in: classIds }, userId },
+          ],
+        },
+      });
+      const [lessons, assignments, notifications] = await Promise.all([
+        tx.lesson.findMany({
+          where: {
+            OR: [{ classId: { in: managed } }, { classId: { in: learning }, published: true }],
+          },
+        }),
+        tx.assignment.findMany({ where: { classId: { in: [...managed, ...learning] } } }),
+        tx.notification.findMany({ where: { userId } }),
+      ]);
+      const lessonIds = lessons.map((l) => l.id);
+      const managedLessons = lessons.filter((l) => managed.includes(l.classId)).map((l) => l.id);
+      const managedAssignments = assignments
+        .filter((a) => managed.includes(a.classId))
+        .map((a) => a.id);
+      const [submissions, progress, notes, discussions, users] = await Promise.all([
+        tx.submission.findMany({
+          where: {
+            OR: [
+              { assignmentId: { in: assignments.map((a) => a.id) }, studentId: userId },
+              { assignmentId: { in: managedAssignments }, status: { not: 'DRAFT' } },
+            ],
+          },
+        }),
+        tx.progress.findMany({
+          where: {
+            OR: [{ lessonId: { in: lessonIds }, userId }, { lessonId: { in: managedLessons } }],
+          },
+        }),
+        tx.note.findMany({ where: { lessonId: { in: lessonIds }, userId } }),
+        tx.discussion.findMany({ where: { lessonId: { in: lessonIds } } }),
+        tx.user.findMany({
+          where: {
+            id: {
+              in: [
+                ...new Set([
+                  userId,
+                  ...classrooms.map((c) => c.teacherId),
+                  ...classrooms.flatMap((c) => c.teacherIds),
+                  ...enrollments.map((e) => e.userId),
+                ]),
+              ],
+            },
+          },
+        }),
+      ]);
+      const clean = (rows: unknown[]) => rows.map((row) => cleanRow(row));
+      return fn({
+        users: clean(users),
+        classes: clean(classrooms),
+        enrollments: clean(enrollments),
+        lessons: clean(lessons),
+        assignments: assignments.map((a) => ({ ...cleanRow(a), maxWords: a.maxWords })),
+        submissions: clean(submissions),
+        progress: clean(progress),
+        notes: clean(notes),
+        discussions: clean(discussions),
+        notifications: clean(notifications),
+        files: [],
+        authTokens: [],
+      } as Database);
+    },
+    {
+      maxWait: 10000,
+      timeout: 30000,
+      isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead,
+    },
+  );
+}
 async function readPostgres(tx: unknown): Promise<Database> {
   const db = {} as Database;
   await Promise.all(
@@ -45,17 +193,25 @@ async function readPostgres(tx: unknown): Promise<Database> {
   );
   return db;
 }
-async function writePostgres(tx: unknown, db: Database) {
+async function writePostgres(tx: unknown, db: Database, previous: Database) {
   const api = tx as Record<
     string,
     { deleteMany: (v: unknown) => Promise<unknown>; upsert: (v: unknown) => Promise<unknown> }
   >;
   for (const [key, model] of Object.entries(tables).reverse()) {
     const rows = db[key as keyof Database];
-    await api[model].deleteMany({ where: { id: { notIn: rows.map((r) => r.id) } } });
+    const currentIds = new Set(rows.map((row) => row.id));
+    const removed = previous[key as keyof Database]
+      .filter((row) => !currentIds.has(row.id))
+      .map((row) => row.id);
+    if (removed.length) await api[model].deleteMany({ where: { id: { in: removed } } });
   }
   for (const [key, model] of Object.entries(tables)) {
+    const original = new Map(
+      previous[key as keyof Database].map((row) => [row.id, JSON.stringify(row)]),
+    );
     for (const row of db[key as keyof Database]) {
+      if (original.get(row.id) === JSON.stringify(row)) continue;
       const data = JSON.parse(JSON.stringify(row));
       const optional: Record<string, string[]> = {
         user: ['avatar'],
@@ -82,8 +238,9 @@ export async function withDatabase<T>(
       async (tx) => {
         if (write) await tx.$executeRaw`SELECT pg_advisory_xact_lock(42719823)`;
         const db = await readPostgres(tx);
+        const previous = write ? structuredClone(db) : undefined;
         const result = await fn(db);
-        if (write) await writePostgres(tx, db);
+        if (write && previous) await writePostgres(tx, db, previous);
         return result;
       },
       { maxWait: 10000, timeout: 30000 },

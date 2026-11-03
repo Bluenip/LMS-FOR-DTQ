@@ -66,8 +66,9 @@ test('admin state projects safe account fields and counts actual records', () =>
       assert.equal(key in user, false);
   assert.equal(publicUser(admin).isAdmin, true);
 });
-test('creating managed accounts assigns the shared default password and selected supported role', () => {
+test('creating managed accounts uses unique temporary passwords and requires a change', () => {
   const { db, admin } = fixture();
+  const issued = new Set<string>();
   for (const role of ['TEACHER', 'STUDENT'] as const) {
     const email = `${role.toLowerCase()}-new@example.com`;
     const result = createManagedUser(db, admin.id, {
@@ -82,7 +83,10 @@ test('creating managed accounts assigns the shared default password and selected
     assert.equal(result.user.disabled, false);
     assert.equal(result.user.isDemo, false);
     const stored = db.users.find((u) => u.id === result.user.id)!;
-    assert.equal(verifyPassword(DEFAULT_ACCOUNT_PASSWORD, stored.passwordHash), true);
+    assert.equal(verifyPassword(result.temporaryPassword, stored.passwordHash), true);
+    assert.equal(verifyPassword(DEFAULT_ACCOUNT_PASSWORD, stored.passwordHash), false);
+    assert.equal(stored.mustChangePassword, true);
+    issued.add(result.temporaryPassword);
     assert.equal('passwordHash' in result.user, false);
     assert.equal('password' in result, false);
     assert.equal(accountEnabled(stored), true);
@@ -91,6 +95,7 @@ test('creating managed accounts assigns the shared default password and selected
       status(409),
     );
   }
+  assert.equal(issued.size, 2);
   assert.equal(
     createManagedUser(db, admin.id, { ...input, email: 'default-role@example.com' }).user.role,
     'TEACHER',
@@ -141,7 +146,7 @@ test('renaming preserves identity, login email, password and session version', (
   assert.equal(result.user.name, 'Giáo viên tên mới');
   assert.deepEqual({ ...stored, name: original.name }, original);
 });
-test('administrator resets restore the default and revoke old credentials, sessions and pending tokens', () => {
+test('administrator resets generate a new temporary password and revoke old sessions and tokens', () => {
   const { db, admin } = fixture();
   const { user } = createManagedUser(db, admin.id, input);
   const stored = db.users.find((u) => u.id === user.id)!;
@@ -153,14 +158,15 @@ test('administrator resets restore the default and revoke old credentials, sessi
     resetManagedPassword(db, admin.id, user.id, { confirmPassword: DEFAULT_ACCOUNT_PASSWORD }),
   );
   const result = resetManagedPassword(db, admin.id, user.id, {});
-  assert.equal(verifyPassword(DEFAULT_ACCOUNT_PASSWORD, stored.passwordHash), true);
+  assert.equal(verifyPassword(result.temporaryPassword, stored.passwordHash), true);
+  assert.equal(stored.mustChangePassword, true);
   assert.equal(verifyPassword('Personal26', stored.passwordHash), false);
   assert.equal(sessionMatches(stored, { id: stored.id, version: oldVersion }), false);
   assert.equal(
     db.authTokens.some((t) => t.userId === user.id),
     false,
   );
-  assert.deepEqual(Object.keys(result), ['message']);
+  assert.deepEqual(Object.keys(result).sort(), ['message', 'temporaryPassword']);
 });
 test('admin accounts cannot be locked, activated or reset through account management', () => {
   const { db, admin } = fixture();
@@ -194,8 +200,9 @@ test('student accounts can be renamed, reset and locked without losing enrollmen
   assert.equal(student.name, 'Học viên mới');
   student.passwordHash = hashPassword('Personal26');
   const version = student.sessionVersion ?? 0;
-  resetManagedPassword(db, admin.id, student.id, {});
-  assert.equal(verifyPassword(DEFAULT_ACCOUNT_PASSWORD, student.passwordHash), true);
+  const reset = resetManagedPassword(db, admin.id, student.id, {});
+  assert.equal(verifyPassword(reset.temporaryPassword, student.passwordHash), true);
+  assert.equal(student.mustChangePassword, true);
   assert.equal(sessionMatches(student, { id: student.id, version }), false);
   updateManagedUser(db, admin.id, student.id, { disabled: true });
   assert.equal(accountEnabled(student), false);

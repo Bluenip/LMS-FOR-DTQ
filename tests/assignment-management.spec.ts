@@ -1,3 +1,4 @@
+import { versionedAction } from './versioned-action';
 import { expect, test, type APIRequestContext, type Page } from '@playwright/test';
 import { readFile } from 'node:fs/promises';
 import type { AppState, Assignment, Classroom } from '../src/lib/types';
@@ -9,7 +10,9 @@ async function login(api: APIRequestContext, role: 'teacher' | 'student', email?
   expect(r.ok(), await r.text()).toBeTruthy();
 }
 async function action<T>(api: APIRequestContext, action: string, data: Record<string, unknown>) {
-  const r = await api.post('/api/actions', { data: { action, ...data } });
+  const r = await api.post('/api/actions', {
+    data: { action, ...(await versionedAction(api, action, data)) },
+  });
   expect(r.ok(), await r.text()).toBeTruthy();
   return (await r.json()).result as T;
 }
@@ -77,30 +80,37 @@ test('a reminder is visible without reload, opening the bell keeps it unread and
       notices
         .locator('.notification-item')
         .filter({ hasText: a.title })
+        .filter({ hasText: 'Nhắc nộp bài:' })
         .getByText('Chưa đọc', { exact: true }),
     ).toBeVisible();
     expect(
-      (await state(student.request)).notifications.find((n) => n.assignmentId === a.id)?.read,
+      (await state(student.request)).notifications.find(
+        (n) => n.assignmentId === a.id && n.content.startsWith('Nhắc nộp bài:'),
+      )?.read,
     ).toBe(false);
     await notices.getByRole('button', { name: 'Đóng', exact: true }).click();
     await row.getByRole('button', { name: 'Nhắc nộp', exact: true }).click();
     await studentPage
       .getByRole('button', { name: `Thông báo (${unreadBefore + 2} chưa đọc)`, exact: true })
       .click();
-    const items = notices.locator('.notification-item').filter({ hasText: a.title });
+    const items = notices
+      .locator('.notification-item')
+      .filter({ hasText: a.title })
+      .filter({ hasText: 'Nhắc nộp bài:' });
     await expect(items).toHaveCount(2);
     await items.last().getByRole('button', { name: 'Đánh dấu đã đọc', exact: true }).click();
     await expect
       .poll(
         async () =>
           (await state(student.request)).notifications.filter(
-            (n) => n.assignmentId === a.id && !n.read,
+            (n) => n.assignmentId === a.id && n.content.startsWith('Nhắc nộp bài:') && !n.read,
           ).length,
       )
       .toBe(1);
     await notices
       .locator('.notification-item.unread')
       .filter({ hasText: a.title })
+      .filter({ hasText: 'Nhắc nộp bài:' })
       .getByRole('link', { name: 'Xem bài tập', exact: true })
       .click();
     await expect(studentPage).toHaveURL(new RegExp(`/classes/${c.id}/assignments/${a.id}$`));
@@ -109,7 +119,7 @@ test('a reminder is visible without reload, opening the bell keeps it unread and
       .poll(
         async () =>
           (await state(student.request)).notifications.filter(
-            (n) => n.assignmentId === a.id && !n.read,
+            (n) => n.assignmentId === a.id && n.content.startsWith('Nhắc nộp bài:') && !n.read,
           ).length,
       )
       .toBe(0);
@@ -143,6 +153,7 @@ test('teachers manage word requirements, a student submits over 500 words, and a
     await expect(create.getByLabel('Số từ tối đa', { exact: true })).toHaveValue('');
     const title = `Bài cảm ngộ tùy chỉnh ${Date.now()}`;
     await create.getByLabel('Tiêu đề bài tập (bắt buộc)', { exact: true }).fill(title);
+    await create.getByLabel('Hướng dẫn đề bài').fill('Viết cảm nhận của bạn.');
     await create
       .getByLabel('Ngày hết hạn', { exact: true })
       .fill(new Date(Date.now() + 86400000).toISOString().slice(0, 10));
@@ -372,7 +383,11 @@ test('gradebook and CSV cover the entire approved class and protect a zero draft
       feedback: '',
     });
     expect(privateState.submissions.find((s) => s.id === zero.id)?.score).toBeUndefined();
-    expect(privateState.notifications.filter((n) => n.assignmentId === first.id)).toHaveLength(0);
+    expect(
+      privateState.notifications.filter(
+        (n) => n.assignmentId === first.id && n.content.includes('đã được chấm'),
+      ),
+    ).toHaveLength(0);
 
     const page = await teacher.newPage();
     await page.goto(`/teacher/assignments?class=${classroom.id}`);
@@ -681,6 +696,7 @@ test('detail editing and deletion return to the correct class and failed writes 
     await page.getByRole('button', { name: 'Giao bài tập', exact: true }).first().click();
     const create = dialog(page, 'Giao bài tập mới');
     await create.getByLabel('Tiêu đề bài tập (bắt buộc)').fill('Bài tạo thất bại');
+    await create.getByLabel('Hướng dẫn đề bài').fill('Đề bài thử nghiệm');
     await create
       .getByLabel('Ngày hết hạn')
       .fill(new Date(Date.now() + 86400000).toISOString().slice(0, 10));

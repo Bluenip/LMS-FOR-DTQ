@@ -8,26 +8,27 @@ datasource db {
 }
 
 model User {
-  id             String         @id
-  name           String
-  email          String         @unique
-  role           String
-  avatar         String?
-  passwordHash   String
-  emailVerified  Boolean        @default(true)
-  sessionVersion Int            @default(0)
-  isDemo         Boolean        @default(false)
-  isAdmin        Boolean        @default(false)
-  disabled       Boolean        @default(false)
-  authTokens     AuthToken[]
-  classes        Classroom[]
-  enrollments    Enrollment[]
-  submissions    Submission[]
-  progress       Progress[]
-  notes          Note[]
-  discussions    Discussion[]
-  notifications  Notification[]
-  files          StoredFile[]
+  id                 String         @id
+  name               String
+  email              String         @unique
+  role               String
+  avatar             String?
+  passwordHash       String
+  emailVerified      Boolean        @default(true)
+  sessionVersion     Int            @default(0)
+  isDemo             Boolean        @default(false)
+  isAdmin            Boolean        @default(false)
+  disabled           Boolean        @default(false)
+  mustChangePassword Boolean        @default(false)
+  authTokens         AuthToken[]
+  classes            Classroom[]
+  enrollments        Enrollment[]
+  submissions        Submission[]
+  progress           Progress[]
+  notes              Note[]
+  discussions        Discussion[]
+  notifications      Notification[]
+  files              StoredFile[]
 }
 
 model AuthToken {
@@ -53,6 +54,8 @@ model Classroom {
   contentAuthor  String       @default("")
   code           String       @unique
   teacherId      String
+  teacherIds     String[]     @default([])
+  revision       String       @default("")
   teacher        User         @relation(fields: [teacherId], references: [id], onDelete: Restrict)
   status         String       @default("ACTIVE")
   capacity       Int          @default(50)
@@ -95,6 +98,7 @@ model Lesson {
   videoFileId String?
   duration    String
   published   Boolean      @default(false)
+  revision    String       @default("")
   timestamps  Json         @default("[]")
   documents   Json         @default("[]")
   createdAt   String
@@ -121,6 +125,7 @@ model Assignment {
   minWords      Int
   maxWords      Int?
   createdAt     String
+  revision      String         @default("")
   submissions   Submission[]
   notifications Notification[]
 
@@ -128,21 +133,23 @@ model Assignment {
 }
 
 model Submission {
-  id           String     @id
-  assignmentId String
-  assignment   Assignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
-  studentId    String
-  student      User       @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  content      String
-  link         String
-  attachments  Json       @default("[]")
-  status       String
-  attempt      Int
-  submittedAt  String?
-  score        Float?
-  rubric       Json?
-  feedback     String
-  gradedAt     String?
+  id            String     @id
+  assignmentId  String
+  assignment    Assignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  studentId     String
+  student       User       @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  content       String
+  link          String
+  attachments   Json       @default("[]")
+  status        String
+  attempt       Int
+  submittedAt   String?
+  score         Float?
+  rubric        Json?
+  feedback      String
+  gradedAt      String?
+  revision      String     @default("")
+  gradeRevision String     @default("")
 
   @@unique([assignmentId, studentId])
 }

@@ -33,7 +33,7 @@ export async function PATCH(request: Request) {
     const id = await sessionUserId();
     const input = await accountInput(request);
     const result = await withDatabase((db) => {
-      const user = requireUser(db, id);
+      const user = requireUser(db, id, true);
       profileRateLimit(user.id);
       return updateProfile(db, user.id, input);
     }, true);

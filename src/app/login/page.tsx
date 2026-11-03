@@ -18,16 +18,20 @@ export default function Login() {
     setBusy(true);
     setError('');
     try {
-      const result = await api<{ user: { role: string; isAdmin?: boolean } }>('/api/auth/login', {
+      const result = await api<{
+        user: { role: string; isAdmin?: boolean; mustChangePassword?: boolean };
+      }>('/api/auth/login', {
         method: 'POST',
         body: JSON.stringify({ email: email.trim(), password }),
       });
       router.push(
-        result.user.isAdmin
-          ? '/admin'
-          : result.user.role === 'TEACHER'
-            ? '/teacher/classes'
-            : '/classes',
+        result.user.mustChangePassword
+          ? '/profile'
+          : result.user.isAdmin
+            ? '/admin'
+            : result.user.role === 'TEACHER'
+              ? '/teacher/classes'
+              : '/classes',
       );
       router.refresh();
     } catch (e) {

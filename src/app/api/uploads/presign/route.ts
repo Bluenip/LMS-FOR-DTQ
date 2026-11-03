@@ -18,8 +18,9 @@ export async function POST(request: Request) {
     const v = validateUpload(await readJsonObject(request));
     const file = await withDatabase((db) => {
       const user = requireUser(db, userId);
-      if (v.kind === 'video') teacherClass(db, user, v.classId);
-      else accessClass(db, user, v.classId);
+      const classroom =
+        v.kind === 'video' ? teacherClass(db, user, v.classId) : accessClass(db, user, v.classId);
+      if (classroom.status === 'ARCHIVED') throw new HttpError(409, 'Lớp học đã lưu trữ.');
       if (
         db.files.filter(
           (f) =>
