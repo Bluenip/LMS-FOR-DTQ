@@ -15,7 +15,7 @@ export const runtime = 'nodejs';
 export async function POST(request: Request) {
   try {
     assertOrigin(request);
-    storage().destroy();
+    storage();
     const userId = await sessionUserId();
     const user = await withDatabase((db) => requireUser(db, userId));
     await consumeSharedRateLimit(
@@ -34,7 +34,14 @@ export async function POST(request: Request) {
       reserveUpload(db, f);
       return f;
     }, true);
-    return Response.json({ fileId: file.id, uploadUrl: await presign(file) });
+    try {
+      return Response.json({ fileId: file.id, uploadUrl: await presign(file) });
+    } catch (error) {
+      await withDatabase((db) => {
+        db.files = db.files.filter((entry) => entry.id !== file.id || entry.verified);
+      }, true).catch(() => {});
+      throw error;
+    }
   } catch (e) {
     return errorResponse(e);
   }

@@ -17,6 +17,7 @@
     "format:check": "prettier --check \"src/**/*.{ts,tsx,css}\" \"tests/**/*.ts\" \"scripts/*.{ts,mjs}\" next.config.ts playwright.config.ts",
     "test:integration": "node scripts/integration-test.mjs",
     "storage:prune": "node --env-file-if-exists=.env --import tsx scripts/prune-storage.ts",
+    "notifications:prune": "node --env-file-if-exists=.env --import tsx scripts/prune-notifications.ts",
     "account:create-teacher": "node --env-file-if-exists=.env --import tsx scripts/create-teacher.ts",
     "account:grant-admin": "node --env-file-if-exists=.env --import tsx scripts/grant-admin.ts"
   },

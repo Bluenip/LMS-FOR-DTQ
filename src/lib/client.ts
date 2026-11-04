@@ -1,4 +1,5 @@
 import type { Attachment } from './types';
+import { uploadMime } from './file-mime';
 export class ApiError extends Error {
   constructor(
     public status: number,
@@ -22,29 +23,54 @@ export async function api<T = unknown>(url: string, options?: RequestInit): Prom
   if (!res.ok) throw new ApiError(res.status, data.error || 'Không thể thực hiện yêu cầu.');
   return data as T;
 }
+async function retryUpload<T>(url: string, options: RequestInit): Promise<T> {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await api<T>(url, options);
+    } catch (error) {
+      if (
+        !(error instanceof ApiError) ||
+        error.status !== 429 ||
+        !error.message.startsWith('Đang xử lý tải tệp') ||
+        attempt >= 2
+      )
+        throw error;
+      await new Promise((resolve) => setTimeout(resolve, 1000 * 2 ** attempt));
+    }
+  }
+}
 export async function uploadFile(
   file: File,
   classId: string,
   kind: 'assignment' | 'video' | 'document',
 ): Promise<Attachment> {
   if (kind === 'video') {
+    const mimeType = uploadMime(file.name, file.type);
     const p = await api<{ fileId: string; uploadUrl: string }>('/api/uploads/presign', {
       method: 'POST',
       body: JSON.stringify({
         classId,
         name: file.name,
         size: file.size,
-        mimeType: file.type,
+        mimeType,
         kind: 'video',
       }),
     });
-    const response = await fetch(p.uploadUrl, {
-      method: 'PUT',
-      headers: { 'Content-Type': file.type },
-      body: file,
-    });
-    if (!response.ok) throw new Error('Không thể tải video lên kho lưu trữ.');
-    return api<Attachment>('/api/uploads/complete', {
+    try {
+      const response = await fetch(p.uploadUrl, {
+        method: 'PUT',
+        headers: { 'Content-Type': mimeType },
+        body: file,
+      });
+      if (!response.ok) throw new Error('Không thể tải video lên kho lưu trữ.');
+    } catch (error) {
+      await api('/api/uploads/cancel', {
+        method: 'POST',
+        body: JSON.stringify({ fileId: p.fileId }),
+      }).catch(() => {});
+      throw error;
+    }
+    return retryUpload<Attachment>('/api/uploads/complete', {
       method: 'POST',
       body: JSON.stringify({ fileId: p.fileId }),
     });
@@ -53,7 +79,7 @@ export async function uploadFile(
   form.set('file', file);
   form.set('classId', classId);
   form.set('kind', 'document');
-  return api<Attachment>('/api/uploads', { method: 'POST', body: form });
+  return retryUpload<Attachment>('/api/uploads', { method: 'POST', body: form });
 }
 export function fold(value: string) {
   return value

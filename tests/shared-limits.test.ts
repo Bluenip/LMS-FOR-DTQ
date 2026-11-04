@@ -1,7 +1,28 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
-import { consumeSharedRateLimit, resetSharedRateLimit } from '../src/lib/server/rate-limit';
+import {
+  consumeSharedRateLimit,
+  releaseSharedRateLimit,
+  resetSharedRateLimit,
+} from '../src/lib/server/rate-limit';
+
+test('releasing a successful attempt preserves other failures', async () => {
+  const database = process.env.DATABASE_URL;
+  delete process.env.DATABASE_URL;
+  try {
+    const key = `release:${randomUUID()}`;
+    await consumeSharedRateLimit(key, 2, 60000);
+    await consumeSharedRateLimit(key, 2, 60000);
+    await releaseSharedRateLimit(key);
+    await consumeSharedRateLimit(key, 2, 60000);
+    await assert.rejects(consumeSharedRateLimit(key, 2, 60000), { status: 429 });
+    await resetSharedRateLimit(key);
+  } finally {
+    if (database === undefined) delete process.env.DATABASE_URL;
+    else process.env.DATABASE_URL = database;
+  }
+});
 
 test('shared limiter reserves a slot before asynchronous callers proceed and resets only the matching key', async () => {
   const database = process.env.DATABASE_URL;

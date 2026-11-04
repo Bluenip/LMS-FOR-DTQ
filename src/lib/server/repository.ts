@@ -105,6 +105,12 @@ export async function resetRequestLimit(key: string) {
   ).$executeRaw`DELETE FROM "RequestLimit" WHERE "key" = ${key}`;
 }
 
+export async function releaseRequestLimit(key: string) {
+  await (
+    await client()
+  ).$executeRaw`UPDATE "RequestLimit" SET "count" = GREATEST("count" - 1, 0) WHERE "key" = ${key}`;
+}
+
 /** Build the state from only the caller's classes; writes continue to use the locked snapshot. */
 export async function withScopedState<T>(
   userId: string | null,
@@ -310,7 +316,11 @@ export async function withDatabase<T>(
         if (write && previous) await writePostgres(tx, db, previous);
         return result;
       },
-      { maxWait: 10000, timeout: 30000 },
+      {
+        maxWait: 10000,
+        timeout: 30000,
+        isolationLevel: write ? undefined : Prisma.TransactionIsolationLevel.RepeatableRead,
+      },
     );
   }
   let release!: () => void;
@@ -325,6 +335,11 @@ export async function withDatabase<T>(
     try {
       db = JSON.parse(await readFile('.data/demo.json', 'utf8'));
     } catch (error) {
+      if (error instanceof SyntaxError)
+        throw new Error(
+          'Tệp .data/demo.json không hợp lệ. Hãy khôi phục bản sao lưu hoặc xóa tệp để tạo lại dữ liệu demo.',
+          { cause: error },
+        );
       if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
       db = seedData();
       await writeFile('.data/demo.json', JSON.stringify(db, null, 2), { mode: 0o600 });

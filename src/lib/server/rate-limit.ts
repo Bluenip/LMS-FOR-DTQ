@@ -35,6 +35,12 @@ export class RateLimit {
   reset(key: string) {
     this.entries.delete(key);
   }
+  release(key: string, now = Date.now()) {
+    const entry = this.entries.get(key);
+    if (!entry) return;
+    if (entry.reset <= now || entry.count <= 1) this.entries.delete(key);
+    else entry.count--;
+  }
 }
 
 const localSharedLimits = new Map<string, RateLimit>();
@@ -66,5 +72,16 @@ export async function resetSharedRateLimit(key: string) {
     await resetRequestLimit(hashed);
   } else {
     for (const limiter of localSharedLimits.values()) limiter.reset(hashed);
+  }
+}
+
+/** Release one reserved attempt after successful authentication. */
+export async function releaseSharedRateLimit(key: string) {
+  const hashed = createHash('sha256').update(key).digest('hex');
+  if (process.env.DATABASE_URL) {
+    const { releaseRequestLimit } = await import('./repository');
+    await releaseRequestLimit(hashed);
+  } else {
+    for (const limiter of localSharedLimits.values()) limiter.release(hashed);
   }
 }

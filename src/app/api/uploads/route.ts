@@ -13,6 +13,8 @@ import {
   putDocument,
   storage,
   validateUpload,
+  validateDocument,
+  deleteObject,
 } from '@/lib/server/storage';
 import { readUploadBody, reserveUpload, uploadGate } from '@/lib/server/upload-policy';
 import { consumeSharedRateLimit } from '@/lib/server/rate-limit';
@@ -30,7 +32,7 @@ export async function POST(request: Request) {
       3600000,
       'Bạn đã tải quá nhiều tệp. Vui lòng thử lại sau một giờ.',
     );
-    storage().destroy();
+    storage();
     const parsed = new Request(request.url, {
       method: 'POST',
       headers: { 'content-type': request.headers.get('content-type') || '' },
@@ -51,6 +53,8 @@ export async function POST(request: Request) {
       mimeType: f.type,
       kind: 'document',
     });
+    const bytes = Buffer.from(await f.arrayBuffer());
+    validateDocument(fileRecord(user.id, v), bytes);
     const record = await withDatabase((db) => {
       const user = requireUser(db, userId);
       const classroom = accessClass(db, user, v.classId);
@@ -59,15 +63,31 @@ export async function POST(request: Request) {
       reserveUpload(db, record);
       return record;
     }, true);
-    await putDocument(record, Buffer.from(await f.arrayBuffer()));
-    await withDatabase((db) => {
-      const user = requireUser(db, userId);
-      const classroom = accessClass(db, user, v.classId);
-      if (classroom.status === 'ARCHIVED') throw new HttpError(409, 'Lớp học đã lưu trữ.');
-      const stored = db.files.find((entry) => entry.id === record.id && entry.ownerId === user.id);
-      if (!stored) throw new HttpError(409, 'Tệp đã thay đổi. Vui lòng tải lại.');
-      stored.verified = true;
-    }, true);
+    try {
+      await putDocument(record, bytes);
+      await withDatabase((db) => {
+        const user = requireUser(db, userId);
+        const classroom = accessClass(db, user, v.classId);
+        if (classroom.status === 'ARCHIVED') throw new HttpError(409, 'Lớp học đã lưu trữ.');
+        const stored = db.files.find(
+          (entry) => entry.id === record.id && entry.ownerId === user.id,
+        );
+        if (!stored) throw new HttpError(409, 'Tệp đã thay đổi. Vui lòng tải lại.');
+        stored.verified = true;
+      }, true);
+    } catch (error) {
+      // Only remove an unverified reservation; a committed file must remain available.
+      const removed = await withDatabase((db) => {
+        const index = db.files.findIndex(
+          (entry) => entry.id === record.id && entry.ownerId === user.id && !entry.verified,
+        );
+        if (index < 0) return false;
+        db.files.splice(index, 1);
+        return true;
+      }, true).catch(() => false);
+      if (removed) await deleteObject(record.key).catch(() => {});
+      throw error;
+    }
     return Response.json({
       id: record.id,
       name: record.name,

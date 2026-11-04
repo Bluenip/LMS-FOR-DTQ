@@ -242,6 +242,8 @@ test('reading displayed notification IDs does not consume another user notificat
     runAction(db, teacher, { action: 'remindStudents', assignmentId: a.id, userId: student.id });
   remind();
   const first = db.notifications.at(-1)!;
+  assert.deepEqual(remind(), { count: 0 });
+  first.createdAt = new Date(Date.now() - 61 * 60 * 1000).toISOString();
   remind();
   const second = db.notifications.at(-1)!;
   runAction(db, teacher, { action: 'markNotificationsRead', ids: [first.id] });

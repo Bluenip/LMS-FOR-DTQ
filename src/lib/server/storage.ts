@@ -11,25 +11,18 @@ import {
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { z } from 'zod';
 import type { StoredFile } from '@/lib/types';
+import { expectedMime, uploadMime } from '@/lib/file-mime';
 import { HttpError } from './auth';
 export const MAX_DOCUMENT = 25 * 1024 * 1024;
 export const MAX_VIDEO = 2 * 1024 * 1024 * 1024;
-const formats: Record<string, string> = {
-  pdf: 'application/pdf',
-  docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-  jpg: 'image/jpeg',
-  jpeg: 'image/jpeg',
-  png: 'image/png',
-  mp4: 'video/mp4',
-  webm: 'video/webm',
-};
+let storageClient: S3Client | undefined;
 export function storage() {
   if (!process.env.S3_BUCKET || !process.env.S3_ACCESS_KEY_ID || !process.env.S3_SECRET_ACCESS_KEY)
     throw new HttpError(
       503,
       'Tải tệp chưa sẵn sàng. Quản trị viên cần cấu hình kho S3/R2; bạn vẫn có thể viết bài trực tiếp.',
     );
-  return new S3Client({
+  return (storageClient ??= new S3Client({
     region: process.env.S3_REGION || 'auto',
     endpoint: process.env.S3_ENDPOINT || undefined,
     forcePathStyle: !!process.env.S3_ENDPOINT,
@@ -41,7 +34,7 @@ export function storage() {
       accessKeyId: process.env.S3_ACCESS_KEY_ID,
       secretAccessKey: process.env.S3_SECRET_ACCESS_KEY,
     },
-  });
+  }));
 }
 export function validateUpload(raw: unknown) {
   const v = z
@@ -53,9 +46,9 @@ export function validateUpload(raw: unknown) {
       kind: z.enum(['document', 'video']).default('document'),
     })
     .parse(raw);
-  const extension = v.name.split('.').pop()?.toLowerCase() || '';
-  const mime = formats[extension];
-  if (!mime || mime !== v.mimeType || (v.kind === 'video') !== mime.startsWith('video/'))
+  const mime = expectedMime(v.name);
+  const normalizedMime = uploadMime(v.name, v.mimeType);
+  if (!mime || mime !== normalizedMime || (v.kind === 'video') !== mime.startsWith('video/'))
     throw new HttpError(
       400,
       'Định dạng tệp không hợp lệ. Dùng PDF, DOCX, JPG, PNG cho bài tập hoặc MP4, WebM cho video.',
@@ -65,7 +58,7 @@ export function validateUpload(raw: unknown) {
       413,
       v.kind === 'video' ? 'Video tối đa 2 GB.' : 'Tệp bài tập tối đa 25 MB.',
     );
-  return v;
+  return { ...v, mimeType: normalizedMime };
 }
 export function fileRecord(ownerId: string, v: ReturnType<typeof validateUpload>): StoredFile {
   const id = randomUUID();
@@ -116,12 +109,15 @@ function signature(data: Buffer, mime: string) {
       return false;
   }
 }
-export async function putDocument(file: StoredFile, bytes: Buffer) {
+export function validateDocument(file: StoredFile, bytes: Buffer) {
   if (bytes.length !== file.size || !signature(bytes, file.mimeType))
     throw new HttpError(
       400,
       'Nội dung tệp không khớp định dạng đã khai báo. Vui lòng xuất lại tệp đúng định dạng.',
     );
+}
+export async function putDocument(file: StoredFile, bytes: Buffer) {
+  validateDocument(file, bytes);
   await storage().send(
     new PutObjectCommand({
       Bucket: process.env.S3_BUCKET,
@@ -236,8 +232,6 @@ export async function storageStatus(): Promise<StorageStatus> {
       return 'reachable';
     } catch {
       return 'unavailable';
-    } finally {
-      s3.destroy();
     }
   })();
   storageProbe = { expires: Date.now() + 60000, result };

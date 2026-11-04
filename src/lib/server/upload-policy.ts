@@ -57,7 +57,8 @@ export class UploadGate {
     };
   }
 }
-export const uploadGate = new UploadGate();
+export const uploadGate = new UploadGate(4);
+export const videoCompletionGate = new UploadGate(2);
 
 export async function readUploadBody(request: Request, cap: number, timeoutMs = 60000) {
   const declared = request.headers.get('content-length');

@@ -10,7 +10,7 @@ import { completeStoredUpload } from '@/lib/server/storage';
 import { accessClass, teacherClass } from '@/lib/server/actions';
 import { readJsonObject } from '@/lib/server/request';
 import { consumeSharedRateLimit } from '@/lib/server/rate-limit';
-import { uploadGate } from '@/lib/server/upload-policy';
+import { videoCompletionGate } from '@/lib/server/upload-policy';
 import { z } from 'zod';
 export const runtime = 'nodejs';
 export async function POST(request: Request) {
@@ -31,7 +31,7 @@ export async function POST(request: Request) {
       if (classroom.status === 'ARCHIVED') throw new HttpError(409, 'Lớp học đã lưu trữ.');
       return f;
     });
-    release = uploadGate.acquire(file.ownerId);
+    release = videoCompletionGate.acquire(file.ownerId);
     await consumeSharedRateLimit(
       `upload-complete:${file.ownerId}`,
       120,

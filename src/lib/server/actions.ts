@@ -98,6 +98,17 @@ export function accessFile(db: Database, user: StoredUser, fileId: string): Stor
     db.files.find((f) => f.id === fileId && f.verified),
     'Không tìm thấy tệp.',
   );
+  // Former students retain access to their own submitted work.
+  if (
+    file.ownerId === user.id &&
+    db.submissions.some(
+      (s) =>
+        s.studentId === user.id &&
+        s.status !== 'DRAFT' &&
+        s.attachments.some((a) => a.id === file.id),
+    )
+  )
+    return file;
   const classroom = accessClass(db, user, file.classId);
   if (file.ownerId === user.id) return file;
   if (
@@ -366,7 +377,10 @@ export function stateFor(db: Database, user: StoredUser): AppState {
     ),
     notes: db.notes.filter((n) => n.userId === user.id && lessonIds.has(n.lessonId)),
     discussions: db.discussions.filter((d) => lessonIds.has(d.lessonId)),
-    notifications: db.notifications.filter((n) => n.userId === user.id),
+    notifications: db.notifications
+      .filter((n) => n.userId === user.id)
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+      .slice(0, 200),
     demo: !process.env.DATABASE_URL,
     storageConfigured: !!(
       process.env.S3_BUCKET &&
@@ -1044,6 +1058,13 @@ export function runAction(db: Database, user: StoredUser, input: Record<string, 
           e.classId === a.classId &&
           e.status === 'APPROVED' &&
           (!v.userId || e.userId === v.userId) &&
+          !db.notifications.some(
+            (n) =>
+              n.userId === e.userId &&
+              n.assignmentId === a.id &&
+              n.content.startsWith('Nhắc nộp bài:') &&
+              Date.parse(n.createdAt) > Date.now() - 60 * 60 * 1000,
+          ) &&
           !db.submissions.some(
             (s) => s.assignmentId === a.id && s.studentId === e.userId && s.status !== 'DRAFT',
           ),

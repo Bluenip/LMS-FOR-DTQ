@@ -8,7 +8,7 @@ import {
 } from '@/lib/server/auth';
 import { runAction } from '@/lib/server/actions';
 import { readJsonObject } from '@/lib/server/request';
-import { RateLimit } from '@/lib/server/rate-limit';
+import { RateLimit, consumeSharedRateLimit } from '@/lib/server/rate-limit';
 export const runtime = 'nodejs';
 const classCodeAttempts = new RateLimit(
   30,
@@ -72,6 +72,13 @@ export async function POST(request: Request) {
     const input = await readJsonObject(request, 200000);
     if (input.action === 'previewClass' || input.action === 'joinClass')
       classCodeAttempts.consume(id);
+    if (input.action === 'comment')
+      await consumeSharedRateLimit(
+        `comment:${id}`,
+        20,
+        60 * 1000,
+        'Bạn gửi bình luận quá nhanh. Vui lòng thử lại sau.',
+      );
     const result = await withDatabase((db) => {
       const user = requireUser(db, id);
       requireEditVersion(input);

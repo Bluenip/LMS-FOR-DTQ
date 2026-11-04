@@ -70,6 +70,7 @@ model Classroom {
   files          StoredFile[]
 
   @@index([teacherId])
+  @@index([teacherIds], type: Gin)
 }
 
 model Enrollment {
@@ -83,6 +84,7 @@ model Enrollment {
   joinedAt  String
 
   @@unique([classId, userId])
+  @@index([userId])
 }
 
 model Lesson {

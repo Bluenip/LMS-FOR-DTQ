@@ -47,7 +47,7 @@ services:
       SESSION_SECRET: ${SESSION_SECRET:?Set SESSION_SECRET in .env.production}
       APP_URL: ${APP_URL:?Set APP_URL in .env.production}
       ALLOW_DEMO_ACCOUNTS: 'false'
-      TRUST_PROXY_HEADERS: ${TRUST_PROXY_HEADERS:-false}
+      TRUST_PROXY_HEADERS: ${TRUST_PROXY_HEADERS:-true}
       S3_ENDPOINT: ${S3_ENDPOINT:-}
       S3_REGION: ${S3_REGION:-auto}
       S3_BUCKET: ${S3_BUCKET:-}

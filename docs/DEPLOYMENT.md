@@ -132,6 +132,8 @@ Máy có ổ backup riêng có thể chạy `scripts/pull-production-backup.sh` 
 
 Khi đã cấu hình kho S3/R2, `npm run storage:prune` chỉ thống kê object LMS không còn tham chiếu và cũ trên 30 ngày. `npm run storage:prune -- --apply` mới xóa các object đủ điều kiện sau khi rà kết quả; nó không quét namespace khác hoặc tệp còn liên kết. Cần có bản sao dữ liệu tệp trước khi dọn. Không chạy lệnh này với bucket chưa được kiểm chứng.
 
+`npm run notifications:prune` thống kê thông báo đã đọc cũ hơn 90 ngày; thêm `-- --apply` để xóa, hoặc `-- --days=180 --apply` để chọn thời gian lưu (ít nhất 30 ngày). Chạy định kỳ theo lịch vận hành sau khi kiểm tra backup. Thông báo chưa đọc không bị xóa.
+
 Tạo backup thủ công sau khi nạp image hiện hành:
 
 ```bash

@@ -9,7 +9,6 @@ test-results
 playwright-report
 .hallmark
 stitch_custom_video_learning_platform
-tests
 docs
 backups
 .deploy
