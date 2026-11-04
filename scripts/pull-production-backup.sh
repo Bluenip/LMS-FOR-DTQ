@@ -39,6 +39,9 @@ backup_stamp="$(date -u +%Y%m%dT%H%M%SZ)"
 backup_target="$backup_dir/lms-$backup_stamp-$$.dump.gpg"
 backup_temp="$(mktemp "$backup_dir/.lms-backup-XXXXXX")"
 trap 'status=$?; rm -f -- "$backup_temp"; if (( status != 0 )); then printf "ERROR: LMS backup failed (status %s); previous backups retained.\\n" "$status" >&2; fi' EXIT
+# Bash otherwise exits on TERM without reliably executing the EXIT cleanup when
+# timeout interrupts the pipeline.
+trap 'exit 143' TERM HUP INT
 ssh -o BatchMode=yes -o ConnectTimeout=15 -o ServerAliveInterval=15 -o ServerAliveCountMax=2 "$backup_host" \
   'timeout --kill-after=10s 480 docker exec lms-dtq-postgres-1 pg_dump -U lms -d lms -Fc' |
   gpg --batch --yes --pinentry-mode loopback --passphrase-file "$backup_key" \
