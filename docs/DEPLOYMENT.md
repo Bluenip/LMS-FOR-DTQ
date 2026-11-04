@@ -16,7 +16,7 @@ flowchart LR
 
 Project Compose là `lms-dtq`. PostgreSQL dùng volume `lms-dtq_postgres_data`, không mở cổng ra host. App map cổng `127.0.0.1:3000`; tunnel chạy trên cùng host trỏ tới `http://127.0.0.1:3000`. Nếu connector chạy trong container khác, phải dùng network/service thích hợp thay vì loopback của host.
 
-Dockerfile build trên Node.js 22/Debian có OpenSSL, chạy bằng user `node` và giữ Prisma CLI/`tsx` để migration/cấp tài khoản. App/PostgreSQL có `restart: unless-stopped`; Docker phải được bật cùng hệ thống. Healthcheck `/api/health` thực hiện truy vấn PostgreSQL và kiểm tra cấu hình phiên/origin; không kiểm tra kho S3.
+Dockerfile build trên Node.js 22/Debian có OpenSSL, chạy bằng user `node` và giữ Prisma CLI/`tsx` để migration/cấp tài khoản. App/PostgreSQL có `restart: unless-stopped`; Docker phải được bật cùng hệ thống. Healthcheck `/api/health` thực hiện truy vấn PostgreSQL và kiểm tra cấu hình phiên/origin; trả thêm trạng thái kho S3 từ HeadBucket có timeout/cache; trạng thái healthy của app không khẳng định CORS hoặc PUT/GET hoạt động.
 
 ## Lấy mã và cấu hình
 
@@ -130,7 +130,11 @@ Backup trước deploy nằm tại `.deploy/backups/`, quyền truy cập chỉ 
 
 Máy có ổ backup riêng có thể chạy `scripts/pull-production-backup.sh` để lấy PostgreSQL qua SSH, mã hóa AES256, kiểm tra giải mã và danh sách archive mà không khôi phục vào database thật. Đặt `LMS_BACKUP_HOST` dạng `user@host`, hoặc ghi giá trị đó vào `~/.config/lms-dtq-backup/host` để lịch tự động sử dụng. Mặc định lưu trong `/mnt/BACKUP/LMS-backups`, khóa nằm trong `~/.config/lms-dtq-backup/encryption-key` với quyền riêng tư. Phải giữ thêm bản sao khóa ở nơi an toàn: mất khóa sẽ không giải mã được backup. Chạy `scripts/install-backup-timer.sh` trên máy đó để cài lịch hằng ngày; máy và ổ phải sẵn sàng, lịch bị lỡ sẽ thử lại khi máy chạy. Script không tự xóa các bản sao cũ. Có thể cấu hình `LMS_BACKUP_MOUNT`, `LMS_BACKUP_DIR` và `LMS_BACKUP_CONFIG_DIR`; bảo đảm đích thực sự là ổ khác. Việc này sao lưu database, chưa sao lưu các object trong S3/R2.
 
+Khi cấp kho tệp, thiết lập thêm sao lưu object và diễn tập khôi phục theo [OBJECT_BACKUP.md](OBJECT_BACKUP.md). Snapshot object không mã hóa và không tự đồng bộ nguyên tử với database; tài liệu mô tả yêu cầu volume mã hóa và cửa sổ bảo trì để tạo cặp backup nhất quán.
+
 Khi đã cấu hình kho S3/R2, `npm run storage:prune` chỉ thống kê object LMS không còn tham chiếu và cũ trên 30 ngày. `npm run storage:prune -- --apply` mới xóa các object đủ điều kiện sau khi rà kết quả; nó không quét namespace khác hoặc tệp còn liên kết. Cần có bản sao dữ liệu tệp trước khi dọn. Không chạy lệnh này với bucket chưa được kiểm chứng.
+
+`npm run notifications:prune` thống kê thông báo đã đọc cũ hơn 90 ngày; thêm `-- --apply` để xóa, hoặc `-- --days=180 --apply` để chọn thời gian lưu (ít nhất 30 ngày). Chạy định kỳ theo lịch vận hành sau khi kiểm tra backup. Thông báo chưa đọc không bị xóa.
 
 Tạo backup thủ công sau khi nạp image hiện hành:
 
@@ -146,7 +150,11 @@ Khôi phục vào database thử trước khi dùng backup để phục hồi h�
 
 Kiểm tra HTTPS `/api/health`, đăng nhập quản trị và cookie Secure/HttpOnly, API quản trị, bài giảng/bài tập, timer và chính sách restart. Kiểm thử PostgreSQL/S3 dùng stack riêng theo [INTEGRATION.md](INTEGRATION.md), không trỏ script tích hợp vào dữ liệu thật. Kiểm tra video thật từ mạng ngoài khi có bucket. Chưa có số đo để cam kết số học viên đồng thời; xem [CODE_REVIEW.md](CODE_REVIEW.md).
 
-## Trạng thái triển khai ngày 03/11/2026
+## Chuyển server ngày 03/11/2026
+
+LMS dùng máy mới `100.71.200.54`, tunnel riêng `lms-orlab` (user service `lms-tunnel.service`). Anki tiếp tục chạy ở `100.109.157.88`, tên miền `thaituan.site` và tunnel cũ được giữ nguyên. Home Assistant không chuyển. Xem [báo cáo sửa lỗi và chuyển máy](REPORT_FIXES_2026-11-03.md).
+
+## Trạng thái trước khi chuyển server ngày 03/11/2026
 
 Bản production nằm ở `/home/bluenip/apps/lms-dtq`, URL https://zimaos.click, cổng `127.0.0.1:3000`. App/PostgreSQL healthy; migration hoàn tất. Tunnel đã đổi riêng route tên miền gốc theo phép chủ server; các route khác được giữ nguyên.
 
@@ -155,3 +163,14 @@ Timer `lms-dtq-update.timer` enabled và user lingering đã bật. Docker/cloud
 Quản trị đầu tiên là `admin@zimaos.click`. Mật khẩu ngẫu nhiên ban đầu chỉ nằm tại `/home/bluenip/apps/lms-dtq/.deploy/admin-credentials.json` trên server (quyền 600); đọc qua SSH rồi đổi tại `/profile`. File này không tự cập nhật khi đổi mật khẩu, có thể xóa sau khi bàn giao an toàn. Không đưa file lên GitHub.
 
 Đã xác minh đăng nhập bằng mật khẩu riêng, cookie Secure/HttpOnly, trang/API quản trị và healthcheck qua HTTPS thật. Production chỉ có quản trị thật, không seed demo. Kho tệp vận hành chưa được cấp; cần bật/cấu hình R2 hoặc S3 trước khi dùng tính năng tải tệp.
+
+## Kiểm tra migration và quay lại phiên bản trước
+
+Chỉ đưa migration tương thích ngược vào luồng auto-deploy. Thêm cột nullable hoặc có default và bảng mới là phù hợp; đổi tên/xóa cột, đổi kiểu dữ liệu hoặc thay ý nghĩa dữ liệu phải dùng nhiều bước triển khai và có kế hoạch riêng. Trước phát hành, áp dụng migration vào bản sao và thử image trước với schema mới. Khi rollout lỗi, updater chỉ khôi phục image; schema vẫn ở phiên bản mới và log nêu rõ điều này. Backup rỗng hoặc dump quá 5 phút sẽ chặn rollout. Không tự phục hồi database thật vì có thể mất dữ liệu vừa ghi.
+
+Backup chạy với thời hạn tổng mặc định 600 giây (`LMS_BACKUP_TIMEOUT_SECONDS`), SSH keepalive và timeout lệnh từ xa. User service có `TimeoutStartSec=11min`; xem lỗi bằng `journalctl --user -u lms-dtq-backup.service` và `systemctl --user --failed`. Khi đổi máy, sửa `~/.config/lms-dtq-backup/host`, chạy service không tương tác và xác minh archive. Khi có object storage, cần backup/versioning riêng bucket và kiểm tra khôi phục kèm database trước khi bật dọn tệp.
+
+Trên máy production, chạy `bash scripts/install-notification-prune-timer.sh` để cài timer hằng ngày xóa thông báo đã đọc sau 90 ngày. Timer chạy trong container `lms-dtq-app-1`; kiểm tra bằng `systemctl --user list-timers lms-dtq-notification-prune.timer` và xem lỗi bằng `journalctl --user -u lms-dtq-notification-prune.service`. Nếu đổi tên project hoặc tăng số replica, điều chỉnh container trong service. Chạy `npm run notifications:prune` để khảo sát trước, và thêm `-- --apply` để thực sự xóa.
+# Chính sách nội dung cho kho tệp
+
+CSP chỉ cho phép origin của `S3_ENDPOINT` đối với URL ký. Khi dùng AWS S3 không có endpoint riêng, ứng dụng cho phép origin tương ứng với bucket và region; nếu URL ký thực tế dùng origin khác, đặt `CSP_STORAGE_ORIGIN` thành origin HTTPS chính xác trong `.env.production` rồi triển khai lại. Xác nhận bằng upload, phát video và tải tài liệu trong trình duyệt. Không dùng wildcard HTTPS. HSTS áp dụng cả subdomain: mọi subdomain hiện tại và tương lai phải hỗ trợ HTTPS với chứng chỉ hợp lệ.

@@ -16,9 +16,19 @@ import {
   sessionMatches,
   verifyPassword,
 } from '../src/lib/server/auth';
-import { createAuthToken } from '../src/lib/server/accounts';
 import { seedData } from '../src/lib/server/seed-data';
-import type { StoredUser } from '../src/lib/types';
+import type { AuthToken, Database, StoredUser } from '../src/lib/types';
+function createAuthToken(db: Database, userId: string, purpose: AuthToken['purpose']) {
+  const now = Date.now();
+  db.authTokens.push({
+    id: randomUUID(),
+    userId,
+    tokenHash: randomUUID().replace(/-/g, ''),
+    purpose,
+    createdAt: new Date(now).toISOString(),
+    expiresAt: new Date(now + 1800000).toISOString(),
+  });
+}
 const initial = seedData();
 function fixture() {
   const db = structuredClone(initial);

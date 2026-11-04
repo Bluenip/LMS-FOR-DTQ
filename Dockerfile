@@ -7,12 +7,20 @@ RUN apt-get update \
     && chown node:node /app
 
 FROM base AS build
+RUN apt-get update && apt-get install -y --no-install-recommends git && rm -rf /var/lib/apt/lists/*
 COPY package.json package-lock.json ./
 COPY prisma ./prisma
 RUN npm ci
 COPY next.config.ts next-env.d.ts tsconfig.json ./
 COPY src ./src
 COPY public ./public
+COPY scripts ./scripts
+COPY tests ./tests
+# Exercise the same unprivileged account used by the runtime. The deployment
+# timer explicitly refuses root, and Next.js needs a writable build directory.
+RUN chown -R node:node /app
+USER node
+RUN npx prisma generate && npm run typecheck && npm test
 RUN npm run build
 
 FROM base AS runtime

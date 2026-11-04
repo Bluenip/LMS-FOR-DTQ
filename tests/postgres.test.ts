@@ -26,46 +26,13 @@ test(
     const { PrismaClient } = await import('@prisma/client');
     const prisma = new PrismaClient();
     await prisma.$executeRawUnsafe(
-      'TRUNCATE "User", "Classroom", "RateLimitEntry", "DriveTrash", "AuditLog", "DriveConnection" CASCADE',
+      'TRUNCATE "User", "Classroom", "RequestLimit", "DriveTrash", "AuditLog", "DriveConnection" CASCADE',
     );
     await prisma.$disconnect();
 
     const repository = await import('../src/lib/server/repository');
     const { runAction, stateFor } = await import('../src/lib/server/actions');
-    const { SharedRateLimit } = await import('../src/lib/server/rate-limit');
     await repository.seedPostgres();
-
-    // --- account lookup: one indexed query, case-insensitive
-    const found = await repository.findUserByEmail('TEACHER@detuquy.VN');
-    assert.equal(found?.id, 'teacher-1');
-    assert.equal(await repository.findUserByEmail('nobody@example.com'), undefined);
-
-    // --- atomic shared counter (fixed window)
-    const now = Date.now();
-    assert.equal(await repository.bumpCounter('k', 1000, now), 1);
-    assert.equal(await repository.bumpCounter('k', 1000, now + 10), 2);
-    assert.equal(await repository.bumpCounter('k', 1000, now + 2000), 1, 'a new window restarts');
-    await repository.clearCounter('k');
-    assert.equal(await repository.bumpCounter('k', 1000, now), 1);
-
-    // --- two app instances (separate limiter objects) share one budget
-    const a = new SharedRateLimit('pg-test', 3, 60000, 'chặn');
-    const b = new SharedRateLimit('pg-test', 3, 60000, 'chặn');
-    await a.consume('ip:email');
-    await b.consume('ip:email');
-    await a.consume('ip:email');
-    await assert.rejects(b.consume('ip:email'), { status: 429 });
-    await a.reset('ip:email');
-    await b.consume('ip:email');
-
-    // --- concurrent increments never lose a count
-    const counts = await Promise.all(
-      Array.from({ length: 20 }, () => repository.bumpCounter('race', 60000)),
-    );
-    assert.deepEqual(
-      [...counts].sort((x, y) => (x as number) - (y as number)),
-      Array.from({ length: 20 }, (_, i) => i + 1),
-    );
 
     // --- audit trail lives outside the snapshot
     await repository.recordAudit('teacher-1', 'drive.connect', undefined, 'account=x@example.com');

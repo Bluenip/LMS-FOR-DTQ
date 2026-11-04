@@ -4,14 +4,21 @@ import {
   assertOrigin,
   COOKIE,
   errorResponse,
-  HttpError,
-  publicUser,
+  readSession,
   requireUser,
+  sessionMatches,
   sessionUserId,
   signSession,
 } from '@/lib/server/auth';
-import { profileRateLimit, updateProfile } from '@/lib/server/profile';
-import { findSessionUser, withDatabase } from '@/lib/server/repository';
+import { getProfile, updateProfile } from '@/lib/server/profile';
+import { consumeSharedRateLimit } from '@/lib/server/rate-limit';
+import {
+  commitProfileUpdate,
+  findSessionUser,
+  withClassScope,
+  withDatabase,
+} from '@/lib/server/repository';
+import type { Database } from '@/lib/types';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 function failure(error: unknown) {
@@ -22,11 +29,15 @@ function failure(error: unknown) {
 export async function GET() {
   try {
     const id = await sessionUserId();
-    const user = id ? await findSessionUser(id) : undefined;
-    if (!user) throw new HttpError(401, 'Vui lòng đăng nhập để tiếp tục.');
     return Response.json(
-      { user: publicUser(user) },
-      { headers: { 'Cache-Control': 'private, no-store' } },
+      await withClassScope(
+        id,
+        async () => ({ classIds: [] }),
+        (db) => getProfile(db, id),
+      ),
+      {
+        headers: { 'Cache-Control': 'private, no-store' },
+      },
     );
   } catch (error) {
     return failure(error);
@@ -37,11 +48,43 @@ export async function PATCH(request: Request) {
     assertOrigin(request);
     const id = await sessionUserId();
     const input = await accountInput(request);
-    const result = await withDatabase((db) => {
-      const user = requireUser(db, id, true);
-      profileRateLimit(user.id);
-      return updateProfile(db, user.id, input);
-    }, true);
+    if (id)
+      await consumeSharedRateLimit(
+        `profile:${id}`,
+        30,
+        15 * 60 * 1000,
+        'Bạn đã thử thay đổi nhiều lần. Vui lòng thử lại sau 15 phút.',
+      );
+    const result = process.env.DATABASE_URL
+      ? await (async () => {
+          const existing = id ? await findSessionUser(id) : undefined;
+          const session = await readSession((await cookies()).get(COOKIE)?.value);
+          const db = {
+            users:
+              existing && session && sessionMatches(existing, session)
+                ? [structuredClone(existing)]
+                : [],
+            authTokens: [],
+            classes: [],
+            enrollments: [],
+            lessons: [],
+            assignments: [],
+            submissions: [],
+            progress: [],
+            notes: [],
+            discussions: [],
+            notifications: [],
+            files: [],
+          } as unknown as Database;
+          const user = requireUser(db, id, true);
+          const result = updateProfile(db, user.id, input);
+          await commitProfileUpdate(existing!, user, result.passwordChanged);
+          return result;
+        })()
+      : await withDatabase((db) => {
+          const user = requireUser(db, id, true);
+          return updateProfile(db, user.id, input);
+        }, true);
     if (result.passwordChanged)
       (await cookies()).set(COOKIE, await signSession(result.user.id, result.sessionVersion), {
         httpOnly: true,

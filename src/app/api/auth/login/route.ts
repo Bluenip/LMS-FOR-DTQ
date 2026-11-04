@@ -1,9 +1,8 @@
 import { cookies } from 'next/headers';
 import { z } from 'zod';
-import { createHash, randomBytes } from 'node:crypto';
 import { emailSchema } from '@/lib/server/accounts';
 import { readJsonObject } from '@/lib/server/request';
-import { clientIp, SharedRateLimit } from '@/lib/server/rate-limit';
+import { clientIp, consumeSharedRateLimit, releaseSharedRateLimit } from '@/lib/server/rate-limit';
 import {
   assertOrigin,
   COOKIE,
@@ -15,26 +14,33 @@ import {
   verifyPassword,
   accountEnabled,
 } from '@/lib/server/auth';
-import { findUserByEmail } from '@/lib/server/repository';
+import { findLoginUser } from '@/lib/server/repository';
 export const runtime = 'nodejs';
-const attempts = new SharedRateLimit('login', 20, 15 * 60 * 1000);
-// Verifying against this when the email is unknown keeps response times equal, so attackers cannot
-// learn which emails have accounts from how long a login takes.
-const DUMMY_HASH = hashPassword(randomBytes(12).toString('hex'));
+const dummyHash = `00000000000000000000000000000000:${'0'.repeat(128)}`;
 export async function POST(request: Request) {
   try {
     assertOrigin(request);
     const v = z
       .object({ email: emailSchema, password: z.string().min(1).max(200) })
       .parse(await readJsonObject(request));
-    const key = createHash('sha256')
-      .update(`${clientIp(request)}:${v.email}`)
-      .digest('hex');
-    await attempts.consume(key);
-    const user = await findUserByEmail(v.email);
-    if (!verifyPassword(v.password, user?.passwordHash ?? DUMMY_HASH) || !user) {
+    const ip = clientIp(request);
+    const windowMs = 15 * 60 * 1000;
+    const ipKey = `login:ip:${ip}`;
+    const pairKey = `login:pair:${ip}:${v.email.toLowerCase()}`;
+    // Reserve before password verification so parallel requests cannot bypass limits.
+    await consumeSharedRateLimit(ipKey, 300, windowMs);
+    try {
+      await consumeSharedRateLimit(pairKey, 20, windowMs);
+    } catch (error) {
+      await releaseSharedRateLimit(ipKey);
+      throw error;
+    }
+    const user = await findLoginUser(v.email);
+    const valid = verifyPassword(v.password, user?.passwordHash ?? dummyHash);
+    if (!user || !valid) {
       throw new HttpError(401, 'Email hoặc mật khẩu không đúng.');
     }
+    await Promise.all([releaseSharedRateLimit(ipKey), releaseSharedRateLimit(pairKey)]);
     if (user.disabled)
       throw new HttpError(
         403,
@@ -50,7 +56,6 @@ export async function POST(request: Request) {
         403,
         'Tài khoản mẫu đã tắt trên hệ thống chính thức. Vui lòng dùng tài khoản được quản trị viên cấp.',
       );
-    await attempts.reset(key);
     (await cookies()).set(COOKIE, await signSession(user.id, user.sessionVersion ?? 0), {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',

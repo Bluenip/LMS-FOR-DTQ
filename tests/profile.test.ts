@@ -2,8 +2,20 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { getProfile, updateProfile } from '../src/lib/server/profile';
 import { hashPassword, sessionMatches, verifyPassword } from '../src/lib/server/auth';
-import { createAuthToken } from '../src/lib/server/accounts';
+import { randomUUID } from 'node:crypto';
+import type { AuthToken, Database } from '../src/lib/types';
 import { seedData } from '../src/lib/server/seed-data';
+function createAuthToken(db: Database, userId: string, purpose: AuthToken['purpose']) {
+  const now = Date.now();
+  db.authTokens.push({
+    id: randomUUID(),
+    userId,
+    tokenHash: randomUUID().replace(/-/g, ''),
+    purpose,
+    createdAt: new Date(now).toISOString(),
+    expiresAt: new Date(now + 1800000).toISOString(),
+  });
+}
 const initial = seedData();
 const fixture = () => structuredClone(initial);
 const status = (code: number) => (error: unknown) =>

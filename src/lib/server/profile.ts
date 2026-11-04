@@ -57,16 +57,3 @@ export function updateProfile(db: Database, userId: string | null, input: unknow
     sessionVersion: user.sessionVersion ?? 0,
   };
 }
-const attempts = new Map<string, { count: number; reset: number }>();
-export function profileRateLimit(userId: string) {
-  const now = Date.now();
-  const rate = attempts.get(userId);
-  if (rate && rate.reset > now && rate.count >= 30)
-    throw new HttpError(429, 'Bạn đã thử thay đổi nhiều lần. Vui lòng thử lại sau 15 phút.');
-  attempts.set(userId, {
-    count: rate && rate.reset > now ? rate.count + 1 : 1,
-    reset: rate && rate.reset > now ? rate.reset : now + 900000,
-  });
-  if (attempts.size > 10000)
-    for (const [id, value] of attempts) if (value.reset <= now) attempts.delete(id);
-}

@@ -10,10 +10,12 @@ import { useUnsavedWarning } from '@/lib/use-unsaved-warning';
 import { readSessionDraft, removeSessionDraft, writeSessionDraft } from '@/lib/session-draft';
 import { Button, Dialog, Field } from './ui';
 
+type DiscussionEdit = { original: Discussion; content: string };
+
 export function DiscussionPanel({ lessonId, classId }: { lessonId: string; classId: string }) {
   const { state, action } = useLms();
   const [draft, setDraft] = useState('');
-  const [editing, setEditing] = useState<{ original: Discussion; content: string } | null>(null);
+  const [editing, setEditing] = useState<DiscussionEdit | null>(null);
   const [deleting, setDeleting] = useState<Discussion | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -21,7 +23,22 @@ export function DiscussionPanel({ lessonId, classId }: { lessonId: string; class
   const classroom = state.classes.find((c) => c.id === classId);
   const [dirty, setDirty] = useState(false);
   const draftKey = `lms-draft:discussion:${state.user.id}:${lessonId}`;
-  useUnsavedWarning(dirty);
+  const editKey = `${draftKey}:edit`;
+  const editDirty = !!editing && editing.content !== editing.original.content;
+  useUnsavedWarning(dirty || editDirty);
+  useEffect(() => {
+    const saved = readSessionDraft<DiscussionEdit>(editKey);
+    if (saved?.original?.lessonId === lessonId && saved.original.userId === state.user.id)
+      setEditing(saved);
+  }, [editKey, lessonId, state.user.id]);
+  function discardEdit() {
+    if (editDirty && !window.confirm('Bạn có chỉnh sửa chưa lưu. Bỏ bản chỉnh sửa này?'))
+      return false;
+    setEditing(null);
+    removeSessionDraft(editKey);
+    setError('');
+    return true;
+  }
   useEffect(() => {
     const saved = readSessionDraft<string>(draftKey);
     if (saved !== null) {
@@ -62,8 +79,10 @@ export function DiscussionPanel({ lessonId, classId }: { lessonId: string; class
             content: editing.content,
             expectedContent: editing.original.content,
           })
-        )
+        ) {
           setEditing(null);
+          removeSessionDraft(editKey);
+        }
       }}
     >
       {editChanged && (
@@ -80,7 +99,11 @@ export function DiscussionPanel({ lessonId, classId }: { lessonId: string; class
           maxLength={5000}
           value={editing.content}
           disabled={busy}
-          onChange={(e) => setEditing({ ...editing, content: e.target.value })}
+          onChange={(e) => {
+            const next = { ...editing, content: e.target.value };
+            setEditing(next);
+            writeSessionDraft(editKey, next);
+          }}
         />
       </Field>
       <div className="inline-actions">
@@ -95,14 +118,7 @@ export function DiscussionPanel({ lessonId, classId }: { lessonId: string; class
         >
           Lưu chỉnh sửa
         </Button>
-        <Button
-          variant="ghost"
-          disabled={busy}
-          onClick={() => {
-            setEditing(null);
-            setError('');
-          }}
-        >
+        <Button variant="ghost" disabled={busy} onClick={discardEdit}>
           Hủy
         </Button>
       </div>
@@ -182,6 +198,7 @@ export function DiscussionPanel({ lessonId, classId }: { lessonId: string; class
                           variant="ghost"
                           disabled={busy || classroom?.status === 'ARCHIVED'}
                           onClick={() => {
+                            if (editing && !discardEdit()) return;
                             setEditing({ original: { ...d }, content: d.content });
                             setError('');
                           }}

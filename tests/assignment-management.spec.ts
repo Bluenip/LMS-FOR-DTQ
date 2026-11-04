@@ -90,23 +90,12 @@ test('a reminder is visible without reload, opening the bell keeps it unread and
     ).toBe(false);
     await notices.getByRole('button', { name: 'Đóng', exact: true }).click();
     await row.getByRole('button', { name: 'Nhắc nộp', exact: true }).click();
-    await studentPage
-      .getByRole('button', { name: `Thông báo (${unreadBefore + 2} chưa đọc)`, exact: true })
-      .click();
+    await bell.click();
     const items = notices
       .locator('.notification-item')
       .filter({ hasText: a.title })
       .filter({ hasText: 'Nhắc nộp bài:' });
-    await expect(items).toHaveCount(2);
-    await items.last().getByRole('button', { name: 'Đánh dấu đã đọc', exact: true }).click();
-    await expect
-      .poll(
-        async () =>
-          (await state(student.request)).notifications.filter(
-            (n) => n.assignmentId === a.id && n.content.startsWith('Nhắc nộp bài:') && !n.read,
-          ).length,
-      )
-      .toBe(1);
+    await expect(items).toHaveCount(1);
     await notices
       .locator('.notification-item.unread')
       .filter({ hasText: a.title })

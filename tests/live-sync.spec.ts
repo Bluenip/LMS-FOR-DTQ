@@ -9,6 +9,32 @@ async function signIn(api: APIRequestContext, role: 'teacher' | 'student') {
   expect(response.ok(), await response.text()).toBeTruthy();
 }
 
+test('state conditional requests return 304 only for the same authorized snapshot', async ({
+  browser,
+  baseURL,
+}) => {
+  const teacher = await browser.newContext({ baseURL });
+  const anonymous = await browser.newContext({ baseURL });
+  try {
+    await signIn(teacher.request, 'teacher');
+    const initial = await teacher.request.get('/api/state');
+    expect(initial.status()).toBe(200);
+    const etag = initial.headers()['etag'];
+    expect(etag).toBeTruthy();
+    const unchanged = await teacher.request.get('/api/state', {
+      headers: { 'If-None-Match': etag },
+    });
+    expect(unchanged.status()).toBe(304);
+    const denied = await anonymous.request.get('/api/state', {
+      headers: { 'If-None-Match': etag },
+    });
+    expect(denied.status()).toBe(401);
+  } finally {
+    await teacher.close();
+    await anonymous.close();
+  }
+});
+
 async function mutate<T>(
   api: APIRequestContext,
   action: string,

@@ -107,7 +107,9 @@ Build và các thao tác thực tế ở trên xác nhận khả năng chạy �
 
 ## Giới hạn còn lại
 
-- Tài khoản mới/reset vẫn dùng mật khẩu mặc định chung `123@123aA`; chưa bắt buộc đổi ở lần đăng nhập đầu. Đổi mật khẩu quản trị và chốt cách cấp tài khoản trước khi mở cho người dùng thật.
+> Đây là ảnh chụp tại thời điểm rà soát ban đầu; các mục dưới có thể đã được khắc phục. Xem README và DEPLOYMENT để biết trạng thái hiện tại.
+
+- Tài khoản mới/reset hiện được cấp mật khẩu tạm ngẫu nhiên; cần bảo vệ việc bàn giao mật khẩu.
 - Repository đọc toàn bộ snapshot và upsert toàn bộ dữ liệu khi ghi; advisory lock tuần tự hóa các lần ghi. Polling 3 giây còn hạn chế khi dữ liệu/phiên đồng thời tăng.
 - Rate limit trong bộ nhớ không chia sẻ giữa nhiều instance; cấu hình proxy/IP client phải phù hợp môi trường thực tế.
 - Chưa có quét mã độc, dọn object mồ côi, vòng đời tệp chờ xác thực hoặc tự xóa object khi xóa lớp.

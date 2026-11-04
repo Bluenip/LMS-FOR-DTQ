@@ -42,6 +42,8 @@ test('a teacher can join and learn another class without receiving teacher permi
       login(learner.request, teacherEmail!),
       login(student.request, studentEmail!),
     ]);
+    const studentId = (await state(student.request)).user.id;
+    const learnerId = (await state(learner.request)).user.id;
     classroom = await action<Classroom>(owner.request, 'createClass', {
       title: `Lớp học của giáo viên ${Date.now()}`,
       autoApprove: true,
@@ -85,7 +87,7 @@ test('a teacher can join and learn another class without receiving teacher permi
     expect(snapshot.lessons.some((l) => l.id === secret.id)).toBe(false);
     expect(snapshot.lessons.some((l) => l.id === lesson.id)).toBe(true);
     expect(snapshot.submissions.some((s) => s.assignmentId === a.id)).toBe(false);
-    expect(snapshot.users.find((u) => u.id === 'e2e-student')?.email).toBe('');
+    expect(snapshot.users.find((u) => u.id === studentId)?.email).toBe('');
     await page.goto(`/classes/${classroom.id}/lessons/${lesson.id}`);
     await page.getByRole('button', { name: 'Đánh dấu hoàn thành' }).click();
     await expect(page.getByRole('button', { name: 'Đã hoàn thành' })).toBeVisible();
@@ -101,7 +103,7 @@ test('a teacher can join and learn another class without receiving teacher permi
       ),
     ).toBe(true);
     const submitted = (await state(owner.request)).submissions.find(
-      (s) => s.assignmentId === a.id && s.studentId === 'e2e-teacher-a',
+      (s) => s.assignmentId === a.id && s.studentId === learnerId,
     )!;
     const grade = {
       action: 'gradeSubmission',

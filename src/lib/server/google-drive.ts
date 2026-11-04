@@ -153,24 +153,19 @@ export function rememberAccessToken(token: string, expiresIn: number) {
 }
 async function markRevoked() {
   clearAccessTokenCache();
-  await withDatabase(
-    (db) => {
-      const connection = db.driveConnections.find((c) => c.id === CONNECTION_ID);
-      if (connection) {
-        connection.status = 'REVOKED';
-        connection.updatedAt = new Date().toISOString();
-      }
-    },
-    true,
-    ['driveConnections'],
-  );
+  await withDatabase((db) => {
+    const connection = db.driveConnections.find((c) => c.id === CONNECTION_ID);
+    if (connection) {
+      connection.status = 'REVOKED';
+      connection.updatedAt = new Date().toISOString();
+    }
+  }, true);
 }
 export async function driveAccessToken(): Promise<string> {
   if (cached && cached.expires > Date.now()) return cached.token;
   const connection = await withDatabase(
     (db) => db.driveConnections.find((c) => c.id === CONNECTION_ID),
     false,
-    ['driveConnections'],
   );
   if (!connection)
     throw new HttpError(409, 'Google Drive chưa được kết nối. Quản trị viên cần kết nối trước.');

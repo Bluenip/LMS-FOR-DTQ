@@ -55,6 +55,7 @@ export function LmsProvider({ children }: { children: ReactNode }) {
   const requestVersion = useRef(0);
   const pendingRequest = useRef<AbortController | null>(null);
   const snapshot = useRef('');
+  const stateEtag = useRef('');
   const channel = useRef<BroadcastChannel | null>(null);
   const pendingMutations = useRef(0);
   const cancelRefresh = useCallback(() => {
@@ -71,12 +72,21 @@ export function LmsProvider({ children }: { children: ReactNode }) {
       const controller = new AbortController();
       pendingRequest.current = controller;
       try {
-        const data = await api<AppState>('/api/state', {
-          // Revalidate each poll; the server answers 304 when nothing changed.
-          cache: 'no-cache',
+        const response = await fetch('/api/state', {
+          cache: 'no-store',
           signal: controller.signal,
+          headers: stateEtag.current ? { 'If-None-Match': stateEtag.current } : {},
         });
         if (controller.signal.aborted || version !== requestVersion.current) return;
+        if (response.status === 304) {
+          setError('');
+          return;
+        }
+        const data = await response.json();
+        if (!response.ok)
+          throw new ApiError(response.status, data.error || 'Không thể thực hiện yêu cầu.');
+        if (controller.signal.aborted || version !== requestVersion.current) return;
+        stateEtag.current = response.headers.get('ETag') || '';
         const nextSnapshot = JSON.stringify(data);
         if (snapshot.current !== nextSnapshot) {
           snapshot.current = nextSnapshot;
@@ -87,6 +97,7 @@ export function LmsProvider({ children }: { children: ReactNode }) {
         if (controller.signal.aborted || version !== requestVersion.current) return;
         if (e instanceof ApiError && e.status === 401) {
           snapshot.current = '';
+          stateEtag.current = '';
           setState(null);
           router.replace('/login');
         } else setError((e as Error).message);
@@ -100,6 +111,7 @@ export function LmsProvider({ children }: { children: ReactNode }) {
     if (publicAuthPage) {
       cancelRefresh();
       snapshot.current = '';
+      stateEtag.current = '';
       setState(null);
       setError('');
       return;
@@ -276,6 +288,7 @@ export function LmsProvider({ children }: { children: ReactNode }) {
                   cancelRefresh();
                   channel.current?.postMessage('state-changed');
                   snapshot.current = '';
+                  stateEtag.current = '';
                   setState(null);
                   router.push('/login');
                 }}

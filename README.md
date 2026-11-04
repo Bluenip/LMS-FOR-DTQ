@@ -2,7 +2,9 @@
 
 Ứng dụng quản lý lớp học trực tuyến bằng tiếng Việt: giáo viên tổ chức bài giảng và bài tập, học viên học và nộp bài, quản trị viên cấp tài khoản. Frontend và API cùng chạy trong một ứng dụng Next.js; PostgreSQL lưu dữ liệu vận hành, kho S3 tương thích lưu tệp và video.
 
-**Cập nhật ngày 03/11/2026:** đã sửa các lỗi về quyền riêng tư, video, thu hồi/chấm bài, JSON đầu vào và giới hạn đăng nhập; 90 kiểm thử backend/vận hành, 17 kiểm thử trình duyệt và build production đều đạt. Có Docker/Compose, healthcheck PostgreSQL và Bash tự cập nhật GitHub bằng systemd timer khi server bật/reboot. Xem [báo cáo kiểm tra](docs/CODE_REVIEW.md) và [hướng dẫn triển khai](docs/DEPLOYMENT.md) để biết kết quả xác minh và giới hạn còn lại.
+**Cập nhật kiểm thử 03/11/2026:** xem [kết quả xử lý báo cáo](docs/REPORT_FIXES_2026-11-03.md) cho các sửa lỗi mới về bản nháp, công bố, xung đột giữa phiên, tải tệp, phiên đăng nhập và sao lưu.
+
+**Lượt rà soát trước:** đã sửa các lỗi về quyền riêng tư, video, thu hồi/chấm bài, JSON đầu vào và giới hạn đăng nhập. Lượt kiểm thử mới nhất: 139 kiểm thử Node, 28 kịch bản trình duyệt, 148 kiểm tra HTTP với PostgreSQL/S3 và build production đều đạt. Có Docker/Compose, healthcheck PostgreSQL và Bash tự cập nhật GitHub bằng systemd timer khi server bật/reboot. Xem [báo cáo kiểm tra](docs/CODE_REVIEW.md) và [hướng dẫn triển khai](docs/DEPLOYMENT.md) để biết kết quả xác minh và giới hạn còn lại.
 
 **Địa chỉ triển khai:** https://zimaos.click — Cloudflare Tunnel nối tới app ở `127.0.0.1:3000`. Chưa cấu hình bucket vận hành vì R2 của tài khoản chưa bật; YouTube/bài viết hoạt động, tải tệp cần bổ sung S3/R2.
 
@@ -67,7 +69,7 @@ Giáo viên có thể tải video lên Google Drive dùng chung (quản trị vi
 | `/teacher/lessons`                         | Soạn chương/bài, YouTube/video tải lên, tài liệu, mốc nội dung, bản nháp và xuất bản                                             |
 | `/teacher/assignments`                     | Tạo/sửa/xóa bài tập, đặt số từ từng bài, chấm theo tiêu chí 40/40/20, lưu điểm nháp, trả điểm, nhắc nộp trong ứng dụng, xuất CSV |
 
-Trang đang mở lấy cập nhật khoảng mỗi 3 giây; khi quay lại tab hoặc có mạng trở lại sẽ kiểm tra ngay. Các tab cùng trình duyệt có thêm tín hiệu qua `BroadcastChannel`. Đây là cơ chế polling, chưa dùng WebSocket hoặc SSE.
+Trang đang mở lấy cập nhật khoảng mỗi 3 giây; khi quay lại tab hoặc có mạng trở lại sẽ kiểm tra ngay. Các tab cùng trình duyệt có thêm tín hiệu qua `BroadcastChannel`. Đây là cơ chế polling, chưa dùng WebSocket hoặc SSE. Với PostgreSQL, máy chủ so bộ đếm thay đổi của các lớp liên quan và trả `304` khi không có gì mới, nên lượt poll không đổi không phải tải lại dữ liệu.
 
 Hoàn thành bài học là thao tác đánh dấu thủ công. Ứng dụng chưa kiểm tra thời lượng xem video hoặc bắt buộc học tuần tự. Nhắc nộp bài là thông báo trong ứng dụng, không phải email hay tin nhắn bên ngoài.
 
@@ -93,13 +95,13 @@ Giáo viên có thể vào **Kho bài giảng → chọn bài → Xem thảo lu�
 
 ## Chính sách tài khoản
 
-Tài khoản do quản trị viên cấp. Các trang `/register`, `/verify-email`, `/forgot-password`, `/reset-password` chuyển về `/login`; API công khai tương ứng trả `403`. Luồng đang sử dụng không cần SMTP. Mã xử lý email/token cũ vẫn còn trong `src/lib/server/accounts.ts` và `mail.ts`, nhưng không được các API công khai này gọi.
+Tài khoản do quản trị viên cấp. Các trang `/register`, `/verify-email`, `/forgot-password`, `/reset-password` chuyển về `/login`; API công khai tương ứng trả `403`. Luồng đang sử dụng không cần SMTP; mã gửi email, đăng ký công khai và liên kết đặt lại mật khẩu đã được gỡ khỏi mã nguồn.
 
 Tài khoản mới hoặc được reset nhận mật khẩu tạm ngẫu nhiên riêng, chỉ hiển thị một lần cho quản trị viên. Người dùng phải đổi mật khẩu tại `/profile` trước khi dùng chức năng khác. Tài khoản cũ vẫn dùng mật khẩu chung trước đây cũng được yêu cầu đổi; tài khoản có mật khẩu riêng được giữ nguyên. Mật khẩu mới phải khác mật khẩu hiện tại, dài 8–128 ký tự và xác nhận trùng khớp.
 
 Quyền quản trị (`isAdmin`) tách biệt với vai trò `TEACHER` / `STUDENT`. Giáo viên thông thường không được quản trị tài khoản. Không có tài khoản quản trị demo được cấp sẵn. Bảng quản trị không cho khóa hoặc reset tài khoản có quyền quản trị.
 
-Khóa, reset hoặc đổi mật khẩu làm mất hiệu lực các phiên cũ. Khi tự đổi mật khẩu, trình duyệt hiện tại nhận phiên mới. Cookie phiên có thời hạn 7 ngày, HttpOnly, SameSite=Lax và Secure trong production; mật khẩu được băm bằng scrypt với salt riêng.
+Khóa, reset hoặc đổi mật khẩu làm mất hiệu lực các phiên cũ. Khi tự đổi mật khẩu, trình duyệt hiện tại nhận phiên mới. Đăng xuất thu hồi mọi bản sao cookie và các thiết bị khác của cùng tài khoản; thiết bị khác cần đăng nhập lại. Cookie phiên có thời hạn 7 ngày, HttpOnly, SameSite=Lax và Secure trong production; mật khẩu được băm bằng scrypt với salt riêng.
 
 Chi tiết thao tác: [docs/ACCOUNTS.md](docs/ACCOUNTS.md).
 
@@ -107,18 +109,20 @@ Chi tiết thao tác: [docs/ACCOUNTS.md](docs/ACCOUNTS.md).
 
 Sao chép từ [.env.example](.env.example); không commit `.env` hoặc dữ liệu trong `.data/`.
 
-| Biến                   | Ý nghĩa                                                                                                                             |
-| ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| `DATABASE_URL`         | Trống: JSON demo; có giá trị: kết nối PostgreSQL                                                                                    |
-| `SESSION_SECRET`       | Khóa ký phiên; tối thiểu 32 ký tự khi dùng PostgreSQL; đặt riêng cho môi trường vận hành                                            |
-| `APP_URL`              | Origin chính xác của ứng dụng, ví dụ `http://localhost:3000` hoặc `https://lms.example.com`; không thêm đường dẫn hoặc dấu `/` cuối |
-| `TRUST_PROXY_HEADERS`  | Mặc định `false`; chỉ bật khi app nhận kết nối qua proxy đáng tin cậy, ưu tiên IP do Cloudflare cung cấp                            |
-| `ALLOW_DEMO_ACCOUNTS`  | Mặc định `false`; chỉ bật `true` cho kiểm thử riêng nếu cần tài khoản mẫu ngoài localhost/JSON                                      |
-| `S3_ENDPOINT`          | Endpoint kho tương thích S3; với AWS S3 có thể để trống                                                                             |
-| `S3_REGION`            | Region của kho; R2 thường dùng `auto`, kho S3 cục bộ dùng `us-east-1`                                                               |
-| `S3_BUCKET`            | Tên bucket riêng tư                                                                                                                 |
-| `S3_ACCESS_KEY_ID`     | Khóa truy cập bucket                                                                                                                |
-| `S3_SECRET_ACCESS_KEY` | Bí mật truy cập bucket                                                                                                              |
+| Biến                           | Ý nghĩa                                                                                                                             |
+| ------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------- |
+| `DATABASE_URL`                 | Trống: JSON demo; có giá trị: kết nối PostgreSQL                                                                                    |
+| `SESSION_SECRET`               | Khóa ký phiên; tối thiểu 32 ký tự khi dùng PostgreSQL; đặt riêng cho môi trường vận hành                                            |
+| `APP_URL`                      | Origin chính xác của ứng dụng, ví dụ `http://localhost:3000` hoặc `https://lms.example.com`; không thêm đường dẫn hoặc dấu `/` cuối |
+| `TRUST_PROXY_HEADERS`          | Mặc định `false`; chỉ bật khi app nhận kết nối qua proxy đáng tin cậy, ưu tiên IP do Cloudflare cung cấp                            |
+| `ALLOW_DEMO_ACCOUNTS`          | Mặc định `false`; chỉ bật `true` cho kiểm thử riêng nếu cần tài khoản mẫu ngoài localhost/JSON                                      |
+| `S3_ENDPOINT`                  | Endpoint kho tương thích S3; với AWS S3 có thể để trống                                                                             |
+| `S3_REGION`                    | Region của kho; R2 thường dùng `auto`, kho S3 cục bộ dùng `us-east-1`                                                               |
+| `S3_BUCKET`                    | Tên bucket riêng tư                                                                                                                 |
+| `S3_ACCESS_KEY_ID`             | Khóa truy cập bucket                                                                                                                |
+| `S3_SECRET_ACCESS_KEY`         | Bí mật truy cập bucket                                                                                                              |
+| `LMS_UPLOAD_USER_QUOTA_BYTES`  | Tổng dung lượng tệp tối đa của mỗi người dùng, tính cả lượt tải đang chờ; mặc định 10 GiB (`10737418240`)                           |
+| `LMS_UPLOAD_CLASS_QUOTA_BYTES` | Tổng dung lượng tệp tối đa của mỗi lớp, tính cả lượt tải đang chờ; mặc định 100 GiB (`107374182400`)                                |
 
 `APP_URL` được dùng để kiểm tra nguồn các yêu cầu ghi dữ liệu. Nếu đổi cổng phát triển, cần đổi `APP_URL` theo cổng mới; khi triển khai phải dùng origin HTTPS của tên miền thật.
 
@@ -179,7 +183,7 @@ Cấu hình các biến `S3_*` để bật tải tệp. Kho S3 tương thích ph
 
 Máy chủ kiểm tra phần mở rộng, MIME, kích thước và chữ ký nhận dạng cơ bản của tệp. Đây chưa phải kiểm tra toàn vẹn tài liệu, giải mã video hoặc quét mã độc. Nội dung tệp không được lưu ra đĩa ứng dụng; database chỉ lưu metadata.
 
-Video tải lên được xác minh rồi sao chép sang khóa `verified/` để URL PUT cũ không ghi đè bản đã xác minh. URL tải lên có hạn 10 phút; URL tải xuống có hạn 5 phút. API tải xuống kiểm tra quyền trước khi chuyển hướng tới kho tệp.
+Video tải lên được xác minh rồi sao chép sang khóa `verified/` để URL PUT cũ không ghi đè bản đã xác minh. URL tải lên có hạn 10 phút; URL tải tài liệu có hạn 5 phút, URL phát video có hạn 4 giờ. Nếu URL video hết hạn giữa chừng, trình phát tự lấy URL mới và tiếp tục ở vị trí cũ. API tải xuống kiểm tra quyền trước khi chuyển hướng tới kho tệp.
 
 CORS mẫu ở [prisma/s3-cors.json](prisma/s3-cors.json): đổi `AllowedOrigins` thành origin thực tế, cho phép PUT/GET/HEAD và các header phù hợp. Không cấu hình `S3_ENDPOINT` bằng tên container nội bộ nếu trình duyệt cần truy cập URL ký đó.
 
@@ -191,7 +195,7 @@ docker compose --profile storage up -d --build
 
 Service `s3` dùng S3rver 3.7.1, tự tạo bucket `lms` và chỉ mở cổng trên `127.0.0.1:9000`. Cấu hình `S3_ENDPOINT=http://localhost:9000`, `S3_REGION=us-east-1`, `S3_BUCKET=lms`, hai khóa truy cập đều là `S3RVER`. Mẫu nằm trong `.env.example`; kho này không có trang quản trị và không dùng cho lưu trữ public/production. Dữ liệu phát triển nằm trong volume `local_s3_data`.
 
-Xóa lớp hiện xóa dữ liệu và metadata liên quan trong database; chưa tự xóa các object tương ứng khỏi bucket.
+Xóa lớp hiện xóa dữ liệu và metadata liên quan trong database; chưa tự xóa các object tương ứng khỏi bucket. Có thể dọn thủ công bằng `npm run storage:prune` (chỉ thống kê object LMS không còn tham chiếu và cũ trên 30 ngày) rồi `npm run storage:prune -- --apply` để xóa sau khi rà kết quả; xem [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
 
 ## Cấu trúc thư mục
 
@@ -201,10 +205,11 @@ src/
   components/          Giao diện học viên, giáo viên, quản trị và provider đồng bộ
   lib/                 Kiểu dữ liệu, chính sách tài khoản, tiện ích trình duyệt
     server/            Xác thực, nghiệp vụ, repository, hồ sơ và kho tệp
-prisma/                Schema, 3 migration và mẫu CORS bucket
+prisma/                Schema, 11 migration và mẫu CORS bucket
 docker/s3rver/         Kho S3 giả lập chỉ dành cho phát triển/kiểm thử
-scripts/               Seed, cấp giáo viên/quản trị, kiểm thử tích hợp, hỗ trợ chụp giao diện
-tests/                 4 file kiểm thử backend, 4 file Playwright
+scripts/               Seed, cấp giáo viên/quản trị, kiểm thử tích hợp/chịu tải, dọn kho tệp,
+                       tự triển khai, sao lưu database và hỗ trợ chụp giao diện
+tests/                 16 file kiểm thử backend (*.test.ts), 9 file Playwright (*.spec.ts)
 docs/                  Tài khoản, tích hợp, bản đồ thiết kế, rà soát và triển khai
 public/                Font cục bộ, giấy phép font và ảnh chờ video
 stitch_custom_video_learning_platform/
@@ -234,6 +239,8 @@ Các bản xuất Stitch là tài liệu tham chiếu cho 8 màn hình chính, k
 | `npm run db:seed`                                      | Tạo dữ liệu minh họa trên PostgreSQL trống           |
 | `npm run account:create-teacher -- <email> "<họ tên>"` | Cấp giáo viên thật bằng CLI, yêu cầu PostgreSQL      |
 | `npm run account:grant-admin -- <email>`               | Cấp quyền quản trị cho tài khoản thật đang hoạt động |
+| `npm run storage:prune` / `-- --apply`                 | Thống kê / xóa object LMS mồ côi cũ trên 30 ngày     |
+| `npm run notifications:prune` / `-- --apply`           | Thống kê / xóa thông báo đã đọc cũ hơn 90 ngày       |
 
 ## Kiểm thử
 
@@ -250,20 +257,20 @@ Playwright mặc định dùng `http://localhost:3000`, tái sử dụng server 
 
 Hai ca quản trị/hồ sơ cần `ADMIN_E2E_EMAIL` và `ADMIN_E2E_PASSWORD` của tài khoản quản trị thử nghiệm riêng; thiếu thông tin thì bị bỏ qua. Các ca dùng tài khoản mẫu cần môi trường cho phép các tài khoản đó. Không trỏ bộ test này vào dữ liệu thật.
 
-Kết quả chạy lại ngày **03/11/2026**, với dependency khớp lockfile và bản cài mới trong Docker:
+Kết quả lượt kiểm thử sau đợt sửa báo cáo ngày **03/11/2026** (chi tiết: [docs/REPORT_FIXES_2026-11-03.md](docs/REPORT_FIXES_2026-11-03.md)):
 
 | Kiểm tra                                                     | Kết quả                                                              |
 | ------------------------------------------------------------ | -------------------------------------------------------------------- |
 | TypeScript                                                   | Đạt                                                                  |
 | Prettier trên mã nguồn                                       | Đạt                                                                  |
-| Backend                                                      | 90/90 đạt                                                            |
+| Backend (Node test runner)                                   | 139/139 đạt                                                          |
 | Build production mặc định với Turbopack                      | Đạt                                                                  |
-| Playwright trên bản sao dữ liệu riêng, đủ tài khoản quản trị | 17/17 đạt, không bỏ qua ca nào                                       |
+| Playwright trên bản sao dữ liệu riêng, đủ tài khoản quản trị | 28/28 kịch bản đạt, không bỏ qua ca nào                              |
 | `npm audit`                                                  | 0 lỗ hổng đã biết được báo về tại thời điểm chạy                     |
-| PostgreSQL + S3 qua HTTP                                     | 90/90 đạt với PostgreSQL và S3 giả lập trong Docker trên server      |
+| PostgreSQL + S3 qua HTTP                                     | 148/148 đạt với PostgreSQL 17 và S3 giả lập trong Docker riêng       |
 | Chạy ứng dụng trên server đích / qua tên miền thật           | Đã triển khai tại `https://zimaos.click`; đăng nhập/health HTTPS đạt |
 
-Playwright lần rà soát dùng dev server Webpack trên bản sao tạm để dùng chung dependency mà không sửa dữ liệu gốc; build production được kiểm tra riêng bằng cấu hình Turbopack mặc định. Bộ 17 ca này không kiểm thử chịu tải hoặc production qua HTTPS. Ngoài bộ đó, đăng nhập quản trị, cookie, trang/API quản trị và healthcheck đã được xác minh riêng bằng Chromium qua tên miền HTTPS thật.
+Playwright lần rà soát dùng dev server Webpack trên bản sao tạm để dùng chung dependency mà không sửa dữ liệu gốc; build production được kiểm tra riêng bằng cấu hình Turbopack mặc định. Bộ kịch bản trình duyệt này không kiểm thử chịu tải hoặc production qua HTTPS. Ngoài bộ đó, đăng nhập quản trị, cookie, trang/API quản trị và healthcheck đã được xác minh riêng bằng Chromium qua tên miền HTTPS thật.
 
 Hướng dẫn kiểm thử PostgreSQL/S3 và kết quả lịch sử: [docs/INTEGRATION.md](docs/INTEGRATION.md). Các kết quả lịch sử trong tài liệu không thay thế lần chạy mới.
 
@@ -293,4 +300,4 @@ npm start
 
 Đặt `APP_URL=https://lms.example.com` đúng origin của tên miền thật và dùng khóa phiên riêng. Hướng dẫn bao gồm cổng nội bộ, tunnel, database, kho video, backup và cách kiểm tra sau triển khai: [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
 
-Trạng thái học tập và kiểm tra phiên PostgreSQL chỉ đọc dữ liệu của tài khoản/lớp liên quan. Thao tác ghi vẫn đọc snapshot và dùng transaction/advisory lock, nhưng chỉ ghi hoặc xóa bản ghi thực sự thay đổi. Cách này vẫn còn hạn chế khi dữ liệu hoặc số phiên đồng thời tăng. Chưa có số đo chịu tải để cam kết số học viên đồng thời. Các nhận xét lịch sử nằm trong [báo cáo kiểm tra](docs/CODE_REVIEW.md).
+Với PostgreSQL, trạng thái học tập, thao tác học tập/giảng dạy, tải tệp và mở tệp chỉ đọc dữ liệu của các lớp liên quan cùng thông báo/tệp của người thao tác. Thao tác ghi khóa theo từng lớp và từng tài khoản (advisory lock), nên các lớp khác nhau ghi song song; chỉ bản ghi thực sự thay đổi mới được ghi. Thao tác quản trị tài khoản, hồ sơ và script vận hành vẫn dùng snapshot toàn bộ với khóa độc quyền vì tần suất thấp. Chưa có số đo chịu tải để cam kết số học viên đồng thời. Các nhận xét lịch sử nằm trong [báo cáo kiểm tra](docs/CODE_REVIEW.md).

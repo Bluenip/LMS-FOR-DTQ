@@ -80,6 +80,8 @@ export interface Attachment {
   url?: string;
 }
 export interface Assignment {
+  published?: boolean;
+  announcedAt?: string;
   id: string;
   classId: string;
   lessonId?: string;
@@ -93,8 +95,6 @@ export interface Assignment {
   maxWords: number | null;
   createdAt: string;
   revision?: string;
-  /** Set once learners were notified; prevents repeat announcements on re-publish. */
-  announcedAt?: string;
 }
 export interface Submission {
   id: string;

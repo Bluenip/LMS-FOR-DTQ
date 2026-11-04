@@ -108,6 +108,8 @@ test('security headers are sent on pages and API responses', { skip }, async () 
     assert.equal(headers.get('x-frame-options'), 'SAMEORIGIN');
     assert.match(headers.get('permissions-policy') ?? '', /camera=\(\)/);
     assert.match(headers.get('strict-transport-security') ?? '', /max-age=31536000/);
+    // The nonce-based policy is attached by the proxy to pages only (API responses are JSON).
+    if (path.startsWith('/api')) continue;
     const csp = headers.get('content-security-policy') ?? '';
     for (const directive of [
       "default-src 'self'",
@@ -146,7 +148,7 @@ test('state is cached with an ETag and revalidates with 304', { skip }, async ()
   assert.equal(first.status, 200);
   const etag = first.headers.get('etag');
   assert.ok(etag);
-  assert.equal(first.headers.get('cache-control'), 'private, no-cache');
+  assert.equal(first.headers.get('cache-control'), 'private, no-store');
   await first.arrayBuffer();
   const second = await call('/api/state', cookie, { headers: { 'If-None-Match': etag! } });
   assert.equal(second.status, 304);

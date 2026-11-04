@@ -15,24 +15,34 @@ export async function versionedAction(
       'gradeSubmission',
       'updateClass',
       'updateAssignment',
+      'deleteClass',
+      'deleteLesson',
+      'deleteAssignment',
+      'withdrawSubmission',
+      'removeEnrollment',
+      'leaveClass',
     ].includes(action) ||
     (action === 'saveLesson' && (payload.id || payload.lessonId));
   if (!needsState) return payload;
   const response = await api.get('/api/state');
   if (!response.ok()) throw new Error(`Cannot load test state: ${response.status()}`);
   const state: AppState = await response.json();
-  if (action === 'updateClass')
+  if (action === 'updateClass' || action === 'deleteClass')
     return {
       expectedRevision: state.classes.find((c) => c.id === payload.classId)?.revision || '',
       ...payload,
     };
-  if (action === 'updateAssignment')
+  if (action === 'updateAssignment' || action === 'deleteAssignment')
     return {
       expectedRevision:
         state.assignments.find((a) => a.id === payload.assignmentId)?.revision || '',
       ...payload,
     };
-  if (action === 'saveSubmission' || action === 'submitAssignment') {
+  if (
+    action === 'saveSubmission' ||
+    action === 'submitAssignment' ||
+    action === 'withdrawSubmission'
+  ) {
     const submission = state.submissions.find(
       (s) => s.assignmentId === payload.assignmentId && s.studentId === state.user.id,
     );
@@ -44,9 +54,17 @@ export async function versionedAction(
     );
     return { expectedUpdatedAt: note?.updatedAt || null, ...payload };
   }
-  if (action === 'saveLesson') {
+  if (action === 'saveLesson' || action === 'deleteLesson') {
     const lesson = state.lessons.find((l) => l.id === (payload.id || payload.lessonId));
     return { expectedRevision: lesson?.revision || '', ...payload };
+  }
+  if (action === 'removeEnrollment' || action === 'leaveClass') {
+    const enrollment = state.enrollments.find((e) =>
+      action === 'removeEnrollment'
+        ? e.id === payload.enrollmentId
+        : e.classId === payload.classId && e.userId === state.user.id,
+    );
+    return { expectedJoinedAt: enrollment?.joinedAt || '', ...payload };
   }
   const submission = state.submissions.find((s) => s.id === payload.submissionId);
   return {

@@ -1,18 +1,9 @@
 import { isIP } from 'node:net';
+import { createHash } from 'node:crypto';
 import { HttpError } from './auth';
-import { bumpCounter, clearCounter } from './repository';
 
-let warned = false;
 export function clientIp(request: Request) {
-  if (process.env.TRUST_PROXY_HEADERS !== 'true') {
-    if (!warned && process.env.NODE_ENV === 'production' && process.env.DATABASE_URL) {
-      warned = true;
-      console.warn(
-        'TRUST_PROXY_HEADERS is not true: all clients share one login rate-limit bucket per email.',
-      );
-    }
-    return 'local';
-  }
+  if (process.env.TRUST_PROXY_HEADERS !== 'true') return 'local';
   const ip =
     request.headers.get('cf-connecting-ip')?.trim() ||
     request.headers.get('x-forwarded-for')?.split(',').at(-1)?.trim();
@@ -44,34 +35,53 @@ export class RateLimit {
   reset(key: string) {
     this.entries.delete(key);
   }
+  release(key: string, now = Date.now()) {
+    const entry = this.entries.get(key);
+    if (!entry) return;
+    if (entry.reset <= now || entry.count <= 1) this.entries.delete(key);
+    else entry.count--;
+  }
 }
 
-/**
- * Rate limit whose counters live in PostgreSQL, so they survive restarts and are shared by every
- * instance. If the database call fails the in-memory limiter still protects the process.
- */
-export class SharedRateLimit {
-  private local: RateLimit;
-  constructor(
-    private scope: string,
-    private limit: number,
-    private windowMs: number,
-    private message = 'Đăng nhập quá nhiều lần. Vui lòng thử lại sau 15 phút.',
-  ) {
-    this.local = new RateLimit(limit, windowMs, 10000, message);
+const localSharedLimits = new Map<string, RateLimit>();
+export async function consumeSharedRateLimit(
+  key: string,
+  limit: number,
+  windowMs: number,
+  message = 'Quá nhiều yêu cầu. Vui lòng thử lại sau 15 phút.',
+) {
+  const hashed = createHash('sha256').update(key).digest('hex');
+  if (process.env.DATABASE_URL) {
+    const { consumeRequestLimit } = await import('./repository');
+    if (!(await consumeRequestLimit(hashed, limit, windowMs))) throw new HttpError(429, message);
+    return;
   }
-  async consume(key: string) {
-    let count: number | null = null;
-    try {
-      count = await bumpCounter(`${this.scope}:${key}`, this.windowMs);
-    } catch (error) {
-      console.error('Shared rate limit unavailable', error instanceof Error ? error.message : '');
-    }
-    if (count === null) return this.local.consume(key);
-    if (count > this.limit) throw new HttpError(429, this.message);
+  const policy = `${limit}:${windowMs}:${message}`;
+  let limiter = localSharedLimits.get(policy);
+  if (!limiter) {
+    limiter = new RateLimit(limit, windowMs, 10000, message);
+    localSharedLimits.set(policy, limiter);
   }
-  async reset(key: string) {
-    this.local.reset(key);
-    await clearCounter(`${this.scope}:${key}`).catch(() => undefined);
+  limiter.consume(hashed);
+}
+
+export async function resetSharedRateLimit(key: string) {
+  const hashed = createHash('sha256').update(key).digest('hex');
+  if (process.env.DATABASE_URL) {
+    const { resetRequestLimit } = await import('./repository');
+    await resetRequestLimit(hashed);
+  } else {
+    for (const limiter of localSharedLimits.values()) limiter.reset(hashed);
+  }
+}
+
+/** Release one reserved attempt after successful authentication. */
+export async function releaseSharedRateLimit(key: string) {
+  const hashed = createHash('sha256').update(key).digest('hex');
+  if (process.env.DATABASE_URL) {
+    const { releaseRequestLimit } = await import('./repository');
+    await releaseRequestLimit(hashed);
+  } else {
+    for (const limiter of localSharedLimits.values()) limiter.release(hashed);
   }
 }

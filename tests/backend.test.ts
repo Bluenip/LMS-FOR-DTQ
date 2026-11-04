@@ -269,6 +269,13 @@ test('teachers can download submitted attachments but cannot read draft or unatt
   runAction(db, student, { action: 'submitAssignment', ...input });
   assert.equal(accessFile(db, teacher, file.id).id, file.id);
   assert.throws(() => accessFile(db, db.users[2], file.id), { status: 403 });
+  const enrollment = db.enrollments.find(
+    (e) => e.userId === student.id && e.classId === 'dtq-2026',
+  )!;
+  const status = enrollment.status;
+  enrollment.status = 'REMOVED';
+  assert.equal(accessFile(db, student, file.id).id, file.id);
+  enrollment.status = status;
   runAction(db, student, { action: 'withdrawSubmission', assignmentId: input.assignmentId });
   assert.throws(() => accessFile(db, teacher, file.id), { status: 403 });
   assert.equal(accessFile(db, student, file.id).id, file.id);
@@ -418,6 +425,26 @@ test('file metadata rejects extension spoofing and oversized documents', () => {
         mimeType: 'application/pdf',
       }),
     /25 MB/,
+  );
+});
+test('missing or generic browser MIME is inferred from supported extension', () => {
+  assert.equal(
+    validateUpload({ classId: 'a', name: 'homework.DOCX', size: 10, mimeType: '' }).mimeType,
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  );
+  assert.equal(
+    validateUpload({
+      classId: 'a',
+      name: 'lesson.mp4',
+      size: 10,
+      mimeType: 'application/octet-stream',
+      kind: 'video',
+    }).mimeType,
+    'video/mp4',
+  );
+  assert.throws(
+    () => validateUpload({ classId: 'a', name: 'homework.pdf', size: 10, mimeType: 'image/png' }),
+    /Định dạng/,
   );
 });
 test('file content signature rejects executable data renamed as PDF before any upload', async () => {

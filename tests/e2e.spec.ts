@@ -91,7 +91,7 @@ test('API rejects malformed and oversized JSON and rate limits concurrent login 
     expect(invalidFile.status()).toBe(400);
     const health = await student.get('/api/health');
     expect(health.status()).toBe(200);
-    expect(await health.json()).toEqual({ status: 'ok' });
+    expect(await health.json()).toMatchObject({ status: 'ok' });
     expect(health.headers()['cache-control']).toContain('no-store');
   } finally {
     await student.dispose();

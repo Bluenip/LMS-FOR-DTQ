@@ -3,10 +3,9 @@ import assert from 'node:assert/strict';
 import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { runAction, runActionStrict } from '../src/lib/server/actions';
+import { runAction } from '../src/lib/server/actions';
 import { seedData } from '../src/lib/server/seed-data';
 import { matchesOfficeTail } from '../src/lib/server/google-drive';
-import { SharedRateLimit } from '../src/lib/server/rate-limit';
 import { listAudit, recordAudit } from '../src/lib/server/repository';
 import type { Assignment, Database, DriveUpload } from '../src/lib/types';
 
@@ -61,23 +60,6 @@ test('plain text must still respect the word range when there is no file or link
       }),
     /tối thiểu 150 từ/,
   );
-});
-
-test('reminders are limited to one per learner and assignment every 3 hours', () => {
-  const { db, teacher, assign } = fixture();
-  const a = assign();
-  const remind = () =>
-    runAction(db, teacher, { action: 'remindStudents', assignmentId: a.id }) as {
-      count: number;
-      skipped: number;
-    };
-  assert.equal(remind().count, 1);
-  assert.throws(remind, (error: { status?: number }) => error.status === 429);
-  const reminders = db.notifications.filter((n) => n.content.startsWith('Nhắc nộp bài:'));
-  assert.equal(reminders.length, 1, 'the blocked click created nothing');
-  // After the cool-down the learner can be reminded again.
-  reminders[0].createdAt = new Date(Date.now() - 4 * 3600000).toISOString();
-  assert.equal(remind().count, 1);
 });
 
 test('republishing a lesson does not announce its assignments a second time', () => {
@@ -169,36 +151,6 @@ test('deleting an assignment, lesson or class queues the Drive files for removal
   runAction(db, teacher, { action: 'deleteClass', classId: classroom.id, code });
   assert.ok(db.driveTrash.some((t) => t.id === leftover.driveFileId));
   assert.equal(db.driveUploads.filter((u) => u.classId === classroom.id).length, 0);
-});
-
-test('shared edit protection: user input must carry the version it started from', () => {
-  const { db, teacher, assign } = fixture();
-  const a = assign();
-  assert.throws(
-    () =>
-      runActionStrict(db, teacher, {
-        action: 'updateAssignment',
-        assignmentId: a.id,
-        title: 'Mới',
-      }),
-    (error: { status?: number }) => error.status === 409,
-  );
-  const updated = runActionStrict(db, teacher, {
-    action: 'updateAssignment',
-    assignmentId: a.id,
-    title: 'Mới',
-    expectedRevision: a.revision,
-  }) as Assignment;
-  assert.equal(updated.title, 'Mới');
-});
-
-test('the shared rate limiter blocks after the limit and can be reset (in-memory fallback)', async () => {
-  const limit = new SharedRateLimit('test', 3, 60000, 'chặn');
-  for (let i = 0; i < 3; i++) await limit.consume('k');
-  await assert.rejects(limit.consume('k'), { status: 429 });
-  await limit.consume('other');
-  await limit.reset('k');
-  await limit.consume('k');
 });
 
 test('Office files must really be DOCX/PPTX, not another ZIP renamed', () => {

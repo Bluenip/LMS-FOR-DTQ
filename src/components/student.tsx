@@ -32,7 +32,18 @@ import {
 } from 'lucide-react';
 import { useLms } from './lms-provider';
 import { DiscussionPanel } from './discussion';
-import { Button, IconButton, Badge, Empty, Dialog, Field, PageHeading, Search, Tabs } from './ui';
+import {
+  Button,
+  IconButton,
+  Badge,
+  Empty,
+  Dialog,
+  Field,
+  PageHeading,
+  Search,
+  StoredVideo,
+  Tabs,
+} from './ui';
 import { dateTime, fold, initials, words, youtubeId } from '@/lib/client';
 import { uploadFile } from '@/lib/drive-upload';
 import { AttachmentViewer, DriveVideoPlayer } from './drive';
@@ -43,15 +54,14 @@ import { readSessionDraft, removeSessionDraft, writeSessionDraft } from '@/lib/s
 import type { Classroom, Lesson, Assignment, Attachment } from '@/lib/types';
 function useQuery() {
   const params = useSearchParams();
-  const router = useRouter();
   const path = usePathname();
   return {
     get: (key: string, fallback = '') => params.get(key) || fallback,
     set: (key: string, value: string) => {
-      const p = new URLSearchParams(params.toString());
+      const p = new URLSearchParams(window.location.search);
       if (value) p.set(key, value);
       else p.delete(key);
-      router.replace(`${path}?${p}`, { scroll: false });
+      window.history.replaceState(null, '', `${path}?${p}`);
     },
   };
 }
@@ -322,7 +332,12 @@ export function ClassList() {
                                     return;
                                   setBusy(true);
                                   try {
-                                    await action('leaveClass', { classId: c.id });
+                                    await action('leaveClass', {
+                                      classId: c.id,
+                                      expectedJoinedAt: enrollments.find(
+                                        (entry) => entry.classId === c.id,
+                                      )?.joinedAt,
+                                    });
                                   } catch (e) {
                                     setError((e as Error).message);
                                   } finally {
@@ -828,12 +843,7 @@ export function LessonPage({ classId, lessonId }: { classId: string; lessonId: s
               ) : lesson.videoType === 'DRIVE' && lesson.driveFileId ? (
                 <DriveVideoPlayer fileId={lesson.driveFileId} title={lesson.title} />
               ) : lesson.videoType === 'UPLOAD' && lesson.videoFileId ? (
-                <video
-                  poster="/video-poster.svg"
-                  controls
-                  preload="metadata"
-                  src={`/api/files/${lesson.videoFileId}`}
-                />
+                <StoredVideo src={`/api/files/${lesson.videoFileId}`} />
               ) : (
                 <div className="video-placeholder">
                   <Video size={40} strokeWidth={1.3} />
@@ -1115,7 +1125,7 @@ export function AssignmentPage({
   const a = assignment;
   const count = words(content);
   const hasSubmitted = !!submission && submission.status !== 'DRAFT';
-  const archived = c.status === 'ARCHIVED';
+  const archived = c.status === 'ARCHIVED' || a.published === false;
   const pastDue = !a.allowLate && Date.now() > Date.parse(a.dueAt);
   async function save(submit: boolean) {
     setBusy(true);
@@ -1165,6 +1175,9 @@ export function AssignmentPage({
         <div className="stack">
           <section className="panel stack">
             <h2>Đề bài & hướng dẫn</h2>
+            {a.published === false && (
+              <p className="notice">Bài tập đang tạm ẩn. Bạn vẫn có thể xem bài đã nộp và điểm.</p>
+            )}
             <p className="reading-copy">{a.instructions}</p>
             <div className="notice">
               <Info size={18} />
@@ -1203,6 +1216,59 @@ export function AssignmentPage({
                   </div>
                 </div>
               )}
+            </section>
+          )}
+          {!editing && dirty && (
+            <section className="panel stack" aria-label="Bản đang viết chưa gửi">
+              <h2>Bản đang viết chưa gửi</h2>
+              <p className="notice" role="status">
+                Bài đã được nộp từ một phiên khác. Bản đang viết của bạn được giữ lại bên dưới để
+                sao chép; nội dung này chưa thay thế bài đã nộp.
+              </p>
+              <Field label="Nội dung bản đang viết">
+                <textarea aria-label="Nội dung bản đang viết" value={content} readOnly />
+              </Field>
+              {link && <p className="reading-copy">{link}</p>}
+              {files.map((file) => (
+                <FileAttachment key={file.id} file={file} />
+              ))}
+              <div className="inline-actions">
+                <Button
+                  variant="secondary"
+                  onClick={async () => {
+                    try {
+                      await navigator.clipboard.writeText(
+                        [
+                          content,
+                          link,
+                          ...files.map(
+                            (file) => file.url || `${window.location.origin}/api/files/${file.id}`,
+                          ),
+                        ]
+                          .filter(Boolean)
+                          .join('\n\n'),
+                      );
+                      setError('');
+                    } catch {
+                      setError(
+                        'Chưa thể sao chép tự động. Hãy chọn nội dung bản đang viết và sao chép.',
+                      );
+                    }
+                  }}
+                >
+                  Sao chép bản đang viết
+                </Button>
+                <Button
+                  variant="ghost"
+                  onClick={() => {
+                    if (!window.confirm('Xóa bản đang viết chưa gửi trên thiết bị này?')) return;
+                    removeSessionDraft(draftKey);
+                    setDirty(false);
+                  }}
+                >
+                  Bỏ bản đang viết
+                </Button>
+              </div>
             </section>
           )}
           <section className="panel stack">
@@ -1322,7 +1388,13 @@ export function AssignmentPage({
                     {error}
                   </p>
                 )}
-                {archived && <p className="notice">Lớp đã lưu trữ; bài làm chỉ được xem.</p>}
+                {archived && (
+                  <p className="notice">
+                    {a.published === false
+                      ? 'Bài tập đang tạm ẩn; bài làm chỉ được xem.'
+                      : 'Lớp đã lưu trữ; bài làm chỉ được xem.'}
+                  </p>
+                )}
                 {!archived && pastDue && (
                   <p className="notice">Đã hết hạn nộp. Bạn vẫn có thể lưu bản nháp.</p>
                 )}
@@ -1366,7 +1438,12 @@ export function AssignmentPage({
             ) : (
               <>
                 <p className="reading-copy">
-                  {submission?.content || 'Bài làm được gửi dưới dạng tệp đính kèm.'}
+                  {submission?.content ||
+                    (submission?.attachments.length
+                      ? 'Bài làm được gửi dưới dạng tệp đính kèm.'
+                      : submission?.link
+                        ? 'Bài làm được gửi bằng liên kết minh chứng.'
+                        : 'Bài nộp không có nội dung văn bản, tệp hoặc liên kết.')}
                 </p>
                 {submission?.attachments.map((f) => (
                   <FileAttachment key={f.id} file={f} />
@@ -1401,13 +1478,18 @@ export function AssignmentPage({
                         setBusy(true);
                         setError('');
                         try {
-                          const result = (await action('withdrawSubmission', { assignmentId })) as {
+                          const result = (await action('withdrawSubmission', {
+                            assignmentId,
+                            expectedRevision: submission.revision || '',
+                          })) as {
                             revision?: string;
                           };
                           setRevision(result.revision || '');
-                          setContent(submission.content);
-                          setLink(submission.link);
-                          setFiles(submission.attachments);
+                          if (!dirty) {
+                            setContent(submission.content);
+                            setLink(submission.link);
+                            setFiles(submission.attachments);
+                          }
                           setPledge(false);
                           setSaved(false);
                         } catch (e) {

@@ -4,7 +4,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const { id } = await params;
   return adminRequest(
     request,
-    true,
+    { write: true, classId: id, exclusive: true },
     (db, actorId, input) => transferClassOwner(db, actorId, id, input),
     {
       action: 'class.transfer_owner',

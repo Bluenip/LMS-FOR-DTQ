@@ -4,11 +4,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const { id } = await params;
   return adminRequest(
     request,
-    true,
-    (db, actorId, input) => resetManagedPassword(db, actorId, id, input),
-    {
-      action: 'user.reset_password',
-      target: id,
-    },
+    { write: true, targetId: id, credential: true },
+    (db, actorId, input, credential) => resetManagedPassword(db, actorId, id, input, credential),
+    { action: 'user.reset_password', target: id },
   );
 }

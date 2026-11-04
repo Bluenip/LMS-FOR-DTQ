@@ -4,7 +4,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   const { id } = await params;
   return adminRequest(
     request,
-    true,
+    { write: true, targetId: id },
     (db, actorId, input) => updateManagedUser(db, actorId, id, input),
     {
       action: 'user.update',

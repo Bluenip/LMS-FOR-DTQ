@@ -13,6 +13,9 @@ After=network-online.target
 [Service]
 Type=oneshot
 ExecStart=/bin/bash "$backup_script"
+TimeoutStartSec=11min
+KillMode=control-group
+UMask=0077
 UNIT
 cat > "$unit_dir/lms-dtq-backup.timer" <<'UNIT'
 [Unit]

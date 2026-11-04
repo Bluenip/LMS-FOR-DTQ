@@ -39,7 +39,7 @@ import {
   statesMatch,
   type DriveRemoteFile,
 } from './google-drive';
-import { RateLimit, SharedRateLimit } from './rate-limit';
+import { consumeSharedRateLimit, RateLimit } from './rate-limit';
 import { readJsonObject } from './request';
 import { recordAudit, withDatabase } from './repository';
 import { MAX_DOCUMENT, MAX_VIDEO } from './storage';
@@ -49,12 +49,6 @@ const SESSION_LIFETIME_MS = 6 * 86400000; // Drive keeps resumable sessions for 
 const MAX_ACTIVE_JOBS = 10;
 const ACTIVE = ['PENDING', 'UPLOADING'] as const;
 const STATE_COOKIE = 'dtq_drive_state';
-const initLimit = new SharedRateLimit(
-  'drive-init',
-  60,
-  15 * 60 * 1000,
-  'Bạn khởi tạo tải lên quá nhiều lần. Vui lòng thử lại sau.',
-);
 const callLimit = new RateLimit(
   600,
   15 * 60 * 1000,
@@ -171,21 +165,17 @@ function expireIfStale(job: DriveUpload) {
 // Connection (OAuth)
 // ---------------------------------------------------------------------------
 export async function connectionStatus(userId: string): Promise<DriveStatus> {
-  return withDatabase(
-    (db) => {
-      const user = readUser(db, userId);
-      const connection = db.driveConnections.find((c) => c.id === CONNECTION_ID);
-      return {
-        configured: driveConfigured(),
-        connected: connection?.status === 'ACTIVE',
-        ...(connection ? { status: connection.status } : {}),
-        ...(connection && user.isAdmin ? { email: connection.email } : {}),
-        canConnect: user.isAdmin === true,
-      };
-    },
-    false,
-    ['users', 'driveConnections'],
-  );
+  return withDatabase((db) => {
+    const user = readUser(db, userId);
+    const connection = db.driveConnections.find((c) => c.id === CONNECTION_ID);
+    return {
+      configured: driveConfigured(),
+      connected: connection?.status === 'ACTIVE',
+      ...(connection ? { status: connection.status } : {}),
+      ...(connection && user.isAdmin ? { email: connection.email } : {}),
+      canConnect: user.isAdmin === true,
+    };
+  }, false);
 }
 function cookieAttrs(request: Request, maxAge: number) {
   const secure = appOrigin(request).startsWith('https://') ? '; Secure' : '';
@@ -352,7 +342,12 @@ function uploadClass(
   return classroom;
 }
 export async function initUpload(userId: string, origin: string, raw: unknown) {
-  await initLimit.consume(userId);
+  await consumeSharedRateLimit(
+    `drive-init:${userId}`,
+    60,
+    15 * 60 * 1000,
+    'Bạn khởi tạo tải lên quá nhiều lần. Vui lòng thử lại sau.',
+  );
   const v = validateDriveUpload(raw);
   const prepared = await withDatabase((db) => {
     const user = readUser(db, userId);
@@ -714,15 +709,6 @@ export async function serveDocument(
       : await withDatabase(
           (db) => ({ ...accessDriveDocument(db, readUser(db, userId), jobId) }),
           false,
-          [
-            'users',
-            'classes',
-            'enrollments',
-            'lessons',
-            'assignments',
-            'submissions',
-            'driveUploads',
-          ],
         );
   if (!cached || cached.until <= Date.now()) {
     if (accessCache.size > 5000) accessCache.clear();
