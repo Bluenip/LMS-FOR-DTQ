@@ -16,6 +16,10 @@ COPY src ./src
 COPY public ./public
 COPY scripts ./scripts
 COPY tests ./tests
+# Exercise the same unprivileged account used by the runtime. The deployment
+# timer explicitly refuses root, and Next.js needs a writable build directory.
+RUN chown -R node:node /app
+USER node
 RUN npx prisma generate && npm run typecheck && npm test
 RUN npm run build
 
