@@ -8,7 +8,11 @@ import {
   storageStatus,
 } from '../src/lib/server/storage';
 import { reserveUpload, UploadGate, readUploadBody } from '../src/lib/server/upload-policy';
-import { staleUnreferencedFileIds, orphanedStorageKeys } from '../src/lib/storage-cleanup';
+import {
+  staleUnreferencedFileIds,
+  orphanedStorageKeys,
+  planClassStorageCleanup,
+} from '../src/lib/storage-cleanup';
 import { seedData } from '../src/lib/server/seed-data';
 
 function file() {
@@ -211,6 +215,57 @@ test('pruning recovers old failed reservations and source-version copies while p
   assert.deepEqual(
     orphanedStorageKeys(db, [{ Key: key, LastModified: new Date(record.createdAt) }], cutoff),
     [],
+  );
+});
+
+test('prune protects all copies of a live reservation and only deletes after removing stale records', () => {
+  const db = seedData();
+  const record = { ...file(), createdAt: '2020-01-01T00:00:00.000Z' };
+  const copied = `verified/${record.key.replace('.pdf', `-${'a'.repeat(32)}.pdf`)}`;
+  const cutoff = Date.parse('2026-01-01T00:00:00.000Z');
+  db.files = [record];
+  const observed = new Set([record.key, copied]);
+  // The source was recently uploaded again; completion may be copying it now.
+  const live = planClassStorageCleanup(
+    db,
+    record.classId,
+    [copied],
+    observed,
+    new Set([copied]),
+    [record.id],
+    cutoff,
+  );
+  assert.deepEqual(live, { removedIds: [], keys: [] });
+  // Once both objects are old, remove the row first: an in-flight completion
+  // then fails its commit instead of referencing an object being deleted.
+  const stale = planClassStorageCleanup(
+    db,
+    record.classId,
+    [record.key, copied],
+    observed,
+    new Set([record.key, copied]),
+    [record.id],
+    cutoff,
+  );
+  assert.deepEqual(stale, { removedIds: [record.id], keys: [record.key, copied] });
+  // A linked submission preserves the reservation and all its versions.
+  db.submissions.push({
+    ...db.submissions[0],
+    attachments: [
+      { id: record.id, name: record.name, size: record.size, mimeType: record.mimeType },
+    ],
+  });
+  assert.deepEqual(
+    planClassStorageCleanup(
+      db,
+      record.classId,
+      [copied],
+      observed,
+      new Set([record.key, copied]),
+      [record.id],
+      cutoff,
+    ),
+    { removedIds: [], keys: [] },
   );
 });
 test('unconfigured optional storage is explicitly reported without contacting a provider', async () => {

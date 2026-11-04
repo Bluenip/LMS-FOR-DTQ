@@ -181,7 +181,7 @@ export async function downloadUrl(file: StoredFile) {
       Bucket: process.env.S3_BUCKET,
       Key: file.key,
       ResponseContentType: file.mimeType,
-      ResponseContentDisposition: `${file.mimeType.startsWith('video/') ? 'inline' : 'attachment'}; filename*=UTF-8''${encodeURIComponent(file.name)}`,
+      ResponseContentDisposition: `${file.mimeType.startsWith('video/') ? 'inline' : 'attachment'}; filename*=UTF-8''${encodeURIComponent(file.name).replace(/['()*]/g, (c) => `%${c.charCodeAt(0).toString(16).toUpperCase()}`)}`,
     }),
     // Media players issue range requests against the signed URL for the whole
     // viewing session, so videos get a longer lifetime than documents.

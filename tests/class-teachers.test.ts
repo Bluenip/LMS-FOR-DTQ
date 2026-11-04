@@ -195,6 +195,29 @@ test('assigned teachers can grade and moderate; a teacher enrolled elsewhere gai
   });
 });
 
+test('visible discussions retain the author name after they leave the class', () => {
+  const { db, owner, classroom, student } = fixture();
+  const viewer = { ...student, id: 'another-student', email: 'viewer@example.invalid' };
+  db.users.push(viewer);
+  runAction(db, viewer, { action: 'joinClass', code: classroom.code });
+  const lesson = runAction(db, owner, {
+    action: 'saveLesson',
+    classId: classroom.id,
+    title: 'Bài giảng',
+    order: 1,
+    published: true,
+    videoUrl: 'https://youtu.be/abcdefghijk',
+  }) as { id: string };
+  runAction(db, student, { action: 'comment', lessonId: lesson.id, content: 'Câu hỏi' });
+  const enrollment = db.enrollments.find(
+    (entry) => entry.classId === classroom.id && entry.userId === student.id,
+  )!;
+  enrollment.status = 'REMOVED';
+  const state = stateFor(db, viewer);
+  assert.equal(state.users.find((user) => user.id === student.id)?.name, student.name);
+  assert.equal(state.users.find((user) => user.id === student.id)?.email, '');
+});
+
 test('teachers can keep existing shared lesson files while editing, without attaching unrelated files', () => {
   const { db, owner, teachers, classroom, set } = fixture();
   const teacher = teachers[0];

@@ -2,6 +2,8 @@
 
 `scripts/integration-test.mjs` chạy 148 bước kiểm tra HTTP trên một ứng dụng có PostgreSQL và kho S3 tương thích đang hoạt động. Chỉ dùng cơ sở dữ liệu và bucket dành riêng cho kiểm thử. Script tạo một lớp, thêm dữ liệu, rồi xóa lớp đó. Nếu một bước lỗi, lớp kiểm thử có thể còn lại để kiểm tra nguyên nhân. Tệp trong bucket kiểm thử có thể còn lại sau khi lớp bị xóa.
 
+Đặt `INTEGRATION_ADMIN_EMAIL` và `INTEGRATION_ADMIN_PASSWORD` để kiểm thử quản trị bằng tài khoản giáo viên quản trị riêng đã đổi mật khẩu. Kiểm thử này tạo tài khoản và lớp bổ sung trong database thử nghiệm. Đặt thêm `INTEGRATION_PRUNE_TEST=true` cùng `DATABASE_URL` và các biến `S3_*` trỏ đến cùng database và bucket thử nghiệm để chạy cả hai lệnh dọn ở chế độ thực thi và kiểm tra `DeleteObjects`. Các lệnh này có thể xóa mọi dữ liệu cũ đủ điều kiện trong database và bucket đó: **tuyệt đối không trỏ vào production**. Khi thiếu các biến, phần tương ứng được thông báo bỏ qua.
+
 ## Chuẩn bị
 
 1. Cài các dependency trong dự án bằng `npm ci` với Node.js 22 hoặc 24.

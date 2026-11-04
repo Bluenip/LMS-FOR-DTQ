@@ -9,14 +9,8 @@ import {
 } from '@/lib/server/auth';
 import { runAction } from '@/lib/server/actions';
 import { readJsonObject } from '@/lib/server/request';
-import { RateLimit, consumeSharedRateLimit } from '@/lib/server/rate-limit';
+import { consumeSharedRateLimit } from '@/lib/server/rate-limit';
 export const runtime = 'nodejs';
-const classCodeAttempts = new RateLimit(
-  30,
-  15 * 60 * 1000,
-  10000,
-  'Bạn đã thử mã lớp quá nhiều lần. Vui lòng thử lại sau 15 phút.',
-);
 function requireEditVersion(input: Record<string, unknown>) {
   const reload = () => {
     throw new HttpError(
@@ -72,7 +66,12 @@ export async function POST(request: Request) {
     if (!id) throw new HttpError(401, 'Vui lòng đăng nhập để tiếp tục.');
     const input = await readJsonObject(request, 200000);
     if (input.action === 'previewClass' || input.action === 'joinClass')
-      classCodeAttempts.consume(id);
+      await consumeSharedRateLimit(
+        `class-code:${id}`,
+        30,
+        15 * 60 * 1000,
+        'Bạn đã thử mã lớp quá nhiều lần. Vui lòng thử lại sau 15 phút.',
+      );
     if (input.action === 'comment')
       await consumeSharedRateLimit(
         `comment:${id}`,
@@ -80,16 +79,47 @@ export async function POST(request: Request) {
         60 * 1000,
         'Bạn gửi bình luận quá nhanh. Vui lòng thử lại sau.',
       );
-    const result = await withClassScope(
-      id,
-      (tx) => actionScope(tx, input),
-      (db) => {
-        const user = requireUser(db, id);
-        requireEditVersion(input);
-        return runAction(db, user, input);
-      },
-      true,
-    );
+    const execute = () =>
+      withClassScope(
+        id,
+        async (tx) => ({
+          ...(await actionScope(tx, input)),
+          notifications: {
+            action: String(input.action),
+            ids: Array.isArray(input.ids)
+              ? input.ids.filter((id): id is string => typeof id === 'string').slice(0, 2000)
+              : undefined,
+            assignmentId: typeof input.assignmentId === 'string' ? input.assignmentId : undefined,
+          },
+        }),
+        (db) => {
+          const user = requireUser(db, id);
+          requireEditVersion(input);
+          return runAction(db, user, input);
+        },
+        true,
+      );
+    let result;
+    for (let attempt = 0; ; attempt++) {
+      try {
+        result = await execute();
+        break;
+      } catch (error) {
+        const prismaError = error as { code?: string; meta?: { target?: unknown } } | null;
+        const target = prismaError?.meta?.target;
+        const codeConflict =
+          prismaError?.code === 'P2002' &&
+          (Array.isArray(target)
+            ? target.includes('code')
+            : target === 'Classroom_code_key' || target === 'code');
+        if (
+          !codeConflict ||
+          !['createClass', 'regenerateCode'].includes(String(input.action)) ||
+          attempt >= 2
+        )
+          throw error;
+      }
+    }
     return Response.json({ ok: true, result });
   } catch (e) {
     if (e instanceof SyntaxError)

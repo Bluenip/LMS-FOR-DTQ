@@ -4,6 +4,8 @@
  * See docs/INTEGRATION.md for the full setup and environment variables.
  */
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
+import { randomUUID } from 'node:crypto';
 const configured = process.env.INTEGRATION_BASE_URL;
 if (!configured)
   throw new Error(
@@ -13,8 +15,8 @@ const base = new URL(configured).origin;
 let checks = 0;
 const teacher = {},
   student = {};
-async function request(path, { who, body, method = 'GET', raw = false, form } = {}) {
-  const headers = { Origin: base };
+async function request(path, { who, body, method = 'GET', raw = false, form, extraHeaders } = {}) {
+  const headers = { Origin: base, ...extraHeaders };
   if (who?.cookie) headers.Cookie = who.cookie;
   if (body) headers['Content-Type'] = 'application/json';
   const response = await fetch(base + path, {
@@ -147,6 +149,38 @@ const c = await action(teacher, 'createClass', {
   contentAuthor: 'Integration content instructor',
 });
 await action(student, 'joinClass', { code: c.code });
+const options = await request(`/api/classes/${c.id}/teachers`, { who: teacher });
+assert.equal(options.status, 200);
+assert.equal((await request(`/api/classes/${c.id}/teachers`, { who: student })).status, 403);
+assert.equal((await request('/api/classes/no-such-class/teachers', { who: teacher })).status, 404);
+const beforeRename = await request('/api/state', { who: teacher });
+const oldStudentName = (await state(student)).user.name;
+const changedName = `Integration ${Date.now()}`;
+const renames = await Promise.all(
+  Array.from({ length: 4 }, () =>
+    request('/api/profile', {
+      who: student,
+      method: 'PATCH',
+      body: { name: changedName },
+    }),
+  ),
+);
+assert(
+  renames.every((r) => r.status === 200),
+  JSON.stringify(renames.map((r) => r.data)),
+);
+const afterRename = await request('/api/state', {
+  who: teacher,
+  extraHeaders: { 'If-None-Match': beforeRename.response.headers.get('etag') },
+});
+assert.equal(afterRename.status, 200);
+assert(afterRename.data.users.some((u) => u.name === changedName));
+assert.equal(
+  (await request('/api/profile', { who: student, method: 'PATCH', body: { name: oldStudentName } }))
+    .status,
+  200,
+);
+checks += 8;
 await action(teacher, 'updateClass', {
   classId: c.id,
   description: 'Updated through real PostgreSQL transaction',
@@ -656,6 +690,97 @@ const repeatedComplete = await request('/api/uploads/complete', {
 assert.equal(repeatedComplete.status, 200);
 assert.equal(repeatedComplete.data.id, complete.data.id);
 checks++;
+if (process.env.INTEGRATION_PRUNE_TEST === 'true') {
+  if (!process.env.DATABASE_URL || !process.env.S3_BUCKET)
+    throw new Error('Prune checks require disposable DATABASE_URL and S3_* environment variables.');
+  const { PrismaClient } = await import('@prisma/client');
+  const { S3Client, PutObjectCommand, DeleteObjectsCommand, HeadObjectCommand } =
+    await import('@aws-sdk/client-s3');
+  const pg = new PrismaClient();
+  const notificationId = randomUUID(),
+    fileId = randomUUID();
+  const teacherId = (await state(teacher)).user.id;
+  const key = `classes/${c.id}/${teacherId}/${fileId}.pdf`;
+  const objectKey = `integration-delete/${randomUUID()}`;
+  const s3 = new S3Client({
+    endpoint: process.env.S3_ENDPOINT || undefined,
+    region: process.env.S3_REGION || 'auto',
+    forcePathStyle: !!process.env.S3_ENDPOINT,
+    requestChecksumCalculation: 'WHEN_REQUIRED',
+    credentials: {
+      accessKeyId: process.env.S3_ACCESS_KEY_ID,
+      secretAccessKey: process.env.S3_SECRET_ACCESS_KEY,
+    },
+  });
+  try {
+    await pg.notification.create({
+      data: {
+        id: notificationId,
+        userId: teacherId,
+        content: 'Integration prune',
+        read: true,
+        createdAt: '2020-01-01T00:00:00.000Z',
+      },
+    });
+    await pg.storedFile.create({
+      data: {
+        id: fileId,
+        ownerId: teacherId,
+        classId: c.id,
+        key,
+        name: 'pending.pdf',
+        size: 5,
+        mimeType: 'application/pdf',
+        verified: false,
+        createdAt: '2020-01-01T00:00:00.000Z',
+      },
+    });
+    const scope = `user:${teacherId}`;
+    const previous = await pg.changeVersion.findUnique({ where: { scope } });
+    const run = (script, args = []) =>
+      JSON.parse(
+        execFileSync(process.execPath, ['--import', 'tsx', script, ...args], {
+          encoding: 'utf8',
+          env: process.env,
+        })
+          .trim()
+          .split('\n')
+          .at(-1),
+      );
+    run('scripts/prune-notifications.ts');
+    assert(await pg.notification.findUnique({ where: { id: notificationId } }));
+    run('scripts/prune-notifications.ts', ['--apply']);
+    assert.equal(await pg.notification.findUnique({ where: { id: notificationId } }), null);
+    const next = await pg.changeVersion.findUnique({ where: { scope } });
+    assert(next && next.version > (previous?.version ?? 0n));
+    run('scripts/prune-storage.ts');
+    assert(await pg.storedFile.findUnique({ where: { id: fileId } }));
+    run('scripts/prune-storage.ts', ['--apply']);
+    assert.equal(await pg.storedFile.findUnique({ where: { id: fileId } }), null);
+    await s3.send(
+      new PutObjectCommand({ Bucket: process.env.S3_BUCKET, Key: objectKey, Body: 'integration' }),
+    );
+    const deleted = await s3.send(
+      new DeleteObjectsCommand({
+        Bucket: process.env.S3_BUCKET,
+        Delete: { Objects: [{ Key: objectKey }] },
+      }),
+    );
+    assert.equal(deleted.Errors?.length || 0, 0);
+    await assert.rejects(
+      s3.send(new HeadObjectCommand({ Bucket: process.env.S3_BUCKET, Key: objectKey })),
+    );
+    checks += 7;
+  } finally {
+    await pg.notification.deleteMany({ where: { id: notificationId } });
+    await pg.storedFile.deleteMany({ where: { id: fileId } });
+    await pg.$disconnect();
+    s3.destroy();
+  }
+} else
+  console.log(
+    'Prune integration checks skipped: set INTEGRATION_PRUNE_TEST=true and disposable database/S3 credentials.',
+  );
 const loggedOut = await request('/api/auth/logout', { who: student, method: 'POST', body: {} });
 assert.equal(loggedOut.status, 200);
 const replay = await request('/api/state', { who: student });
@@ -667,6 +792,95 @@ assert(!st.classes.some((x) => x.id === c.id));
 assert.equal(st.classes.length, initialClassCount);
 assert(!st.lessons.some((x) => x.id === l.id));
 checks++;
+if (process.env.INTEGRATION_ADMIN_EMAIL && process.env.INTEGRATION_ADMIN_PASSWORD) {
+  const admin = {},
+    managed = {};
+  await login(admin, process.env.INTEGRATION_ADMIN_EMAIL, process.env.INTEGRATION_ADMIN_PASSWORD);
+  const adminState = await state(admin);
+  const email = `integration-${Date.now()}@example.invalid`;
+  const created = await request('/api/admin/users', {
+    who: admin,
+    method: 'POST',
+    body: { name: 'Integration teacher', email, role: 'TEACHER' },
+  });
+  assert.equal(created.status, 200, JSON.stringify(created.data));
+  const id = created.data.user.id;
+  assert.equal(
+    (
+      await request('/api/admin/users', {
+        who: admin,
+        method: 'POST',
+        body: { name: 'Duplicate', email: email.toUpperCase(), role: 'TEACHER' },
+      })
+    ).status,
+    409,
+  );
+  await login(managed, email, created.data.temporaryPassword);
+  assert.equal(
+    (
+      await request(`/api/admin/users/${id}`, {
+        who: admin,
+        method: 'PATCH',
+        body: { name: 'Renamed integration teacher' },
+      })
+    ).status,
+    200,
+  );
+  const reset = await request(`/api/admin/users/${id}/reset-password`, {
+    who: admin,
+    method: 'POST',
+    body: {},
+  });
+  assert.equal(reset.status, 200);
+  assert.equal((await request('/api/auth/me', { who: managed })).status, 401);
+  await login(managed, email, reset.data.temporaryPassword);
+  assert.equal(
+    (
+      await request(`/api/admin/users/${id}`, {
+        who: admin,
+        method: 'PATCH',
+        body: { disabled: true },
+      })
+    ).status,
+    200,
+  );
+  assert.equal((await request('/api/auth/me', { who: managed })).status, 401);
+  assert.equal(
+    (
+      await request(`/api/admin/users/${id}`, {
+        who: admin,
+        method: 'PATCH',
+        body: { disabled: false },
+      })
+    ).status,
+    200,
+  );
+  const adminClass = await action(admin, 'createClass', {
+    title: 'Integration owner transfer',
+    autoApprove: true,
+  });
+  const transfer = await request(`/api/admin/classes/${adminClass.id}/owner`, {
+    who: admin,
+    method: 'POST',
+    body: { teacherId: id, expectedTeacherId: adminState.user.id },
+  });
+  assert.equal(transfer.status, 200, JSON.stringify(transfer.data));
+  assert.equal(
+    (
+      await request(`/api/admin/users/${id}`, {
+        who: admin,
+        method: 'PATCH',
+        body: { role: 'STUDENT' },
+      })
+    ).status,
+    409,
+  );
+  checks += 10;
+} else {
+  console.log(
+    'Admin integration checks skipped: set INTEGRATION_ADMIN_EMAIL and INTEGRATION_ADMIN_PASSWORD.',
+  );
+}
 console.log(
   JSON.stringify({
     checks,

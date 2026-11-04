@@ -326,6 +326,7 @@ export function stateFor(db: Database, user: StoredUser): AppState {
     ...enrollments
       .filter((e) => e.status === 'APPROVED' || managed.has(e.classId))
       .map((e) => e.userId),
+    ...db.discussions.filter((d) => lessonIds.has(d.lessonId)).map((d) => d.userId),
   ]);
   const contactIds = new Set([
     user.id,

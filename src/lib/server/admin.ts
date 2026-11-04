@@ -1,19 +1,24 @@
 import { randomBytes, randomUUID } from 'node:crypto';
 import { z } from 'zod';
+import { cookies } from 'next/headers';
 import type { AdminState, AdminUser, Database, StoredUser } from '@/lib/types';
 import { assignedTeacherIds, managesClass } from '@/lib/class-teachers';
 import { accountInput, emailSchema } from './accounts';
 import {
   assertOrigin,
   accountEnabled,
+  COOKIE,
   errorResponse,
   hashPassword,
   HttpError,
   isDemoAccount,
   requireUser,
+  readSession,
+  sessionMatches,
   sessionUserId,
 } from './auth';
-import { withDatabase } from './repository';
+import { findSessionUser, withAdminDatabase } from './repository';
+import { consumeSharedRateLimit } from './rate-limit';
 
 const nameSchema = z.string().trim().min(2).max(100);
 export function requireAdmin(db: Database, userId: string | null) {
@@ -60,7 +65,17 @@ function managedUser(db: Database, id: string) {
     throw new HttpError(403, 'Tài khoản không thuộc vai trò được quản lý.');
   return user;
 }
-export function createManagedUser(db: Database, actorId: string | null, input: unknown) {
+type TemporaryCredential = { password: string; hash: string };
+function temporaryCredential(): TemporaryCredential {
+  const password = randomBytes(12).toString('base64url');
+  return { password, hash: hashPassword(password) };
+}
+export function createManagedUser(
+  db: Database,
+  actorId: string | null,
+  input: unknown,
+  credential?: TemporaryCredential,
+) {
   requireAdmin(db, actorId);
   const v = z
     .object({
@@ -72,13 +87,13 @@ export function createManagedUser(db: Database, actorId: string | null, input: u
     .parse(input);
   if (db.users.some((u) => u.email.toLowerCase() === v.email))
     throw new HttpError(409, 'Email đã có tài khoản. Vui lòng dùng địa chỉ khác.');
-  const temporaryPassword = randomBytes(12).toString('base64url');
+  const prepared = credential ?? temporaryCredential();
   const user: StoredUser = {
     id: randomUUID(),
     name: v.name,
     email: v.email,
     role: v.role,
-    passwordHash: hashPassword(temporaryPassword),
+    passwordHash: prepared.hash,
     mustChangePassword: true,
     emailVerified: true,
     isAdmin: false,
@@ -90,7 +105,7 @@ export function createManagedUser(db: Database, actorId: string | null, input: u
   return {
     user: adminUser(db, user),
     message: 'Đã tạo tài khoản. Hãy chuyển mật khẩu tạm riêng cho người dùng.',
-    temporaryPassword,
+    temporaryPassword: prepared.password,
   };
 }
 export function updateManagedUser(
@@ -191,49 +206,85 @@ export function resetManagedPassword(
   actorId: string | null,
   id: string,
   input: unknown = {},
+  credential?: TemporaryCredential,
 ) {
   requireAdmin(db, actorId);
   z.object({}).strict().parse(input);
   const user = managedUser(db, id);
   if (user.isAdmin)
     throw new HttpError(403, 'Không thể đặt lại mật khẩu tài khoản quản trị tại đây.');
-  const temporaryPassword = randomBytes(12).toString('base64url');
-  user.passwordHash = hashPassword(temporaryPassword);
+  const prepared = credential ?? temporaryCredential();
+  user.passwordHash = prepared.hash;
   user.mustChangePassword = true;
   user.sessionVersion = (user.sessionVersion ?? 0) + 1;
   db.authTokens = db.authTokens.filter((t) => t.userId !== user.id);
   return {
     message: 'Đã tạo mật khẩu tạm mới và đăng xuất các phiên cũ.',
-    temporaryPassword,
+    temporaryPassword: prepared.password,
   };
-}
-const attempts = new Map<string, { count: number; reset: number }>();
-function adminRateLimit(userId: string) {
-  const now = Date.now();
-  const rate = attempts.get(userId);
-  if (rate && rate.reset > now && rate.count >= 120)
-    throw new HttpError(429, 'Bạn đã thực hiện nhiều thay đổi. Vui lòng thử lại sau.');
-  attempts.set(userId, {
-    count: rate && rate.reset > now ? rate.count + 1 : 1,
-    reset: rate && rate.reset > now ? rate.reset : now + 900000,
-  });
-  if (attempts.size > 10000)
-    for (const [id, value] of attempts) if (value.reset <= now) attempts.delete(id);
 }
 export async function adminRequest(
   request: Request,
-  write: boolean,
-  fn: (db: Database, actorId: string, input: Record<string, unknown>) => unknown,
+  options: {
+    write: boolean;
+    targetId?: string;
+    classId?: string;
+    exclusive?: boolean;
+    credential?: boolean;
+    create?: boolean;
+  },
+  fn: (
+    db: Database,
+    actorId: string,
+    input: Record<string, unknown>,
+    credential?: TemporaryCredential,
+  ) => unknown,
 ) {
   try {
+    const { write } = options;
     if (write) assertOrigin(request);
     const id = await sessionUserId();
+    const session = await readSession((await cookies()).get(COOKIE)?.value);
     const input = write && request.body ? await accountInput(request) : {};
-    const result = await withDatabase((db) => {
-      const actor = requireAdmin(db, id);
-      if (write) adminRateLimit(actor.id);
-      return fn(db, actor.id, input);
-    }, write);
+    if (write && id)
+      await consumeSharedRateLimit(
+        `admin:${id}`,
+        120,
+        15 * 60 * 1000,
+        'Bạn đã thực hiện nhiều thay đổi. Vui lòng thử lại sau.',
+      );
+    // Derive slow password hashes outside database locks, after verifying the caller.
+    let credential: TemporaryCredential | undefined;
+    if (options.credential && process.env.DATABASE_URL) {
+      const actor = id && (await findSessionUser(id));
+      if (actor && accountEnabled(actor) && actor.isAdmin) credential = temporaryCredential();
+    }
+    const result = await withAdminDatabase(
+      id,
+      {
+        ...options,
+        exclusive:
+          options.exclusive === true ||
+          (!!options.targetId &&
+            ['name', 'role', 'disabled', 'emailVerified'].some((key) => key in input)),
+        renameOnly:
+          options.exclusive !== true &&
+          !!options.targetId &&
+          'name' in input &&
+          !['role', 'disabled', 'emailVerified'].some((key) => key in input),
+        candidateId: typeof input.teacherId === 'string' ? input.teacherId : undefined,
+        email:
+          options.create && typeof input.email === 'string'
+            ? input.email.trim().toLowerCase()
+            : undefined,
+      },
+      (db) => {
+        const actor = requireAdmin(db, id);
+        if (!session || !sessionMatches(actor, session))
+          throw new HttpError(401, 'Vui lòng đăng nhập để tiếp tục.');
+        return fn(db, actor.id, input, credential);
+      },
+    );
     return Response.json(result, { headers: { 'Cache-Control': 'private, no-store' } });
   } catch (error) {
     const response = errorResponse(error);
