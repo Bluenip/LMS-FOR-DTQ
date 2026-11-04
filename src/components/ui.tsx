@@ -181,3 +181,44 @@ export function Tabs({
     </div>
   );
 }
+/**
+ * Plays a stored video through its signed, expiring URL. If the signed URL
+ * expires mid-playback (seeking after a long pause, for example), a new URL is
+ * requested once and playback resumes from the same position.
+ */
+export function StoredVideo({ src, className }: { src: string; className?: string }) {
+  const ref = useRef<HTMLVideoElement>(null);
+  const retried = useRef(0);
+  useEffect(() => {
+    retried.current = 0;
+  }, [src]);
+  return (
+    <video
+      ref={ref}
+      className={className}
+      poster="/video-poster.svg"
+      controls
+      preload="metadata"
+      src={src}
+      onError={() => {
+        const video = ref.current;
+        if (!video || retried.current >= 2) return;
+        retried.current++;
+        const position = video.currentTime;
+        const playing = !video.paused;
+        video.src = `${src}${src.includes('?') ? '&' : '?'}renew=${Date.now()}`;
+        video.addEventListener(
+          'loadedmetadata',
+          () => {
+            video.currentTime = position;
+            if (playing) void video.play().catch(() => {});
+          },
+          { once: true },
+        );
+      }}
+      onPlaying={() => {
+        retried.current = 0;
+      }}
+    />
+  );
+}

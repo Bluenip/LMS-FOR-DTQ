@@ -65,7 +65,7 @@ Dữ liệu demo có lớp, bài tập và tiến độ mẫu; không kèm video
 | `/teacher/lessons`                         | Soạn chương/bài, YouTube/video tải lên, tài liệu, mốc nội dung, bản nháp và xuất bản                                             |
 | `/teacher/assignments`                     | Tạo/sửa/xóa bài tập, đặt số từ từng bài, chấm theo tiêu chí 40/40/20, lưu điểm nháp, trả điểm, nhắc nộp trong ứng dụng, xuất CSV |
 
-Trang đang mở lấy cập nhật khoảng mỗi 3 giây; khi quay lại tab hoặc có mạng trở lại sẽ kiểm tra ngay. Các tab cùng trình duyệt có thêm tín hiệu qua `BroadcastChannel`. Đây là cơ chế polling, chưa dùng WebSocket hoặc SSE.
+Trang đang mở lấy cập nhật khoảng mỗi 3 giây; khi quay lại tab hoặc có mạng trở lại sẽ kiểm tra ngay. Các tab cùng trình duyệt có thêm tín hiệu qua `BroadcastChannel`. Đây là cơ chế polling, chưa dùng WebSocket hoặc SSE. Với PostgreSQL, máy chủ so bộ đếm thay đổi của các lớp liên quan và trả `304` khi không có gì mới, nên lượt poll không đổi không phải tải lại dữ liệu.
 
 Hoàn thành bài học là thao tác đánh dấu thủ công. Ứng dụng chưa kiểm tra thời lượng xem video hoặc bắt buộc học tuần tự. Nhắc nộp bài là thông báo trong ứng dụng, không phải email hay tin nhắn bên ngoài.
 
@@ -91,7 +91,7 @@ Giáo viên có thể vào **Kho bài giảng → chọn bài → Xem thảo lu�
 
 ## Chính sách tài khoản
 
-Tài khoản do quản trị viên cấp. Các trang `/register`, `/verify-email`, `/forgot-password`, `/reset-password` chuyển về `/login`; API công khai tương ứng trả `403`. Luồng đang sử dụng không cần SMTP. Mã xử lý email/token cũ vẫn còn trong `src/lib/server/accounts.ts` và `mail.ts`, nhưng không được các API công khai này gọi.
+Tài khoản do quản trị viên cấp. Các trang `/register`, `/verify-email`, `/forgot-password`, `/reset-password` chuyển về `/login`; API công khai tương ứng trả `403`. Luồng đang sử dụng không cần SMTP; mã gửi email, đăng ký công khai và liên kết đặt lại mật khẩu đã được gỡ khỏi mã nguồn.
 
 Tài khoản mới hoặc được reset nhận mật khẩu tạm ngẫu nhiên riêng, chỉ hiển thị một lần cho quản trị viên. Người dùng phải đổi mật khẩu tại `/profile` trước khi dùng chức năng khác. Tài khoản cũ vẫn dùng mật khẩu chung trước đây cũng được yêu cầu đổi; tài khoản có mật khẩu riêng được giữ nguyên. Mật khẩu mới phải khác mật khẩu hiện tại, dài 8–128 ký tự và xác nhận trùng khớp.
 
@@ -179,7 +179,7 @@ Cấu hình các biến `S3_*` để bật tải tệp. Kho S3 tương thích ph
 
 Máy chủ kiểm tra phần mở rộng, MIME, kích thước và chữ ký nhận dạng cơ bản của tệp. Đây chưa phải kiểm tra toàn vẹn tài liệu, giải mã video hoặc quét mã độc. Nội dung tệp không được lưu ra đĩa ứng dụng; database chỉ lưu metadata.
 
-Video tải lên được xác minh rồi sao chép sang khóa `verified/` để URL PUT cũ không ghi đè bản đã xác minh. URL tải lên có hạn 10 phút; URL tải xuống có hạn 5 phút. API tải xuống kiểm tra quyền trước khi chuyển hướng tới kho tệp.
+Video tải lên được xác minh rồi sao chép sang khóa `verified/` để URL PUT cũ không ghi đè bản đã xác minh. URL tải lên có hạn 10 phút; URL tải tài liệu có hạn 5 phút, URL phát video có hạn 4 giờ. Nếu URL video hết hạn giữa chừng, trình phát tự lấy URL mới và tiếp tục ở vị trí cũ. API tải xuống kiểm tra quyền trước khi chuyển hướng tới kho tệp.
 
 CORS mẫu ở [prisma/s3-cors.json](prisma/s3-cors.json): đổi `AllowedOrigins` thành origin thực tế, cho phép PUT/GET/HEAD và các header phù hợp. Không cấu hình `S3_ENDPOINT` bằng tên container nội bộ nếu trình duyệt cần truy cập URL ký đó.
 
@@ -236,6 +236,7 @@ Các bản xuất Stitch là tài liệu tham chiếu cho 8 màn hình chính, k
 | `npm run account:create-teacher -- <email> "<họ tên>"` | Cấp giáo viên thật bằng CLI, yêu cầu PostgreSQL      |
 | `npm run account:grant-admin -- <email>`               | Cấp quyền quản trị cho tài khoản thật đang hoạt động |
 | `npm run storage:prune` / `-- --apply`                 | Thống kê / xóa object LMS mồ côi cũ trên 30 ngày     |
+| `npm run notifications:prune` / `-- --apply`           | Thống kê / xóa thông báo đã đọc cũ hơn 90 ngày       |
 
 ## Kiểm thử
 
@@ -295,4 +296,4 @@ npm start
 
 Đặt `APP_URL=https://lms.example.com` đúng origin của tên miền thật và dùng khóa phiên riêng. Hướng dẫn bao gồm cổng nội bộ, tunnel, database, kho video, backup và cách kiểm tra sau triển khai: [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
 
-Trạng thái học tập và kiểm tra phiên PostgreSQL chỉ đọc dữ liệu của tài khoản/lớp liên quan. Thao tác ghi vẫn đọc snapshot và dùng transaction/advisory lock, nhưng chỉ ghi hoặc xóa bản ghi thực sự thay đổi. Cách này vẫn còn hạn chế khi dữ liệu hoặc số phiên đồng thời tăng. Chưa có số đo chịu tải để cam kết số học viên đồng thời. Các nhận xét lịch sử nằm trong [báo cáo kiểm tra](docs/CODE_REVIEW.md).
+Với PostgreSQL, trạng thái học tập, thao tác học tập/giảng dạy, tải tệp và mở tệp chỉ đọc dữ liệu của các lớp liên quan cùng thông báo/tệp của người thao tác. Thao tác ghi khóa theo từng lớp và từng tài khoản (advisory lock), nên các lớp khác nhau ghi song song; chỉ bản ghi thực sự thay đổi mới được ghi. Thao tác quản trị tài khoản, hồ sơ và script vận hành vẫn dùng snapshot toàn bộ với khóa độc quyền vì tần suất thấp. Chưa có số đo chịu tải để cam kết số học viên đồng thời. Các nhận xét lịch sử nằm trong [báo cáo kiểm tra](docs/CODE_REVIEW.md).

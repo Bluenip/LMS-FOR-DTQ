@@ -231,3 +231,9 @@ model RequestLimit {
   count   Int
   resetAt BigInt
 }
+
+/// Monotonic change counters ("global", "class:<id>", "user:<id>") used to answer state polls cheaply.
+model ChangeVersion {
+  scope   String @id
+  version BigInt @default(0)
+}

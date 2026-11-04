@@ -32,7 +32,18 @@ import {
 } from 'lucide-react';
 import { useLms } from './lms-provider';
 import { DiscussionPanel } from './discussion';
-import { Button, IconButton, Badge, Empty, Dialog, Field, PageHeading, Search, Tabs } from './ui';
+import {
+  Button,
+  IconButton,
+  Badge,
+  Empty,
+  Dialog,
+  Field,
+  PageHeading,
+  Search,
+  StoredVideo,
+  Tabs,
+} from './ui';
 import { dateTime, fold, initials, uploadFile, words, youtubeId } from '@/lib/client';
 import { acceptsWordCount, wordRequirement } from '@/lib/assignment-policy';
 import { classTeacherNames, managesClass } from '@/lib/class-teachers';
@@ -828,12 +839,7 @@ export function LessonPage({ classId, lessonId }: { classId: string; lessonId: s
                   allowFullScreen
                 />
               ) : lesson.videoType === 'UPLOAD' && lesson.videoFileId ? (
-                <video
-                  poster="/video-poster.svg"
-                  controls
-                  preload="metadata"
-                  src={`/api/files/${lesson.videoFileId}`}
-                />
+                <StoredVideo src={`/api/files/${lesson.videoFileId}`} />
               ) : (
                 <div className="video-placeholder">
                   <Video size={40} strokeWidth={1.3} />

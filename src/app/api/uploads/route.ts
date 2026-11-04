@@ -6,7 +6,7 @@ import {
   sessionUserId,
 } from '@/lib/server/auth';
 import { accessClass } from '@/lib/server/actions';
-import { withDatabase } from '@/lib/server/repository';
+import { classOf, withClassScope } from '@/lib/server/repository';
 import {
   fileRecord,
   MAX_DOCUMENT,
@@ -24,7 +24,11 @@ export async function POST(request: Request) {
   try {
     assertOrigin(request);
     const userId = await sessionUserId();
-    const user = await withDatabase((db) => requireUser(db, userId));
+    const user = await withClassScope(
+      userId,
+      async () => ({ classIds: [] }),
+      (db) => requireUser(db, userId),
+    );
     release = uploadGate.acquire(user.id);
     await consumeSharedRateLimit(
       `uploads:${user.id}`,
@@ -55,36 +59,52 @@ export async function POST(request: Request) {
     });
     const bytes = Buffer.from(await f.arrayBuffer());
     validateDocument(fileRecord(user.id, v), bytes);
-    const record = await withDatabase((db) => {
-      const user = requireUser(db, userId);
-      const classroom = accessClass(db, user, v.classId);
-      if (classroom.status === 'ARCHIVED') throw new HttpError(409, 'Lớp học đã lưu trữ.');
-      const record = fileRecord(user.id, v);
-      reserveUpload(db, record);
-      return record;
-    }, true);
-    try {
-      await putDocument(record, bytes);
-      await withDatabase((db) => {
+    const scope = async () => ({ classIds: [v.classId] });
+    const record = await withClassScope(
+      userId,
+      scope,
+      (db) => {
         const user = requireUser(db, userId);
         const classroom = accessClass(db, user, v.classId);
         if (classroom.status === 'ARCHIVED') throw new HttpError(409, 'Lớp học đã lưu trữ.');
-        const stored = db.files.find(
-          (entry) => entry.id === record.id && entry.ownerId === user.id,
-        );
-        if (!stored) throw new HttpError(409, 'Tệp đã thay đổi. Vui lòng tải lại.');
-        stored.verified = true;
-      }, true);
+        const record = fileRecord(user.id, v);
+        reserveUpload(db, record);
+        return record;
+      },
+      true,
+    );
+    try {
+      await putDocument(record, bytes);
+      await withClassScope(
+        userId,
+        scope,
+        (db) => {
+          const user = requireUser(db, userId);
+          const classroom = accessClass(db, user, v.classId);
+          if (classroom.status === 'ARCHIVED') throw new HttpError(409, 'Lớp học đã lưu trữ.');
+          const stored = db.files.find(
+            (entry) => entry.id === record.id && entry.ownerId === user.id,
+          );
+          if (!stored) throw new HttpError(409, 'Tệp đã thay đổi. Vui lòng tải lại.');
+          stored.verified = true;
+        },
+        true,
+      );
     } catch (error) {
       // Only remove an unverified reservation; a committed file must remain available.
-      const removed = await withDatabase((db) => {
-        const index = db.files.findIndex(
-          (entry) => entry.id === record.id && entry.ownerId === user.id && !entry.verified,
-        );
-        if (index < 0) return false;
-        db.files.splice(index, 1);
-        return true;
-      }, true).catch(() => false);
+      const removed = await withClassScope(
+        userId,
+        scope,
+        (db) => {
+          const index = db.files.findIndex(
+            (entry) => entry.id === record.id && entry.ownerId === user.id && !entry.verified,
+          );
+          if (index < 0) return false;
+          db.files.splice(index, 1);
+          return true;
+        },
+        true,
+      ).catch(() => false);
       if (removed) await deleteObject(record.key).catch(() => {});
       throw error;
     }

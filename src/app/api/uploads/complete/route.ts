@@ -5,7 +5,7 @@ import {
   requireUser,
   sessionUserId,
 } from '@/lib/server/auth';
-import { withDatabase } from '@/lib/server/repository';
+import { classOf, type ScopeResolver, withClassScope } from '@/lib/server/repository';
 import { completeStoredUpload } from '@/lib/server/storage';
 import { accessClass, teacherClass } from '@/lib/server/actions';
 import { readJsonObject } from '@/lib/server/request';
@@ -21,7 +21,10 @@ export async function POST(request: Request) {
     const { fileId } = z
       .object({ fileId: z.string().min(1).max(120) })
       .parse(await readJsonObject(request));
-    const file = await withDatabase((db) => {
+    const scope: ScopeResolver = async (tx) => ({
+      classIds: await classOf(tx, 'file', fileId),
+    });
+    const file = await withClassScope(userId, scope, (db) => {
       const user = requireUser(db, userId);
       const f = db.files.find((f) => f.id === fileId && f.ownerId === user.id);
       if (!f) throw new HttpError(404, 'Không tìm thấy tệp.');
@@ -39,21 +42,26 @@ export async function POST(request: Request) {
       'Bạn đã gửi quá nhiều yêu cầu hoàn tất tệp. Vui lòng thử lại sau.',
     );
     const result = await completeStoredUpload(file, (finalKey) =>
-      withDatabase((db) => {
-        const user = requireUser(db, userId);
-        const classroom = file.mimeType.startsWith('video/')
-          ? teacherClass(db, user, file.classId)
-          : accessClass(db, user, file.classId);
-        if (classroom.status === 'ARCHIVED') throw new HttpError(409, 'Lớp học đã lưu trữ.');
-        const f = db.files.find((f) => f.id === file.id && f.ownerId === user.id);
-        if (!f) throw new HttpError(409, 'Tệp đã bị xóa. Vui lòng tải lại.');
-        if (!f.verified) {
-          if (f.key !== file.key) throw new HttpError(409, 'Tệp đã thay đổi. Vui lòng thử lại.');
-          f.verified = true;
-          f.key = finalKey;
-        }
-        return f;
-      }, true),
+      withClassScope(
+        userId,
+        scope,
+        (db) => {
+          const user = requireUser(db, userId);
+          const classroom = file.mimeType.startsWith('video/')
+            ? teacherClass(db, user, file.classId)
+            : accessClass(db, user, file.classId);
+          if (classroom.status === 'ARCHIVED') throw new HttpError(409, 'Lớp học đã lưu trữ.');
+          const f = db.files.find((f) => f.id === file.id && f.ownerId === user.id);
+          if (!f) throw new HttpError(409, 'Tệp đã bị xóa. Vui lòng tải lại.');
+          if (!f.verified) {
+            if (f.key !== file.key) throw new HttpError(409, 'Tệp đã thay đổi. Vui lòng thử lại.');
+            f.verified = true;
+            f.key = finalKey;
+          }
+          return f;
+        },
+        true,
+      ),
     );
     return Response.json({
       id: result.id,

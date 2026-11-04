@@ -1,4 +1,5 @@
-import { withDatabase } from '@/lib/server/repository';
+import { withClassScope } from '@/lib/server/repository';
+import { actionScope } from '@/lib/server/scope';
 import {
   assertOrigin,
   errorResponse,
@@ -79,11 +80,16 @@ export async function POST(request: Request) {
         60 * 1000,
         'Bạn gửi bình luận quá nhanh. Vui lòng thử lại sau.',
       );
-    const result = await withDatabase((db) => {
-      const user = requireUser(db, id);
-      requireEditVersion(input);
-      return runAction(db, user, input);
-    }, true);
+    const result = await withClassScope(
+      id,
+      (tx) => actionScope(tx, input),
+      (db) => {
+        const user = requireUser(db, id);
+        requireEditVersion(input);
+        return runAction(db, user, input);
+      },
+      true,
+    );
     return Response.json({ ok: true, result });
   } catch (e) {
     if (e instanceof SyntaxError)

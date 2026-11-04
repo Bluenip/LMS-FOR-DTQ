@@ -27,7 +27,6 @@
     "@prisma/client": "6.19.0",
     "lucide-react": "latest",
     "next": "latest",
-    "nodemailer": "^10.3.1",
     "react": "latest",
     "react-dom": "latest",
     "zod": "latest"
@@ -35,7 +34,6 @@
   "devDependencies": {
     "@playwright/test": "latest",
     "@types/node": "^22",
-    "@types/nodemailer": "^8.0.2",
     "@types/react": "latest",
     "@types/react-dom": "latest",
     "prettier": "^3.9.10",

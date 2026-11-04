@@ -16,25 +16,37 @@ import { HttpError } from './auth';
 export const MAX_DOCUMENT = 25 * 1024 * 1024;
 export const MAX_VIDEO = 2 * 1024 * 1024 * 1024;
 let storageClient: S3Client | undefined;
-export function storage() {
+let copyClient: S3Client | undefined;
+function assertStorageConfigured() {
   if (!process.env.S3_BUCKET || !process.env.S3_ACCESS_KEY_ID || !process.env.S3_SECRET_ACCESS_KEY)
     throw new HttpError(
       503,
       'Tải tệp chưa sẵn sàng. Quản trị viên cần cấu hình kho S3/R2; bạn vẫn có thể viết bài trực tiếp.',
     );
-  return (storageClient ??= new S3Client({
+}
+function createClient(requestTimeout: number) {
+  return new S3Client({
     region: process.env.S3_REGION || 'auto',
     endpoint: process.env.S3_ENDPOINT || undefined,
     forcePathStyle: !!process.env.S3_ENDPOINT,
     requestChecksumCalculation: 'WHEN_REQUIRED',
     maxAttempts: 2,
-    requestHandler: { connectionTimeout: 10000, requestTimeout: 60000 },
+    requestHandler: { connectionTimeout: 10000, requestTimeout },
     responseChecksumValidation: 'WHEN_REQUIRED',
     credentials: {
-      accessKeyId: process.env.S3_ACCESS_KEY_ID,
-      secretAccessKey: process.env.S3_SECRET_ACCESS_KEY,
+      accessKeyId: process.env.S3_ACCESS_KEY_ID!,
+      secretAccessKey: process.env.S3_SECRET_ACCESS_KEY!,
     },
-  }));
+  });
+}
+export function storage() {
+  assertStorageConfigured();
+  return (storageClient ??= createClient(60000));
+}
+/** Server-side copies of large videos may stay silent for minutes before responding. */
+function copyStorage() {
+  assertStorageConfigured();
+  return (copyClient ??= createClient(15 * 60 * 1000));
 }
 export function validateUpload(raw: unknown) {
   const v = z
@@ -171,12 +183,14 @@ export async function downloadUrl(file: StoredFile) {
       ResponseContentType: file.mimeType,
       ResponseContentDisposition: `${file.mimeType.startsWith('video/') ? 'inline' : 'attachment'}; filename*=UTF-8''${encodeURIComponent(file.name)}`,
     }),
-    { expiresIn: 300 },
+    // Media players issue range requests against the signed URL for the whole
+    // viewing session, so videos get a longer lifetime than documents.
+    { expiresIn: file.mimeType.startsWith('video/') ? 4 * 3600 : 300 },
   );
 }
 
 export async function finalizeObject(file: StoredFile, etag: string | undefined) {
-  const s3 = storage();
+  const s3 = copyStorage();
   if (!etag) throw new HttpError(502, 'Kho tệp không trả về phiên bản tệp.');
   // Each validated source version has an immutable destination. A concurrent re-upload
   // cannot overwrite a version already committed by another completion request.

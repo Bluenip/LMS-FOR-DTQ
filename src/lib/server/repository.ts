@@ -255,36 +255,48 @@ async function readPostgres(tx: unknown): Promise<Database> {
         await (tx as Record<string, { findMany: () => Promise<Record<string, unknown>[]> }>)[
           model
         ].findMany()
-      ).map((row) =>
-        Object.fromEntries(
-          Object.entries(row).filter(
-            ([field, value]) => value !== null || (key === 'assignments' && field === 'maxWords'),
-          ),
-        ),
-      );
+      ).map((row) => cleanTableRow(key, row));
     }),
   );
   return db;
 }
+function cleanTableRow(key: string, row: Record<string, unknown>) {
+  return Object.fromEntries(
+    Object.entries(row).filter(
+      ([field, value]) => value !== null || (key === 'assignments' && field === 'maxWords'),
+    ),
+  );
+}
+/** Persist only rows that changed. Returns whether anything was written. */
 async function writePostgres(tx: unknown, db: Database, previous: Database) {
   const api = tx as Record<
     string,
-    { deleteMany: (v: unknown) => Promise<unknown>; upsert: (v: unknown) => Promise<unknown> }
+    {
+      deleteMany: (v: unknown) => Promise<unknown>;
+      updateMany: (v: unknown) => Promise<unknown>;
+      create: (v: unknown) => Promise<unknown>;
+    }
   >;
+  let changed = false;
   for (const [key, model] of Object.entries(tables).reverse()) {
     const rows = db[key as keyof Database];
     const currentIds = new Set(rows.map((row) => row.id));
     const removed = previous[key as keyof Database]
       .filter((row) => !currentIds.has(row.id))
       .map((row) => row.id);
-    if (removed.length) await api[model].deleteMany({ where: { id: { in: removed } } });
+    if (removed.length) {
+      changed = true;
+      await api[model].deleteMany({ where: { id: { in: removed } } });
+    }
   }
   for (const [key, model] of Object.entries(tables)) {
     const original = new Map(
       previous[key as keyof Database].map((row) => [row.id, JSON.stringify(row)]),
     );
     for (const row of db[key as keyof Database]) {
-      if (original.get(row.id) === JSON.stringify(row)) continue;
+      const before = original.get(row.id);
+      if (before === JSON.stringify(row)) continue;
+      changed = true;
       const data = JSON.parse(JSON.stringify(row));
       const optional: Record<string, string[]> = {
         user: ['avatar'],
@@ -297,9 +309,18 @@ async function writePostgres(tx: unknown, db: Database, previous: Database) {
       };
       for (const field of optional[model] || []) if (!(field in data)) data[field] = null;
       if (model === 'submission' && !('rubric' in data)) data.rubric = Prisma.DbNull;
-      await api[model].upsert({ where: { id: row.id }, create: data, update: data });
+      // Existing rows are updated in place and never resurrected if another
+      // transaction (for example a cascading class deletion) removed them.
+      if (before === undefined) await api[model].create({ data });
+      else await api[model].updateMany({ where: { id: row.id }, data });
     }
   }
+  return changed;
+}
+async function bumpVersions(tx: Prisma.TransactionClient, scopes: string[]) {
+  for (const scope of scopes)
+    await tx.$executeRaw`INSERT INTO "ChangeVersion" ("scope", "version") VALUES (${scope}, 1)
+      ON CONFLICT ("scope") DO UPDATE SET "version" = "ChangeVersion"."version" + 1`;
 }
 export async function withDatabase<T>(
   fn: (db: Database) => T | Promise<T>,
@@ -313,7 +334,8 @@ export async function withDatabase<T>(
         const db = await readPostgres(tx);
         const previous = write ? structuredClone(db) : undefined;
         const result = await fn(db);
-        if (write && previous) await writePostgres(tx, db, previous);
+        if (write && previous && (await writePostgres(tx, db, previous)))
+          await bumpVersions(tx, ['global']);
         return result;
       },
       {
@@ -371,4 +393,205 @@ export async function seedPostgres() {
 }
 export async function checkDatabaseConnection() {
   if (process.env.DATABASE_URL) await (await client()).$queryRaw`SELECT 1`;
+}
+
+export type DataScope = { classIds: string[]; userIds?: string[] };
+export type ScopeResolver = (tx: Prisma.TransactionClient) => Promise<DataScope>;
+const emptyDatabase = (): Database => ({
+  users: [],
+  classes: [],
+  enrollments: [],
+  lessons: [],
+  assignments: [],
+  submissions: [],
+  progress: [],
+  notes: [],
+  discussions: [],
+  notifications: [],
+  files: [],
+  authTokens: [],
+});
+async function readScoped(
+  tx: Prisma.TransactionClient,
+  actorId: string,
+  classIds: string[],
+  extraUserIds: string[],
+): Promise<Database> {
+  const rows = <T>(key: string, list: T[]) =>
+    list.map((row) => cleanTableRow(key, row as Record<string, unknown>));
+  const classes = classIds.length
+    ? await tx.classroom.findMany({ where: { id: { in: classIds } } })
+    : [];
+  const ids = classes.map((c) => c.id);
+  const [enrollments, lessons, assignments, files] = await Promise.all([
+    tx.enrollment.findMany({ where: { classId: { in: ids } } }),
+    tx.lesson.findMany({ where: { classId: { in: ids } } }),
+    tx.assignment.findMany({ where: { classId: { in: ids } } }),
+    tx.storedFile.findMany({ where: { OR: [{ classId: { in: ids } }, { ownerId: actorId }] } }),
+  ]);
+  const lessonIds = lessons.map((l) => l.id);
+  const assignmentIds = assignments.map((a) => a.id);
+  const [submissions, progress, notes, discussions, notifications] = await Promise.all([
+    tx.submission.findMany({ where: { assignmentId: { in: assignmentIds } } }),
+    tx.progress.findMany({ where: { lessonId: { in: lessonIds } } }),
+    tx.note.findMany({ where: { lessonId: { in: lessonIds } } }),
+    tx.discussion.findMany({ where: { lessonId: { in: lessonIds } } }),
+    tx.notification.findMany({
+      where: { OR: [{ userId: actorId }, { assignmentId: { in: assignmentIds } }] },
+    }),
+  ]);
+  const userIds = new Set([
+    actorId,
+    ...extraUserIds,
+    ...classes.flatMap((c) => [c.teacherId, ...c.teacherIds]),
+    ...enrollments.map((e) => e.userId),
+    ...discussions.map((d) => d.userId),
+  ]);
+  const users = await tx.user.findMany({ where: { id: { in: [...userIds] } } });
+  return {
+    users: rows('users', users),
+    classes: rows('classes', classes),
+    enrollments: rows('enrollments', enrollments),
+    lessons: rows('lessons', lessons),
+    assignments: rows('assignments', assignments),
+    submissions: rows('submissions', submissions),
+    progress: rows('progress', progress),
+    notes: rows('notes', notes),
+    discussions: rows('discussions', discussions),
+    notifications: rows('notifications', notifications),
+    files: rows('files', files),
+    authTokens: [],
+  } as unknown as Database;
+}
+
+/**
+ * Run `fn` against only the classes the request touches, plus the actor's own
+ * notifications and files. Writers hold a shared global lock (so account and
+ * administrative snapshot writers stay exclusive) and exclusive locks on each
+ * class and on the actor, so writers in unrelated classes run in parallel.
+ * Without PostgreSQL this falls back to the JSON snapshot.
+ */
+export async function withClassScope<T>(
+  actorId: string | null,
+  resolve: ScopeResolver,
+  fn: (db: Database) => T | Promise<T>,
+  write = false,
+): Promise<T> {
+  if (!process.env.DATABASE_URL) return withDatabase(fn, write);
+  const pg = await client();
+  return pg.$transaction(
+    async (tx) => {
+      if (!actorId) return fn(emptyDatabase());
+      const scope = await resolve(tx);
+      const classIds = [...new Set(scope.classIds.filter(Boolean))].sort();
+      const lockKeys = [...classIds.map((id) => `class:${id}`), `user:${actorId}`].sort();
+      if (write) {
+        await tx.$executeRaw`SELECT pg_advisory_xact_lock_shared(42719823)`;
+        for (const key of lockKeys)
+          await tx.$executeRaw`SELECT pg_advisory_xact_lock(42719825, hashtext(${key}))`;
+      }
+      const db = await readScoped(tx, actorId, classIds, scope.userIds || []);
+      const previous = write ? structuredClone(db) : undefined;
+      const result = await fn(db);
+      if (write && previous && (await writePostgres(tx, db, previous))) {
+        const touched = new Set([
+          ...lockKeys,
+          ...previous.classes.map((c) => `class:${c.id}`),
+          ...db.classes.map((c) => `class:${c.id}`),
+        ]);
+        await bumpVersions(tx, [...touched].sort());
+      }
+      return result;
+    },
+    {
+      maxWait: 10000,
+      timeout: 30000,
+      isolationLevel: write
+        ? Prisma.TransactionIsolationLevel.ReadCommitted
+        : Prisma.TransactionIsolationLevel.RepeatableRead,
+    },
+  );
+}
+
+/** Find the class that owns a row, for scope resolution. Unknown ids resolve to no class. */
+export async function classOf(
+  tx: Prisma.TransactionClient,
+  kind: 'lesson' | 'assignment' | 'enrollment' | 'submission' | 'discussion' | 'file' | 'code',
+  value: unknown,
+): Promise<string[]> {
+  if (typeof value !== 'string' || !value) return [];
+  switch (kind) {
+    case 'lesson':
+      return (await tx.lesson.findMany({ where: { id: value }, select: { classId: true } })).map(
+        (r) => r.classId,
+      );
+    case 'assignment':
+      return (
+        await tx.assignment.findMany({ where: { id: value }, select: { classId: true } })
+      ).map((r) => r.classId);
+    case 'enrollment':
+      return (
+        await tx.enrollment.findMany({ where: { id: value }, select: { classId: true } })
+      ).map((r) => r.classId);
+    case 'file':
+      return (
+        await tx.storedFile.findMany({ where: { id: value }, select: { classId: true } })
+      ).map((r) => r.classId);
+    case 'code':
+      return (
+        await tx.classroom.findMany({
+          where: { code: value.trim().toUpperCase() },
+          select: { id: true },
+        })
+      ).map((r) => r.id);
+    case 'submission': {
+      const row = await tx.submission.findUnique({
+        where: { id: value },
+        select: { assignmentId: true },
+      });
+      return row ? classOf(tx, 'assignment', row.assignmentId) : [];
+    }
+    case 'discussion': {
+      const row = await tx.discussion.findUnique({
+        where: { id: value },
+        select: { lessonId: true },
+      });
+      return row ? classOf(tx, 'lesson', row.lessonId) : [];
+    }
+  }
+}
+
+const processEpoch = randomUUID();
+/**
+ * A cheap fingerprint of everything that can change a user's state: their own
+ * row, the change counters of every class they relate to and of global/account
+ * writes. Equal fingerprints mean the state has not changed, so polling can
+ * answer 304 without loading the state. Returns null without PostgreSQL.
+ */
+export async function stateFingerprint(userId: string): Promise<string | null> {
+  if (!process.env.DATABASE_URL) return null;
+  const pg = await client();
+  const [user, owned, enrolled] = await Promise.all([
+    pg.user.findUnique({ where: { id: userId } }),
+    pg.classroom.findMany({
+      where: { OR: [{ teacherId: userId }, { teacherIds: { has: userId } }] },
+      select: { id: true },
+    }),
+    pg.enrollment.findMany({ where: { userId }, select: { classId: true, status: true } }),
+  ]);
+  if (!user) return null;
+  const classIds = [...new Set([...owned.map((c) => c.id), ...enrolled.map((e) => e.classId)])];
+  const scopes = ['global', `user:${userId}`, ...classIds.map((id) => `class:${id}`)];
+  const versions = await pg.$queryRaw<{ scope: string; version: bigint }[]>`
+    SELECT "scope", "version" FROM "ChangeVersion" WHERE "scope" = ANY(${scopes})`;
+  return JSON.stringify({
+    epoch: processEpoch,
+    user,
+    enrolled: enrolled.sort((a, b) => a.classId.localeCompare(b.classId)),
+    classIds: classIds.sort(),
+    versions: versions
+      .map((v) => `${v.scope}=${v.version}`)
+      .sort()
+      .join(','),
+  });
 }

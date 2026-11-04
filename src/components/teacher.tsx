@@ -36,6 +36,7 @@ import {
   PageHeading,
   Search,
   Tabs,
+  StoredVideo,
 } from '@/components/ui';
 import { api, fold, uploadFile } from '@/lib/client';
 import { useUnsavedWarning } from '@/lib/use-unsaved-warning';
@@ -1581,7 +1582,7 @@ function LessonEditor({
               allowFullScreen
             />
           ) : videoType === 'UPLOAD' && videoUrl ? (
-            <video className="video-preview" poster="/video-poster.svg" controls src={videoUrl} />
+            <StoredVideo className="video-preview" src={videoUrl} />
           ) : (
             <Empty
               title="Chưa có video"
