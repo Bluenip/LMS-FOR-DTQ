@@ -258,8 +258,11 @@ Phiếu được lưu theo từng cặp (bài giảng, học viên) kèm nhận 
 
 Chỉ **giáo viên của lớp** và **quản trị viên** xem được; học viên và trưởng nhóm không thấy (máy chủ trả 403 cho `GET /api/ranking`).
 
-- **Xếp hạng tổng của lớp:** tổng số mục thực hành được tick trên mọi bài giảng đã xuất bản (13 mục mỗi bài) và phần trăm.
-- **Xếp hạng từng bài giảng:** điểm thực hành của bài đó (tối đa 13).
-- Cùng điểm thì cùng hạng (1, 2, 2, 4); nếu bằng điểm thực hành thì người đã học nhiều bài hơn xếp trước.
+- **Điểm tổng (trên 100)** = 50% **thực hành** (mục được tick trên 13 mục mỗi bài) + 50% **bài tập** (điểm chấm đã trả, thang 100).
+  - Bài tập chỉ được tính khi đã **xuất bản và quá hạn nộp**: điểm đã trả cho học viên, hoặc **0** nếu chưa có điểm (không nộp, hoặc đã nộp nhưng giáo viên chưa chấm/chưa trả điểm). Vì vậy giáo viên nên chấm xong để điểm phản ánh đúng.
+  - Nơi không có bài tập nào được tính (bài giảng chưa gắn bài tập, lớp chưa có bài tập quá hạn) thì điểm tổng chỉ là điểm thực hành, áp dụng giống nhau cho mọi thành viên.
+- **Xếp hạng tổng của lớp:** mọi bài giảng đã xuất bản và mọi bài tập của lớp (kể cả bài không gắn bài giảng).
+- **Xếp hạng từng bài giảng:** thực hành của bài đó và các bài tập gắn với bài giảng đó.
+- Cùng điểm thì cùng hạng (1, 2, 2, 4); nếu bằng điểm thì người đã học nhiều bài hơn xếp trước.
 - Vị trí: tab **Xếp hạng** của lớp (giáo viên), cuối tab **Thực hành** của mỗi bài giảng (giáo viên), và mục **Bảng xếp hạng thực hành** trong trang Quản trị (chọn bất kỳ lớp nào).
 - Chấm cho từng thành viên: ở tab **Thực hành** của bài, hoặc trong hộp thoại **Chi tiết** của thành viên (trang Thành viên) → "Thực hành theo bài giảng" → **Chấm thực hành**.

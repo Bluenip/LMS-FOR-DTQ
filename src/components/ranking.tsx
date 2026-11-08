@@ -18,7 +18,9 @@ function Table({ rows, lessons }: { rows: RankRow[]; lessons: number }) {
             <th>Hạng</th>
             <th>Thành viên</th>
             <th>Nhóm</th>
-            <th>Điểm thực hành</th>
+            <th>Thực hành</th>
+            <th>Bài tập</th>
+            <th>Điểm tổng</th>
             <th>Đã học</th>
           </tr>
         </thead>
@@ -34,8 +36,16 @@ function Table({ rows, lessons }: { rows: RankRow[]; lessons: number }) {
                 <strong>{r.name}</strong> {r.leader && <Badge tone="success">Trưởng nhóm</Badge>}
               </td>
               <td data-label="Nhóm">Nhóm {r.group}</td>
-              <td data-label="Điểm thực hành">
+              <td data-label="Thực hành">
                 {r.done}/{r.possible} ({r.percent}%)
+              </td>
+              <td data-label="Bài tập">
+                {r.assignmentPercent === null
+                  ? '—'
+                  : `${r.assignmentPercent}% (${r.assignmentsCounted} bài)`}
+              </td>
+              <td data-label="Điểm tổng">
+                <strong>{r.total}</strong>/100
               </td>
               <td data-label="Đã học">
                 {r.studied}/{lessons}
@@ -85,8 +95,9 @@ export function RankingPanel({ classId, lessonId }: { classId: string; lessonId?
             <Trophy size={18} /> Xếp hạng tổng — {data.title}
           </h3>
           <p className="small muted">
-            Tổng số mục thực hành được tick trên tất cả {data.lessons.length} bài giảng đã xuất bản
-            (13 mục mỗi bài).
+            Điểm tổng (trên 100) = 50% thực hành (mục được tick trên {data.lessons.length} bài giảng
+            đã xuất bản, 13 mục mỗi bài) + 50% điểm chấm bài tập đã quá hạn (chưa có điểm được tính
+            0). Bài chưa có bài tập thì chỉ tính thực hành.
           </p>
           <Table rows={data.overall} lessons={data.lessons.length} />
         </section>
