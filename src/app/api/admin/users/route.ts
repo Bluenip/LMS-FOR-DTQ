@@ -9,5 +9,10 @@ export function POST(request: Request) {
     request,
     { write: true, create: true, credential: true },
     (db, id, input, credential) => createManagedUser(db, id, input, credential),
+    {
+      action: 'user.create',
+      detail: (_result, input) =>
+        `role=${String(input.role ?? 'TEACHER')} email=${String(input.email ?? '')}`,
+    },
   );
 }

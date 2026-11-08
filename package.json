@@ -6,6 +6,7 @@
     "dev": "next dev --hostname 0.0.0.0",
     "build": "prisma generate && next build",
     "start": "next start --hostname 0.0.0.0",
+    "local:prod": "npm run build && npm start",
     "typecheck": "tsc --noEmit",
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
@@ -16,10 +17,13 @@
     "format": "prettier --write \"src/**/*.{ts,tsx,css}\" \"tests/**/*.{ts,mjs}\" \"scripts/*.{ts,mjs}\" next.config.ts playwright.config.ts",
     "format:check": "prettier --check \"src/**/*.{ts,tsx,css}\" \"tests/**/*.{ts,mjs}\" \"scripts/*.{ts,mjs}\" next.config.ts playwright.config.ts",
     "test:integration": "node scripts/integration-test.mjs",
+    "drive:prune": "node --env-file-if-exists=.env --import tsx scripts/prune-drive.ts",
     "storage:prune": "node --env-file-if-exists=.env --import tsx scripts/prune-storage.ts",
     "storage:backup": "node scripts/backup-objects.mjs",
     "notifications:prune": "node --env-file-if-exists=.env --import tsx scripts/prune-notifications.ts",
     "account:create-teacher": "node --env-file-if-exists=.env --import tsx scripts/create-teacher.ts",
+    "local:setup": "node --env-file-if-exists=.env --import tsx scripts/local-setup.ts",
+    "account:revoke-admin": "node --env-file-if-exists=.env --import tsx scripts/revoke-admin.ts",
     "account:grant-admin": "node --env-file-if-exists=.env --import tsx scripts/grant-admin.ts"
   },
   "dependencies": {

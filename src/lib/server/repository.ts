@@ -1,8 +1,10 @@
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
 import { Prisma, type PrismaClient } from '@prisma/client';
-import type { Database, StoredUser } from '@/lib/types';
+import type { AuditLog, Database, StoredUser } from '@/lib/types';
 import { seedData } from './seed-data';
+/** Demo-mode storage folder; overridable so tests never touch a developer's data. */
+export const dataDir = () => process.env.LMS_DATA_DIR || '.data';
 let prisma: PrismaClient | undefined;
 let queue = Promise.resolve();
 const tables = {
@@ -18,6 +20,9 @@ const tables = {
   notifications: 'notification',
   files: 'storedFile',
   authTokens: 'authToken',
+  driveConnections: 'driveConnection',
+  driveUploads: 'driveUpload',
+  driveTrash: 'driveTrash',
 } as const;
 async function client() {
   if (!prisma) {
@@ -26,10 +31,33 @@ async function client() {
   }
   return prisma;
 }
+/** Timestamps are real DATE columns in PostgreSQL but the app works with ISO-8601 strings. */
+const plain = (value: unknown) => (value instanceof Date ? value.toISOString() : value);
 function cleanRow<T>(row: unknown): T {
   return Object.fromEntries(
-    Object.entries(row as Record<string, unknown>).filter(([, value]) => value !== null),
+    Object.entries(row as Record<string, unknown>)
+      .filter(([, value]) => value !== null)
+      .map(([field, value]) => [field, plain(value)]),
   ) as T;
+}
+function emptyDatabase(): Database {
+  return {
+    users: [],
+    classes: [],
+    enrollments: [],
+    lessons: [],
+    assignments: [],
+    submissions: [],
+    progress: [],
+    notes: [],
+    discussions: [],
+    notifications: [],
+    files: [],
+    authTokens: [],
+    driveConnections: [],
+    driveUploads: [],
+    driveTrash: [],
+  };
 }
 /** Session checks need one user, not a snapshot of every class and submission. */
 export async function findSessionUser(userId: string): Promise<StoredUser | undefined> {
@@ -147,41 +175,13 @@ export async function withScopedState<T>(
   userId: string | null,
   fn: (db: Database) => T,
 ): Promise<T> {
-  if (!userId)
-    return fn({
-      users: [],
-      classes: [],
-      enrollments: [],
-      lessons: [],
-      assignments: [],
-      submissions: [],
-      progress: [],
-      notes: [],
-      discussions: [],
-      notifications: [],
-      files: [],
-      authTokens: [],
-    });
+  if (!userId) return fn(emptyDatabase());
   if (!process.env.DATABASE_URL) return withDatabase(fn);
   const pg = await client();
   return pg.$transaction(
     async (tx) => {
       const userRow = await tx.user.findUnique({ where: { id: userId } });
-      if (!userRow)
-        return fn({
-          users: [],
-          classes: [],
-          enrollments: [],
-          lessons: [],
-          assignments: [],
-          submissions: [],
-          progress: [],
-          notes: [],
-          discussions: [],
-          notifications: [],
-          files: [],
-          authTokens: [],
-        });
+      if (!userRow) return fn(emptyDatabase());
       const user = cleanRow<StoredUser>(userRow);
       const own = await tx.enrollment.findMany({ where: { userId, status: { not: 'REMOVED' } } });
       const classrooms = await tx.classroom.findMany({
@@ -270,6 +270,12 @@ export async function withScopedState<T>(
         notifications: clean(notifications),
         files: [],
         authTokens: [],
+        // Only the connection status is needed to tell clients whether uploads are available.
+        driveConnections: (
+          await tx.driveConnection.findMany({ select: { id: true, status: true } })
+        ).map((c) => ({ ...c, encryptedRefreshToken: '' })) as Database['driveConnections'],
+        driveUploads: [],
+        driveTrash: [],
       } as Database);
     },
     {
@@ -279,10 +285,12 @@ export async function withScopedState<T>(
     },
   );
 }
+export type TableKey = keyof typeof tables;
+type Rows = { id: string }[];
 async function readPostgres(tx: unknown): Promise<Database> {
   const db = {} as Database;
   await Promise.all(
-    Object.entries(tables).map(async ([key, model]) => {
+    (Object.entries(tables) as [TableKey, string][]).map(async ([key, model]) => {
       (db as unknown as Record<string, unknown>)[key] = (
         await (tx as Record<string, { findMany: () => Promise<Record<string, unknown>[]> }>)[
           model
@@ -293,10 +301,11 @@ async function readPostgres(tx: unknown): Promise<Database> {
   return db;
 }
 function cleanTableRow(key: string, row: Record<string, unknown>) {
+  // Timestamp columns reach the application as ISO-8601 strings, as before the TIMESTAMPTZ change.
   return Object.fromEntries(
-    Object.entries(row).filter(
-      ([field, value]) => value !== null || (key === 'assignments' && field === 'maxWords'),
-    ),
+    Object.entries(row)
+      .filter(([field, value]) => value !== null || (key === 'assignments' && field === 'maxWords'))
+      .map(([field, value]) => [field, plain(value)]),
   );
 }
 /** Persist only rows that changed. Returns whether anything was written. */
@@ -311,9 +320,9 @@ async function writePostgres(tx: unknown, db: Database, previous: Database) {
   >;
   let changed = false;
   for (const [key, model] of Object.entries(tables).reverse()) {
-    const rows = db[key as keyof Database];
+    const rows = (db as unknown as Record<string, Rows>)[key];
     const currentIds = new Set(rows.map((row) => row.id));
-    const removed = previous[key as keyof Database]
+    const removed = (previous as unknown as Record<string, Rows>)[key]
       .filter((row) => !currentIds.has(row.id))
       .map((row) => row.id);
     if (removed.length) {
@@ -323,9 +332,12 @@ async function writePostgres(tx: unknown, db: Database, previous: Database) {
   }
   for (const [key, model] of Object.entries(tables)) {
     const original = new Map(
-      previous[key as keyof Database].map((row) => [row.id, JSON.stringify(row)]),
+      (previous as unknown as Record<string, Rows>)[key].map((row) => [
+        row.id,
+        JSON.stringify(row),
+      ]),
     );
-    for (const row of db[key as keyof Database]) {
+    for (const row of (db as unknown as Record<string, Rows>)[key]) {
       const before = original.get(row.id);
       if (before === JSON.stringify(row)) continue;
       changed = true;
@@ -333,11 +345,19 @@ async function writePostgres(tx: unknown, db: Database, previous: Database) {
       const optional: Record<string, string[]> = {
         user: ['avatar'],
         authToken: ['consumedAt', 'pendingPasswordHash', 'pendingName'],
-        lesson: ['videoFileId'],
-        assignment: ['lessonId', 'maxWords'],
+        lesson: ['videoFileId', 'driveFileId'],
+        assignment: ['lessonId', 'maxWords', 'announcedAt'],
         notification: ['assignmentId'],
         discussion: ['updatedAt'],
         submission: ['submittedAt', 'score', 'gradedAt'],
+        driveUpload: [
+          'lessonId',
+          'encryptedSessionUri',
+          'driveFileId',
+          'webViewLink',
+          'errorMessage',
+        ],
+        driveConnection: ['folderId'],
       };
       for (const field of optional[model] || []) if (!(field in data)) data[field] = null;
       if (model === 'submission' && !('rubric' in data)) data.rubric = Prisma.DbNull;
@@ -561,10 +581,10 @@ export async function withDatabase<T>(
   });
   await previous;
   try {
-    await mkdir('.data', { recursive: true });
+    await mkdir(dataDir(), { recursive: true });
     let db: Database;
     try {
-      db = JSON.parse(await readFile('.data/demo.json', 'utf8'));
+      db = JSON.parse(await readFile(`${dataDir()}/demo.json`, 'utf8'));
     } catch (error) {
       if (error instanceof SyntaxError)
         throw new Error(
@@ -573,9 +593,13 @@ export async function withDatabase<T>(
         );
       if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
       db = seedData();
-      await writeFile('.data/demo.json', JSON.stringify(db, null, 2), { mode: 0o600 });
+      await writeFile(`${dataDir()}/demo.json`, JSON.stringify(db, null, 2), { mode: 0o600 });
     }
     db.authTokens ??= [];
+    db.driveConnections ??= [];
+    db.driveUploads ??= [];
+    db.driveTrash ??= [];
+    db.auditLogs ??= [];
     for (const user of db.users) {
       user.emailVerified ??= true;
       user.sessionVersion ??= 0;
@@ -584,9 +608,9 @@ export async function withDatabase<T>(
     }
     const result = await fn(db);
     if (write) {
-      const temp = `.data/demo-${randomUUID()}.json`;
+      const temp = `${dataDir()}/demo-${randomUUID()}.json`;
       await writeFile(temp, JSON.stringify(db, null, 2), { mode: 0o600 });
-      await rename(temp, '.data/demo.json');
+      await rename(temp, `${dataDir()}/demo.json`);
     }
     return result;
   } finally {
@@ -610,20 +634,6 @@ export type DataScope = {
   notifications?: { action: string; ids?: string[]; assignmentId?: string };
 };
 export type ScopeResolver = (tx: Prisma.TransactionClient) => Promise<DataScope>;
-const emptyDatabase = (): Database => ({
-  users: [],
-  classes: [],
-  enrollments: [],
-  lessons: [],
-  assignments: [],
-  submissions: [],
-  progress: [],
-  notes: [],
-  discussions: [],
-  notifications: [],
-  files: [],
-  authTokens: [],
-});
 async function readScoped(
   tx: Prisma.TransactionClient,
   actorId: string,
@@ -637,11 +647,12 @@ async function readScoped(
     ? await tx.classroom.findMany({ where: { id: { in: classIds } } })
     : [];
   const ids = classes.map((c) => c.id);
-  const [enrollments, lessons, assignments, files] = await Promise.all([
+  const [enrollments, lessons, assignments, files, driveUploads] = await Promise.all([
     tx.enrollment.findMany({ where: { classId: { in: ids } } }),
     tx.lesson.findMany({ where: { classId: { in: ids } } }),
     tx.assignment.findMany({ where: { classId: { in: ids } } }),
     tx.storedFile.findMany({ where: { OR: [{ classId: { in: ids } }, { ownerId: actorId }] } }),
+    tx.driveUpload.findMany({ where: { classId: { in: ids } } }),
   ]);
   const lessonIds = lessons.map((l) => l.id);
   const assignmentIds = assignments.map((a) => a.id);
@@ -703,6 +714,9 @@ async function readScoped(
     notifications: rows('notifications', notifications),
     files: rows('files', files),
     authTokens: [],
+    driveConnections: [],
+    driveUploads: rows('driveUploads', driveUploads),
+    driveTrash: [],
   } as unknown as Database;
 }
 
@@ -843,4 +857,40 @@ export async function stateFingerprint(userId: string): Promise<string | null> {
       .sort()
       .join(','),
   });
+}
+
+// ---------------------------------------------------------------------------
+// Audit trail: append-only, kept out of the per-request snapshot so it can grow freely.
+// ---------------------------------------------------------------------------
+export async function recordAudit(actorId: string, action: string, targetId?: string, detail = '') {
+  const entry: AuditLog = {
+    id: randomUUID(),
+    actorId,
+    action,
+    ...(targetId ? { targetId } : {}),
+    detail: detail.slice(0, 500),
+    createdAt: new Date().toISOString(),
+  };
+  try {
+    if (process.env.DATABASE_URL)
+      await (await client()).auditLog.create({ data: { ...entry, targetId: targetId ?? null } });
+    else
+      await withDatabase((db) => {
+        db.auditLogs = [...(db.auditLogs ?? []), entry].slice(-2000);
+      }, true);
+  } catch (error) {
+    // Never fail the action that was already performed because the log could not be written.
+    console.error('Audit log write failed', error instanceof Error ? error.message : '');
+  }
+}
+export async function listAudit(limit = 200): Promise<AuditLog[]> {
+  if (!process.env.DATABASE_URL)
+    return withDatabase((db) => [...(db.auditLogs ?? [])].reverse().slice(0, limit));
+  const rows = await (
+    await client()
+  ).auditLog.findMany({
+    orderBy: { createdAt: 'desc' },
+    take: limit,
+  });
+  return rows.map((row) => cleanRow<AuditLog>(row));
 }

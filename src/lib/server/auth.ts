@@ -3,6 +3,7 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { cookies } from 'next/headers';
 import type { Database, StoredUser, User } from '@/lib/types';
 import { DEFAULT_ACCOUNT_PASSWORD } from '@/lib/account-policy';
+const dataDir = () => process.env.LMS_DATA_DIR || '.data';
 export const COOKIE = 'dtq_session';
 export function hashPassword(password: string) {
   const salt = randomBytes(16).toString('hex');
@@ -22,16 +23,16 @@ function sessionSecret() {
       return process.env.SESSION_SECRET;
     if (process.env.DATABASE_URL)
       throw new Error('SESSION_SECRET phải có ít nhất 32 ký tự khi dùng PostgreSQL.');
-    await mkdir('.data', { recursive: true });
+    await mkdir(dataDir(), { recursive: true });
     try {
-      return await readFile('.data/session-secret', 'utf8');
+      return await readFile(`${dataDir()}/session-secret`, 'utf8');
     } catch {
       const value = randomBytes(48).toString('hex');
       try {
-        await writeFile('.data/session-secret', value, { flag: 'wx', mode: 0o600 });
+        await writeFile(`${dataDir()}/session-secret`, value, { flag: 'wx', mode: 0o600 });
         return value;
       } catch {
-        return readFile('.data/session-secret', 'utf8');
+        return readFile(`${dataDir()}/session-secret`, 'utf8');
       }
     }
   })());
@@ -163,8 +164,13 @@ export function assertOrigin(request: Request) {
   const origin = request.headers.get('origin');
   const requestUrl = new URL(request.url);
   const host = request.headers.get('host');
-  const allowed =
-    process.env.APP_URL || (host ? `${requestUrl.protocol}//${host}` : requestUrl.origin);
+  // Behind a trusted tunnel/proxy (ngrok, Cloudflare) the app itself sees http while the browser used https.
+  const forwarded =
+    process.env.TRUST_PROXY_HEADERS === 'true'
+      ? request.headers.get('x-forwarded-proto')?.split(',')[0].trim()
+      : undefined;
+  const protocol = forwarded === 'https' || forwarded === 'http' ? `${forwarded}:` : requestUrl.protocol;
+  const allowed = process.env.APP_URL || (host ? `${protocol}//${host}` : requestUrl.origin);
   if (origin && origin !== allowed) throw new HttpError(403, 'Nguồn yêu cầu không hợp lệ.');
 }
 export function errorResponse(error: unknown) {

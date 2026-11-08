@@ -1,1 +1,1 @@
-export const APP_NAME = 'Lớp Học Đạo';
+export const APP_NAME = 'LỚP LẬP MỆNH';

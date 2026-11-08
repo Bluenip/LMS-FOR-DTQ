@@ -1,6 +1,6 @@
 import { emailSchema } from '../src/lib/server/accounts';
 import { isDemoAccount } from '../src/lib/server/auth';
-import { withDatabase } from '../src/lib/server/repository';
+import { recordAudit, withDatabase } from '../src/lib/server/repository';
 
 async function main() {
   const email = emailSchema.parse(process.argv[2]);
@@ -18,6 +18,7 @@ async function main() {
     });
     return { email, changed: true };
   }, true);
+  if (result.changed) await recordAudit('script', 'admin.grant', undefined, `email=${email}`);
   console.log(
     result.changed
       ? `Đã cấp quyền quản trị cho ${email}. Đăng nhập lại để mở /admin. Quyền giảng dạy được giữ nguyên.`

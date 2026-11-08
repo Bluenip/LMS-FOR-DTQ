@@ -44,7 +44,9 @@ import {
   StoredVideo,
   Tabs,
 } from './ui';
-import { dateTime, fold, initials, uploadFile, words, youtubeId } from '@/lib/client';
+import { dateTime, fold, initials, words, youtubeId } from '@/lib/client';
+import { uploadFile } from '@/lib/drive-upload';
+import { AttachmentViewer, DriveVideoPlayer } from './drive';
 import { acceptsWordCount, wordRequirement } from '@/lib/assignment-policy';
 import { classTeacherNames, managesClass } from '@/lib/class-teachers';
 import { useUnsavedWarning } from '@/lib/use-unsaved-warning';
@@ -838,6 +840,8 @@ export function LessonPage({ classId, lessonId }: { classId: string; lessonId: s
                   allow="accelerometer; encrypted-media; gyroscope; picture-in-picture; fullscreen"
                   allowFullScreen
                 />
+              ) : lesson.videoType === 'DRIVE' && lesson.driveFileId ? (
+                <DriveVideoPlayer fileId={lesson.driveFileId} title={lesson.title} />
               ) : lesson.videoType === 'UPLOAD' && lesson.videoFileId ? (
                 <StoredVideo src={`/api/files/${lesson.videoFileId}`} />
               ) : (
@@ -1041,6 +1045,7 @@ function FileAttachment({
         {file.name}
       </a>
       <small>{(file.size / 1024 / 1024).toFixed(1)} MB</small>
+      <AttachmentViewer file={file} />
       {onRemove ? (
         <IconButton label="Gỡ tệp" onClick={onRemove} disabled={disabled}>
           <Trash2 size={15} />
@@ -1177,7 +1182,8 @@ export function AssignmentPage({
             <div className="notice">
               <Info size={18} />
               <span>
-                Viết {wordRequirement(a)} hoặc đính kèm PDF, DOCX, JPG, PNG (tối đa 25 MB mỗi tệp).
+                Viết {wordRequirement(a)} hoặc đính kèm PDF, DOCX, PPTX, JPG, PNG (tối đa 25 MB)
+                hoặc video MP4, WebM, MOV (tối đa 2 GB).
               </span>
             </div>
           </section>
@@ -1296,7 +1302,7 @@ export function AssignmentPage({
                   <label className="upload-zone">
                     <UploadCloud size={27} />
                     <strong>{uploading ? 'Đang tải tệp…' : 'Đính kèm bài làm'}</strong>
-                    <span>PDF, DOCX, JPG, PNG; tối đa 25 MB</span>
+                    <span>PDF, DOCX, PPTX, JPG, PNG (25 MB) hoặc video MP4, WebM, MOV (2 GB)</span>
                     <input
                       type="file"
                       disabled={
@@ -1306,13 +1312,18 @@ export function AssignmentPage({
                         !state.storageConfigured ||
                         files.length >= 10
                       }
-                      accept=".pdf,.docx,.jpg,.jpeg,.png"
+                      accept=".pdf,.docx,.pptx,.jpg,.jpeg,.png,.mp4,.webm,.mov"
                       onChange={async (e) => {
                         const f = e.target.files?.[0];
                         if (!f) return;
                         setError('');
-                        if (f.size > 25 * 1024 * 1024) {
-                          setError('Tệp phải nhỏ hơn hoặc bằng 25 MB.');
+                        const isVideo = /\.(mp4|webm|mov)$/i.test(f.name);
+                        if (f.size > (isVideo ? 2 * 1024 ** 3 : 25 * 1024 * 1024)) {
+                          setError(
+                            isVideo
+                              ? 'Video phải nhỏ hơn hoặc bằng 2 GB.'
+                              : 'Tệp phải nhỏ hơn hoặc bằng 25 MB.',
+                          );
                           return;
                         }
                         setUploading(true);
@@ -1332,7 +1343,8 @@ export function AssignmentPage({
                   </label>
                   {!state.storageConfigured && (
                     <p className="small muted">
-                      Kho tệp chưa được cấu hình; bạn có thể viết bài trực tiếp.
+                      Google Drive chưa được kết nối nên chưa đính kèm được tệp; bạn có thể viết bài
+                      trực tiếp.
                     </p>
                   )}
                   <p className="small muted">{files.length}/10 tệp đính kèm</p>

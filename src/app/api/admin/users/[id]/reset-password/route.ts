@@ -6,5 +6,6 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     request,
     { write: true, targetId: id, credential: true },
     (db, actorId, input, credential) => resetManagedPassword(db, actorId, id, input, credential),
+    { action: 'user.reset_password', target: id },
   );
 }

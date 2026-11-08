@@ -17,7 +17,7 @@ import {
   sessionMatches,
   sessionUserId,
 } from './auth';
-import { findSessionUser, withAdminDatabase } from './repository';
+import { findSessionUser, recordAudit, withAdminDatabase } from './repository';
 import { consumeSharedRateLimit } from './rate-limit';
 
 const nameSchema = z.string().trim().min(2).max(100);
@@ -239,6 +239,11 @@ export async function adminRequest(
     input: Record<string, unknown>,
     credential?: TemporaryCredential,
   ) => unknown,
+  audit?: {
+    action: string;
+    target?: string;
+    detail?: (result: unknown, input: Record<string, unknown>) => string;
+  },
 ) {
   try {
     const { write } = options;
@@ -285,6 +290,8 @@ export async function adminRequest(
         return fn(db, actor.id, input, credential);
       },
     );
+    if (write && audit && id)
+      await recordAudit(id, audit.action, audit.target, audit.detail?.(result, input) ?? '');
     return Response.json(result, { headers: { 'Cache-Control': 'private, no-store' } });
   } catch (error) {
     const response = errorResponse(error);

@@ -1,4 +1,4 @@
-# LMS — Lớp Học Đạo
+# LMS — LỚP LẬP MỆNH
 
 Ứng dụng quản lý lớp học trực tuyến bằng tiếng Việt: giáo viên tổ chức bài giảng và bài tập, học viên học và nộp bài, quản trị viên cấp tài khoản. Frontend và API cùng chạy trong một ứng dụng Next.js; PostgreSQL lưu dữ liệu vận hành, kho S3 tương thích lưu tệp và video.
 
@@ -47,6 +47,10 @@ Khi `DATABASE_URL` trống, ứng dụng khởi tạo dữ liệu minh họa t�
 Chế độ JSON chỉ phù hợp một tiến trình Node.js để phát triển hoặc thử nghiệm. Tài khoản demo được phép đăng nhập mặc định trên localhost; khi dùng PostgreSQL hoặc tên miền public, chúng bị chặn trừ khi bật `ALLOW_DEMO_ACCOUNTS=true` cho môi trường kiểm thử riêng.
 
 Dữ liệu demo có lớp, bài tập và tiến độ mẫu; không kèm video bài giảng thật. Khi chưa có video hoặc tài liệu, giao diện hiển thị trạng thái tương ứng. Chưa cấu hình S3 thì không tải tệp lên được, nhưng vẫn có thể viết và nộp bài trực tiếp.
+
+## Video qua Google Drive
+
+Giáo viên có thể tải video lên Google Drive dùng chung (quản trị viên kết nối tại `/admin`) và phát trong bài giảng bằng Drive Preview; tải theo chunk, tự tiếp tục khi mất mạng. Cấu hình Google Cloud, API, giới hạn và checklist: [docs/GOOGLE_DRIVE.md](docs/GOOGLE_DRIVE.md). Bảo mật, hiệu năng, vận hành: [docs/BAO_MAT_VAN_HANH.md](docs/BAO_MAT_VAN_HANH.md). Nghiệp vụ đầy đủ: [docs/NGHIEP_VU.md](docs/NGHIEP_VU.md).
 
 ## Chức năng và đường dẫn
 

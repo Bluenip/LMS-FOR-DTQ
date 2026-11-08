@@ -6,6 +6,7 @@ import type {
   Attachment,
   Classroom,
   Database,
+  DriveUpload,
   Lesson,
   StoredFile,
   StoredUser,
@@ -92,6 +93,46 @@ export function accessLesson(db: Database, user: StoredUser, lessonId: string) {
   const c = accessClass(db, user, l.classId);
   if (!l.published && !managesClass(c, user)) throw new HttpError(403, 'Bài giảng chưa xuất bản.');
   return l;
+}
+/** Teacher-owned files (lesson videos/materials), as opposed to a learner's private submission files. */
+export function isClassMaterial(db: Database, job: DriveUpload) {
+  const owner = db.users.find((u) => u.id === job.ownerId);
+  const classroom = db.classes.find((c) => c.id === job.classId);
+  return !!owner && !!classroom && managesClass(classroom, owner);
+}
+/** Private Drive files (lesson materials, assignment attachments incl. videos): same rules as accessFile. */
+export function accessDriveDocument(db: Database, user: StoredUser, jobId: string): DriveUpload {
+  const job = needed(
+    db.driveUploads.find((u) => u.id === jobId && u.status === 'COMPLETED' && u.driveFileId),
+    'Không tìm thấy tệp.',
+  );
+  // Administrators can open any stored file, e.g. to moderate a submission.
+  if (user.isAdmin) return job;
+  const classroom = accessClass(db, user, job.classId);
+  if (job.ownerId === user.id) return job;
+  if (
+    db.lessons.some(
+      (lesson) =>
+        lesson.classId === classroom.id &&
+        (lesson.published || managesClass(classroom, user)) &&
+        lesson.documents.some((d) => d.id === job.id),
+    )
+  )
+    return job;
+  if (
+    managesClass(classroom, user) &&
+    db.submissions.some(
+      (submission) =>
+        submission.status !== 'DRAFT' &&
+        submission.attachments.some((attachment) => attachment.id === job.id) &&
+        db.assignments.some(
+          (assignment) =>
+            assignment.id === submission.assignmentId && assignment.classId === classroom.id,
+        ),
+    )
+  )
+    return job;
+  throw new HttpError(403, 'Bạn không có quyền đọc tệp này.');
 }
 export function accessFile(db: Database, user: StoredUser, fileId: string): StoredFile {
   const file = needed(
@@ -204,6 +245,23 @@ function attachments(
   existingFileIds: string[] = [],
 ) {
   return values.map((a) => {
+    // Files live in Google Drive; the attachment id is the DriveUpload id.
+    const drive = db.driveUploads.find((u) => u.id === a.id);
+    if (drive) {
+      if (
+        drive.status !== 'COMPLETED' ||
+        drive.classId !== classId ||
+        (drive.ownerId !== user.id && !existingFileIds.includes(drive.id))
+      )
+        throw new HttpError(404, 'Tệp chưa được tải lên hoặc bạn không có quyền sử dụng.');
+      return {
+        id: drive.id,
+        name: drive.name,
+        size: drive.size,
+        mimeType: drive.mimeType,
+        url: `/api/drive/files/${drive.id}/download`,
+      };
+    }
     const f = needed(
       db.files.find(
         (f) =>
@@ -230,7 +288,30 @@ function newCode(db: Database) {
   } while (db.classes.some((c) => c.code === code));
   return code;
 }
+/** Queue a Drive file for deletion; the network call cannot run inside a database transaction. */
+function trashDriveFile(db: Database, driveFileId: string | undefined) {
+  if (driveFileId && !db.driveTrash.some((t) => t.id === driveFileId))
+    db.driveTrash.push({ id: driveFileId, createdAt: time() });
+}
+export function driveJobUnused(db: Database, job: DriveUpload) {
+  return (
+    !db.lessons.some(
+      (l) =>
+        (!!job.driveFileId && l.driveFileId === job.driveFileId) ||
+        l.documents.some((d) => d.id === job.id),
+    ) && !db.submissions.some((s) => s.attachments.some((a) => a.id === job.id))
+  );
+}
+/** Drops the records of Drive files whose owner (lesson/assignment) was deleted and queues the files. */
+function discardDriveJobs(db: Database, ids: Set<string>) {
+  const gone = db.driveUploads.filter((u) => ids.has(u.id) && driveJobUnused(db, u));
+  gone.forEach((u) => trashDriveFile(db, u.driveFileId));
+  db.driveUploads = db.driveUploads.filter((u) => !gone.includes(u));
+}
 function deleteClassData(db: Database, classId: string) {
+  db.driveUploads
+    .filter((u) => u.classId === classId)
+    .forEach((u) => trashDriveFile(db, u.driveFileId));
   const lessonIds = new Set(db.lessons.filter((x) => x.classId === classId).map((x) => x.id));
   const assignmentIds = new Set(
     db.assignments.filter((x) => x.classId === classId).map((x) => x.id),
@@ -247,6 +328,7 @@ function deleteClassData(db: Database, classId: string) {
   db.notes = db.notes.filter((x) => !lessonIds.has(x.lessonId));
   db.discussions = db.discussions.filter((x) => !lessonIds.has(x.lessonId));
   db.files = db.files.filter((x) => x.classId !== classId);
+  db.driveUploads = db.driveUploads.filter((x) => x.classId !== classId);
 }
 function announceAssignment(db: Database, a: Assignment) {
   if (a.announcedAt || !assignmentPublished(db, a)) return;
@@ -383,10 +465,11 @@ export function stateFor(db: Database, user: StoredUser): AppState {
       .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
       .slice(0, 200),
     demo: !process.env.DATABASE_URL,
+    // Every upload goes to Google Drive, so uploads are available once an administrator connected it.
     storageConfigured: !!(
-      process.env.S3_BUCKET &&
-      process.env.S3_ACCESS_KEY_ID &&
-      process.env.S3_SECRET_ACCESS_KEY
+      process.env.GOOGLE_CLIENT_ID &&
+      process.env.GOOGLE_CLIENT_SECRET &&
+      db.driveConnections.some((c) => c.status === 'ACTIVE')
     ),
   };
 }
@@ -637,9 +720,13 @@ export function runAction(db: Database, user: StoredUser, input: Record<string, 
           chapter: z.string().max(200).default('Nội dung khóa học'),
           order: z.number().int().min(1).max(10000),
           description: text.default(''),
-          videoType: z.enum(['YOUTUBE', 'UPLOAD']).default('YOUTUBE'),
+          videoType: z.enum(['YOUTUBE', 'UPLOAD', 'DRIVE']).default('YOUTUBE'),
           videoUrl: z.string().max(2000).default(''),
           videoFileId: id.optional(),
+          driveFileId: z
+            .string()
+            .regex(/^[\w-]{10,120}$/)
+            .optional(),
           duration: z.string().max(30).default(''),
           published: z.boolean().default(false),
           expectedRevision: z.string().max(120).optional(),
@@ -671,7 +758,7 @@ export function runAction(db: Database, user: StoredUser, input: Record<string, 
           409,
           'Bài giảng đã được sửa ở phiên khác. Hãy sao chép thay đổi và mở lại.',
         );
-      let videoUrl = v.videoType === 'UPLOAD' ? '' : v.videoUrl;
+      let videoUrl = v.videoType === 'YOUTUBE' ? v.videoUrl : '';
       if (v.videoType === 'YOUTUBE' && videoUrl) {
         try {
           const u = new URL(videoUrl);
@@ -701,6 +788,22 @@ export function runAction(db: Database, user: StoredUser, input: Record<string, 
         );
         videoUrl = `/api/files/${f.id}`;
       }
+      let driveUpload: DriveUpload | undefined;
+      if (v.videoType === 'DRIVE' && v.driveFileId) {
+        driveUpload = needed(
+          db.driveUploads.find(
+            (u) =>
+              u.driveFileId === v.driveFileId &&
+              u.classId === c.id &&
+              u.kind === 'video' &&
+              u.status === 'COMPLETED' &&
+              // A learner's private submission video can never become the lesson video.
+              isClassMaterial(db, u),
+          ),
+          'Video Google Drive chưa được tải lên hoàn tất hoặc không thuộc lớp này.',
+        );
+        videoUrl = `https://drive.google.com/file/d/${driveUpload.driveFileId}/preview`;
+      }
       const docs = attachments(
         db,
         user,
@@ -718,6 +821,7 @@ export function runAction(db: Database, user: StoredUser, input: Record<string, 
         id: existing?.id || uid(),
         ...fields,
         videoFileId: v.videoType === 'UPLOAD' ? v.videoFileId : undefined,
+        driveFileId: driveUpload?.driveFileId,
         videoUrl,
         documents: docs,
         revision: uid(),
@@ -725,6 +829,9 @@ export function runAction(db: Database, user: StoredUser, input: Record<string, 
       };
       if (existing) Object.assign(existing, l);
       else db.lessons.push(l);
+      for (const u of db.driveUploads)
+        if (u.lessonId === l.id && u !== driveUpload) delete u.lessonId;
+      if (driveUpload) driveUpload.lessonId = l.id;
       if (l.published && !wasPublished)
         db.assignments.filter((a) => a.lessonId === l.id).forEach((a) => announceAssignment(db, a));
       return l;
@@ -740,6 +847,10 @@ export function runAction(db: Database, user: StoredUser, input: Record<string, 
         delete a.lessonId;
       }
       db.lessons = db.lessons.filter((x) => x.id !== l.id);
+      db.driveUploads.forEach((u) => {
+        if (u.lessonId === l.id) delete u.lessonId;
+      });
+      discardDriveJobs(db, new Set(l.documents.map((d) => d.id)));
       db.progress = db.progress.filter((x) => x.lessonId !== l.id);
       db.notes = db.notes.filter((x) => x.lessonId !== l.id);
       db.discussions = db.discussions.filter((x) => x.lessonId !== l.id);
@@ -884,9 +995,15 @@ export function runAction(db: Database, user: StoredUser, input: Record<string, 
       if (v.confirmTitle !== a.title)
         throw new HttpError(409, 'Tên bài tập không khớp. Kiểm tra lại trước khi xóa.');
       checkRevision(a.revision, input.expectedRevision, 'Bài tập');
+      const attached = new Set(
+        db.submissions
+          .filter((s) => s.assignmentId === a.id)
+          .flatMap((s) => s.attachments.map((f) => f.id)),
+      );
       db.submissions = db.submissions.filter((s) => s.assignmentId !== a.id);
       db.notifications = db.notifications.filter((n) => n.assignmentId !== a.id);
       db.assignments = db.assignments.filter((assignment) => assignment.id !== a.id);
+      discardDriveJobs(db, attached);
       return null;
     }
     case 'saveSubmission':
@@ -927,7 +1044,8 @@ export function runAction(db: Database, user: StoredUser, input: Record<string, 
         if (!v.content.trim() && !files.length && !v.link.trim())
           throw new HttpError(400, 'Vui lòng nhập bài làm, đính kèm tệp hoặc liên kết minh chứng.');
         const words = v.content.trim() ? v.content.trim().split(/\s+/u).length : 0;
-        if (!files.length && !acceptsWordCount(words, a))
+        // Evidence by file or link replaces the written answer, so the word range only applies to text.
+        if (!files.length && !v.link.trim() && !acceptsWordCount(words, a))
           throw new HttpError(
             400,
             `Bài viết cần ${wordRequirement(a)}, hoặc đính kèm tệp bài làm.`,

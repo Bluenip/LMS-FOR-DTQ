@@ -6,5 +6,10 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     request,
     { write: true, classId: id, exclusive: true },
     (db, actorId, input) => transferClassOwner(db, actorId, id, input),
+    {
+      action: 'class.transfer_owner',
+      target: id,
+      detail: (_result, input) => `newOwner=${String(input.teacherId ?? '')}`,
+    },
   );
 }

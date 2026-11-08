@@ -75,7 +75,7 @@ export async function PATCH(request: Request) {
             discussions: [],
             notifications: [],
             files: [],
-          } as Database;
+          } as unknown as Database;
           const user = requireUser(db, id, true);
           const result = updateProfile(db, user.id, input);
           await commitProfileUpdate(existing!, user, result.passwordChanged);
