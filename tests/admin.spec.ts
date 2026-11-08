@@ -61,7 +61,7 @@ async function createAccount(page: Page, role: Role, name: string, email: string
   await dialog.getByRole('combobox', { name: 'Vai trò', exact: true }).selectOption(role);
   await dialog.getByRole('textbox', { name: 'Họ và tên', exact: true }).fill(name);
   await dialog.getByRole('textbox', { name: 'Địa chỉ email', exact: true }).fill(email);
-  await expect(dialog).toContainText('mật khẩu tạm riêng');
+  await expect(dialog).toContainText('mật khẩu mặc định');
   await expect(dialog.locator('input[type="password"]')).toHaveCount(0);
   const responsePromise = mutationResponse(page, '/api/admin/users', 'POST');
   await dialog.getByRole('button', { name: 'Tạo tài khoản', exact: true }).click();
@@ -75,11 +75,11 @@ async function createAccount(page: Page, role: Role, name: string, email: string
   expect(user.emailVerified).toBe(true);
   expect(user.isAdmin).toBe(false);
   await expect(dialog).not.toBeVisible();
-  const passwordDialog = page
-    .getByRole('dialog')
-    .filter({ has: page.getByRole('heading', { name: 'Mật khẩu tạm', exact: true }) });
+  const passwordDialog = page.getByRole('dialog').filter({
+    has: page.getByRole('heading', { name: 'Mật khẩu đăng nhập lần đầu', exact: true }),
+  });
   await expect(passwordDialog).toContainText(temporaryPassword);
-  await passwordDialog.getByRole('button', { name: 'Đã lưu lại' }).click();
+  await passwordDialog.getByRole('button', { name: 'Đã hiểu' }).click();
   await findAccount(page, role, email);
   await expect(accountRow(page, email)).toContainText(name);
   return { ...user, temporaryPassword };
@@ -106,11 +106,11 @@ async function resetAccountPassword(page: Page, user: AdminUser) {
   const dialog = page.getByRole('dialog').filter({
     has: page.getByRole('heading', { name: 'Đặt lại mật khẩu', exact: true }),
   });
-  await expect(dialog).toContainText('mật khẩu tạm mới');
+  await expect(dialog).toContainText('mật khẩu mặc định');
   await expect(dialog.locator('input[type="password"]')).toHaveCount(0);
   await dialog
     .getByRole('checkbox', {
-      name: 'Tôi hiểu người dùng sẽ phải đăng nhập lại bằng mật khẩu tạm mới.',
+      name: 'Tôi hiểu người dùng sẽ phải đăng nhập lại bằng mật khẩu mặc định rồi đổi mật khẩu.',
       exact: true,
     })
     .check();
@@ -120,11 +120,11 @@ async function resetAccountPassword(page: Page, user: AdminUser) {
   expect(reply.ok()).toBeTruthy();
   const { temporaryPassword } = await reply.json();
   await expect(dialog).not.toBeVisible();
-  const passwordDialog = page
-    .getByRole('dialog')
-    .filter({ has: page.getByRole('heading', { name: 'Mật khẩu tạm', exact: true }) });
+  const passwordDialog = page.getByRole('dialog').filter({
+    has: page.getByRole('heading', { name: 'Mật khẩu đăng nhập lần đầu', exact: true }),
+  });
   await expect(passwordDialog).toContainText(temporaryPassword);
-  await passwordDialog.getByRole('button', { name: 'Đã lưu lại' }).click();
+  await passwordDialog.getByRole('button', { name: 'Đã hiểu' }).click();
   return temporaryPassword as string;
 }
 

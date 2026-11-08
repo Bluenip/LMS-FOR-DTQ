@@ -15,6 +15,7 @@ Người có quyền quản trị vào `/admin` qua liên kết **Quản trị**
 - **Kích hoạt**: duyệt một tài khoản cũ còn chờ kích hoạt.
 - **Đặt lại mật khẩu**: yêu cầu xác nhận, khôi phục mật khẩu mặc định và vô hiệu hóa mọi phiên cũ.
 - **Khóa/Mở khóa**: thay đổi quyền đăng nhập, giữ nguyên lớp, thành viên, bài làm và tiến độ.
+- **Xóa tài khoản** (`DELETE /api/admin/users/{id}`, body `{confirmEmail}`): xóa vĩnh viễn tài khoản cùng ghi danh, bài nộp, tiến độ, ghi chép, thảo luận, thông báo và tệp riêng; học liệu bài giảng còn dùng được chuyển cho chủ lớp. Từ chối tự xóa, tài khoản quản trị và chủ lớp. Ghi vào nhật ký quản trị (`user.delete`, kèm email).
 
 Quyền quản trị là một quyền riêng, không thay thế vai trò Giáo viên/Học viên. Không có nút hoặc API công khai để tự cấp quản trị. API quản trị từ chối người chưa đăng nhập, giáo viên bình thường và học viên; phản hồi không chứa mật khẩu băm, phiên bản phiên hay token.
 

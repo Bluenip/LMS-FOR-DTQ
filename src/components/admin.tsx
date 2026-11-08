@@ -9,6 +9,7 @@ import {
   Pencil,
   RefreshCw,
   ShieldCheck,
+  Trash2,
   UnlockKeyhole,
   UserRoundPlus,
 } from 'lucide-react';
@@ -99,7 +100,7 @@ function useAdminAccounts(enabled: boolean, userId: string) {
 
 type Editor =
   | { kind: 'create'; role: Role }
-  | { kind: 'edit' | 'password' | 'activate'; userId: string }
+  | { kind: 'edit' | 'password' | 'activate' | 'delete'; userId: string }
   | { kind: 'status'; userId: string; disabled: boolean }
   | null;
 function status(user: AdminUser) {
@@ -133,7 +134,11 @@ export function AdminAccounts() {
     if (key !== 'page') next.delete('page');
     router.replace(`${pathname}?${next}`, { scroll: false });
   }
-  async function mutate(path: string, method: 'POST' | 'PATCH', body: Record<string, unknown>) {
+  async function mutate(
+    path: string,
+    method: 'POST' | 'PATCH' | 'DELETE',
+    body: Record<string, unknown>,
+  ) {
     const reply = await api<{ message?: string; temporaryPassword?: string }>(path, {
       method,
       body: JSON.stringify(body),
@@ -182,9 +187,11 @@ export function AdminAccounts() {
           ? 'Đặt lại mật khẩu'
           : editor?.kind === 'activate'
             ? 'Kích hoạt tài khoản'
-            : editor?.kind === 'status' && !editor.disabled
-              ? 'Mở khóa tài khoản'
-              : 'Khóa tài khoản';
+            : editor?.kind === 'delete'
+              ? 'Xóa tài khoản'
+              : editor?.kind === 'status' && !editor.disabled
+                ? 'Mở khóa tài khoản'
+                : 'Khóa tài khoản';
   const close = () => setEditor(null);
 
   return (
@@ -376,6 +383,14 @@ export function AdminAccounts() {
                                 )}
                                 {user.disabled ? 'Mở khóa tài khoản' : 'Khóa tài khoản'}
                               </Button>
+                              <Button
+                                variant="ghost"
+                                className="admin-delete"
+                                onClick={() => setEditor({ kind: 'delete', userId: user.id })}
+                              >
+                                <Trash2 size={14} />
+                                Xóa tài khoản
+                              </Button>
                             </>
                           )}
                           {user.isAdmin && (
@@ -431,7 +446,8 @@ export function AdminAccounts() {
         <ShieldCheck size={18} />
         <p>
           Tài khoản giáo viên và học viên do quản trị viên cấp. Bạn chuyển thông tin đăng nhập riêng
-          cho từng người. Khóa tài khoản vẫn giữ nguyên dữ liệu học tập.
+          cho từng người. Khóa tài khoản vẫn giữ nguyên dữ liệu học tập; xóa tài khoản thì không
+          khôi phục được.
         </p>
       </div>
       {data && data.managedClasses.length > 0 && (
@@ -471,6 +487,15 @@ export function AdminAccounts() {
                 mutate(`/api/admin/users/${selected.id}/reset-password`, 'POST', values)
               }
             />
+          ) : editor?.kind === 'delete' ? (
+            <DeleteAccountForm
+              key={`delete-${selected.id}`}
+              user={selected}
+              onClose={close}
+              onSave={(confirmEmail) =>
+                mutate(`/api/admin/users/${selected.id}`, 'DELETE', { confirmEmail })
+              }
+            />
           ) : editor?.kind === 'activate' ? (
             <ActivationForm
               key={`activate-${selected.id}`}
@@ -504,12 +529,13 @@ export function AdminAccounts() {
       </Dialog>
       <Dialog
         open={!!temporaryPassword}
-        title="Mật khẩu tạm"
+        title="Mật khẩu đăng nhập lần đầu"
         onClose={() => setTemporaryPassword('')}
       >
         <div className="stack">
           <p>
-            Mật khẩu tạm chỉ được hiển thị lần này. Hãy sao chép và chuyển riêng cho người dùng.
+            Người dùng đăng nhập bằng mật khẩu mặc định dưới đây và phải đổi sang mật khẩu riêng
+            ngay sau khi đăng nhập.
           </p>
           <p className="notice">
             <strong>{temporaryPassword}</strong>
@@ -522,7 +548,7 @@ export function AdminAccounts() {
             >
               Sao chép
             </Button>
-            <Button onClick={() => setTemporaryPassword('')}>Đã lưu lại</Button>
+            <Button onClick={() => setTemporaryPassword('')}>Đã hiểu</Button>
           </div>
         </div>
       </Dialog>
@@ -670,7 +696,8 @@ function CreateAccountForm({
         />
       </Field>
       <p className="small muted">
-        Hệ thống tạo mật khẩu tạm riêng và yêu cầu người dùng đổi mật khẩu sau khi đăng nhập.
+        Tài khoản mới dùng mật khẩu mặc định và người dùng phải đổi mật khẩu sau khi đăng nhập lần
+        đầu.
       </p>
       <ErrorLine message={error} />
       <div className="dialog-footer">
@@ -777,7 +804,7 @@ function ResetAccountForm({
       }}
     >
       <p>
-        Tạo mật khẩu tạm mới cho <strong>{user.name}</strong> ({user.email})?
+        Đặt lại mật khẩu của <strong>{user.name}</strong> ({user.email}) về mật khẩu mặc định?
       </p>
       <p className="small muted">
         Các phiên đăng nhập hiện tại sẽ hết hiệu lực. Người dùng phải đổi mật khẩu sau khi đăng
@@ -790,7 +817,9 @@ function ResetAccountForm({
           checked={acknowledged}
           onChange={(event) => setAcknowledged(event.target.checked)}
         />
-        <span>Tôi hiểu người dùng sẽ phải đăng nhập lại bằng mật khẩu tạm mới.</span>
+        <span>
+          Tôi hiểu người dùng sẽ phải đăng nhập lại bằng mật khẩu mặc định rồi đổi mật khẩu.
+        </span>
       </label>
       <ErrorLine message={error} />
       <div className="dialog-footer">
@@ -853,6 +882,70 @@ function StatusForm({
         </Button>
       </div>
     </div>
+  );
+}
+
+function DeleteAccountForm({
+  user,
+  onClose,
+  onSave,
+}: {
+  user: AdminUser;
+  onClose: () => void;
+  onSave: (confirmEmail: string) => Promise<void>;
+}) {
+  const [confirmEmail, setConfirmEmail] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const matches = confirmEmail.trim().toLowerCase() === user.email.toLowerCase();
+  return (
+    <form
+      className="stack"
+      onSubmit={async (event) => {
+        event.preventDefault();
+        if (!matches) return;
+        setBusy(true);
+        setError('');
+        try {
+          await onSave(confirmEmail.trim());
+        } catch (cause) {
+          setError((cause as Error).message);
+        } finally {
+          setBusy(false);
+        }
+      }}
+    >
+      <p>
+        Xóa vĩnh viễn tài khoản <strong>{user.name}</strong> ({user.email})?
+      </p>
+      <p className="notice">
+        <span>
+          {user.role === 'STUDENT'
+            ? 'Bài nộp, điểm, tiến độ, ghi chép, thảo luận và tệp của học viên sẽ bị xóa và không khôi phục được.'
+            : 'Ghi chép, thảo luận và tệp riêng của giáo viên sẽ bị xóa; học liệu đang dùng trong bài giảng được chuyển cho chủ lớp. Giáo viên đang quản lý lớp phải chuyển quyền quản lý trước.'}{' '}
+          Nếu chỉ muốn chặn đăng nhập, hãy dùng <strong>Khóa tài khoản</strong>.
+        </span>
+      </p>
+      <Field label={`Nhập email ${user.email} để xác nhận`}>
+        <input
+          type="email"
+          autoComplete="off"
+          value={confirmEmail}
+          onChange={(event) => setConfirmEmail(event.target.value)}
+          disabled={busy}
+        />
+      </Field>
+      <ErrorLine message={error} />
+      <div className="dialog-footer">
+        <Button variant="ghost" onClick={onClose}>
+          Hủy
+        </Button>
+        <Button type="submit" variant="danger" disabled={busy || !matches || user.isAdmin}>
+          <Trash2 size={16} />
+          {busy ? 'Đang xóa…' : 'Xóa vĩnh viễn'}
+        </Button>
+      </div>
+    </form>
   );
 }
 

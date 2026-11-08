@@ -169,7 +169,8 @@ export function assertOrigin(request: Request) {
     process.env.TRUST_PROXY_HEADERS === 'true'
       ? request.headers.get('x-forwarded-proto')?.split(',')[0].trim()
       : undefined;
-  const protocol = forwarded === 'https' || forwarded === 'http' ? `${forwarded}:` : requestUrl.protocol;
+  const protocol =
+    forwarded === 'https' || forwarded === 'http' ? `${forwarded}:` : requestUrl.protocol;
   const allowed = process.env.APP_URL || (host ? `${protocol}//${host}` : requestUrl.origin);
   if (origin && origin !== allowed) throw new HttpError(403, 'Nguồn yêu cầu không hợp lệ.');
 }

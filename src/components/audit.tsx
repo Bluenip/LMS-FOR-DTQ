@@ -14,6 +14,7 @@ interface Entry {
 const LABELS: Record<string, string> = {
   'user.create': 'Tạo tài khoản',
   'user.update': 'Cập nhật tài khoản',
+  'user.delete': 'Xóa tài khoản',
   'user.reset_password': 'Đặt lại mật khẩu',
   'class.transfer_owner': 'Chuyển chủ lớp',
   'drive.connect': 'Kết nối Google Drive',

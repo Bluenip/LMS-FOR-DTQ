@@ -27,7 +27,11 @@ const assignmentSchema = z.object({
   lessonId: id.nullable().optional(),
   title,
   instructions: text,
-  dueAt: z.string().datetime(),
+  // Stored as TIMESTAMPTZ(3): normalise so the value reads back exactly as it was written.
+  dueAt: z
+    .string()
+    .datetime()
+    .transform((value) => new Date(value).toISOString()),
   allowLate: z.boolean().default(false),
   allowResubmit: z.boolean().default(true),
   maxAttempts: z.number().int().min(1).max(5).default(2),
@@ -803,6 +807,12 @@ export function runAction(db: Database, user: StoredUser, input: Record<string, 
           ),
           'Video Google Drive chưa được tải lên hoàn tất hoặc không thuộc lớp này.',
         );
+        // Drive Preview only plays for viewers outside the Drive account when the link is shared.
+        if (!driveUpload.shared)
+          throw new HttpError(
+            409,
+            'Video chưa bật chia sẻ bằng liên kết nên học viên sẽ không xem được. Hãy bật chia sẻ trong thư viện video.',
+          );
         videoUrl = `https://drive.google.com/file/d/${driveUpload.driveFileId}/preview`;
       }
       const docs = attachments(

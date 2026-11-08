@@ -398,20 +398,15 @@ export function ensureFolderByKey(key: string, name: string, parentId: string): 
   return task;
 }
 
-// --- Native viewer copies ---------------------------------------------------
-// Google renders its own formats with the real Slides/Docs players (animations, full screen,
-// slide navigation). A PPTX/DOCX is converted once into a Google copy that is cached by an app
-// property on the copy, shared like every other file, and removed with the original.
-const VIEWER_TYPES: Record<string, { mime: string; url: (id: string) => string }> = {
-  'application/vnd.openxmlformats-officedocument.presentationml.presentation': {
-    mime: 'application/vnd.google-apps.presentation',
-    url: (id) =>
-      `https://docs.google.com/presentation/d/${encodeURIComponent(id)}/embed?start=false&loop=false&delayms=3000&rm=minimal`,
-  },
-  'application/vnd.openxmlformats-officedocument.wordprocessingml.document': {
-    mime: 'application/vnd.google-apps.document',
-    url: (id) => `https://docs.google.com/document/d/${encodeURIComponent(id)}/preview`,
-  },
+// --- Viewer copies ------------------------------------------------------------
+// Office files are rendered in the page as PDF. Drive converts a private Google Slides/Docs copy
+// (cached once per file, never shared) and the app streams its PDF export after its own access
+// checks, so PPTX/DOCX stay private like every other non-video file.
+const VIEWER_TYPES: Record<string, string> = {
+  'application/vnd.openxmlformats-officedocument.presentationml.presentation':
+    'application/vnd.google-apps.presentation',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document':
+    'application/vnd.google-apps.document',
 };
 export const hasViewerCopy = (mimeType: string) => mimeType in VIEWER_TYPES;
 async function findViewerCopies(fileId: string) {
@@ -425,33 +420,39 @@ async function findViewerCopies(fileId: string) {
   ).files.map((f) => f.id);
 }
 const copying = new Map<string, Promise<string>>();
-/** Embeddable URL of the native Google copy of an Office file (created on first use). */
-export function viewerUrl(fileId: string, name: string, mimeType: string): Promise<string> {
-  const type = VIEWER_TYPES[mimeType];
-  if (!type) return Promise.reject(new Error('Định dạng không có bản xem gốc.'));
+async function viewerCopy(fileId: string, name: string, mimeType: string): Promise<string> {
+  const target = VIEWER_TYPES[mimeType];
+  if (!target) throw new HttpError(400, 'Định dạng không có bản xem trực tuyến.');
   const pending =
     copying.get(fileId) ??
     (async () => {
-      let copyId = (await findViewerCopies(fileId))[0];
-      if (!copyId) {
-        const copy = await json<{ id: string }>(
+      const existing = (await findViewerCopies(fileId))[0];
+      if (existing) return existing;
+      return (
+        await json<{ id: string }>(
           await driveCall(`${API}/files/${encodeURIComponent(fileId)}/copy?fields=id`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json; charset=UTF-8' },
             body: JSON.stringify({
               name: name.replace(/\.[^.]+$/, ''),
-              mimeType: type.mime,
+              mimeType: target,
               appProperties: { lmsViewerOf: fileId },
             }),
           }),
-        );
-        copyId = copy.id;
-      }
-      await ensurePublicReader(copyId);
-      return type.url(copyId);
+        )
+      ).id;
     })().finally(() => copying.delete(fileId));
   copying.set(fileId, pending);
   return pending;
+}
+/** PDF rendering of a PPTX/DOCX (Drive limits an export to 10 MB of output). */
+export async function viewerPdf(fileId: string, name: string, mimeType: string) {
+  const copyId = await viewerCopy(fileId, name, mimeType);
+  const res = await driveCall(
+    `${API}/files/${encodeURIComponent(copyId)}/export?mimeType=application%2Fpdf`,
+  );
+  if (!res.ok) throw await googleError(res);
+  return res;
 }
 const escapeQuery = (value: string) => value.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
 export async function listDriveFiles(folderId: string | undefined, search: string) {

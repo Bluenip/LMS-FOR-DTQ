@@ -31,7 +31,7 @@ export function proxy(request: NextRequest) {
     `img-src 'self' data: blob: https://*.googleusercontent.com https://drive.google.com https://i.ytimg.com${storageOrigin}${devStorage}`,
     `media-src 'self' blob:${storageOrigin}${devStorage}`,
     `connect-src 'self' https://www.googleapis.com${storageOrigin}${devStorage}`,
-    "frame-src 'self' https://drive.google.com https://docs.google.com https://www.youtube-nocookie.com https://www.youtube.com",
+    "frame-src 'self' https://drive.google.com https://www.youtube-nocookie.com https://www.youtube.com",
     "object-src 'none'",
     "base-uri 'self'",
     "frame-ancestors 'self'",

@@ -33,12 +33,24 @@ test('Drive maintenance: orphans are removed, reusable material is kept, learner
   });
   const deleted: string[] = [];
   const revoked: string[] = [];
+  const unshared: string[] = [];
   globalThis.fetch = (async (input: RequestInfo | URL, init: RequestInit = {}) => {
     const url = String(input);
     const method = (init.method || 'GET').toUpperCase();
     if (url.startsWith('https://oauth2.googleapis.com/revoke')) {
       revoked.push('x');
       return new Response('{}', { status: 200 });
+    }
+    // Learner files below were shared under the older policy: the clean-up withdraws the link.
+    if (url.includes('/permissions')) {
+      const fileId = decodeURIComponent(url.split('/files/')[1].split('/')[0]);
+      if (method === 'DELETE') {
+        unshared.push(fileId);
+        return new Response(null, { status: 204 });
+      }
+      return Response.json({
+        permissions: [{ id: 'anyoneWithLink', type: 'anyone', role: 'reader' }],
+      });
     }
     if (method === 'DELETE' && url.includes('/drive/v3/files/')) {
       const id = decodeURIComponent(url.split('/files/')[1].split('?')[0]);
@@ -144,6 +156,12 @@ test('Drive maintenance: orphans are removed, reusable material is kept, learner
   const result = await pruneDrive(24);
   assert.equal(result.failed, 0);
   assert.equal(result.skippedNoConnection, false);
+  // Every learner file still shared by link is made private; class material is left alone.
+  assert.equal(result.unshared, 3);
+  assert.deepEqual(
+    unshared.sort(),
+    [ctx.orphan, ctx.recent, ctx.attached].map((j) => j.driveFileId!).sort(),
+  );
   // Deleted: trash entries, the learner's never-attached file, the teacher's unattached document.
   for (const id of [
     'trash-1-0123456789',
@@ -158,8 +176,10 @@ test('Drive maintenance: orphans are removed, reusable material is kept, learner
   const state = await withDatabase((db) => ({
     jobs: db.driveUploads.map((u) => u.id),
     trash: db.driveTrash.length,
+    learnerShared: db.driveUploads.some((u) => u.ownerId === 'student-1' && u.shared),
   }));
   assert.equal(state.trash, 0);
+  assert.equal(state.learnerShared, false, 'no learner file is left shared');
   assert.ok(!state.jobs.includes(ctx.orphan.id));
   assert.ok(!state.jobs.includes(ctx.failed.id), 'old failed records are dropped');
   for (const kept of [ctx.recent, ctx.attached, ctx.libraryVideo])
@@ -167,7 +187,9 @@ test('Drive maintenance: orphans are removed, reusable material is kept, learner
 
   // Running it again finds nothing to do (idempotent).
   deleted.length = 0;
-  assert.equal((await pruneDrive(24)).removedRecords, 0);
+  const again = await pruneDrive(24);
+  assert.equal(again.removedRecords, 0);
+  assert.equal(again.unshared, 0);
   assert.equal(deleted.length, 0);
 
   // A teacher cannot rename, unshare or delete a learner's file; the owner and an admin can.
@@ -179,6 +201,8 @@ test('Drive maintenance: orphans are removed, reusable material is kept, learner
   await assert.rejects(updateFile('teacher-1', learnerFile.id, { title: 'đổi' }), { status: 403 });
   await assert.rejects(setSharing('teacher-1', learnerFile.id, { public: false }), { status: 403 });
   await assert.rejects(deleteFile('teacher-1', learnerFile.id), { status: 403 });
+  // A learner's work is never published, not even by its owner.
+  await assert.rejects(setSharing('student-1', learnerFile.id, { public: true }), { status: 403 });
   assert.equal(
     (
       (await updateFile('student-1', learnerFile.id, { title: 'của tôi' })) as {

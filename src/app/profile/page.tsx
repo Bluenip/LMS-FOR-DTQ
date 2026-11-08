@@ -28,7 +28,10 @@ export default function Profile() {
         description="Cập nhật họ tên và mật khẩu đăng nhập của bạn."
       />
       {user.mustChangePassword && (
-        <p className="notice">Vui lòng đổi mật khẩu tạm trước khi sử dụng hệ thống.</p>
+        <p className="notice">
+          Bạn đang dùng mật khẩu mặc định. Vui lòng đổi sang mật khẩu riêng trước khi sử dụng hệ
+          thống.
+        </p>
       )}
       <div className="two-col">
         <section className="panel stack">

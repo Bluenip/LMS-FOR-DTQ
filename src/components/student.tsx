@@ -1503,8 +1503,10 @@ export function AssignmentPage({
                           setError('Vui lòng nhập bài làm, đính kèm tệp hoặc liên kết minh chứng.');
                           return;
                         }
-                        if (!files.length && !acceptsWordCount(count, a)) {
-                          setError(`Bài viết cần ${wordRequirement(a)} hoặc có tệp đính kèm.`);
+                        if (!files.length && !link.trim() && !acceptsWordCount(count, a)) {
+                          setError(
+                            `Bài viết cần ${wordRequirement(a)}, hoặc có tệp đính kèm/liên kết minh chứng.`,
+                          );
                           return;
                         }
                         setConfirm(true);
