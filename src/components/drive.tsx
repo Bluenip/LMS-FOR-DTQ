@@ -738,6 +738,7 @@ const isDriveFile = (file: { url?: string }) => !!file.url?.startsWith('/api/dri
 function SlideViewer({ file }: { file: { id: string; name: string; mimeType: string } }) {
   const [open, setOpen] = useState(false);
   const [url, setUrl] = useState('');
+  const [native, setNative] = useState(false);
   const [error, setError] = useState('');
   const frame = useRef<HTMLDivElement>(null);
   const [full, setFull] = useState(false);
@@ -751,8 +752,10 @@ function SlideViewer({ file }: { file: { id: string; name: string; mimeType: str
     let live = true;
     setUrl('');
     setError('');
-    api<{ url: string }>(`/api/drive/files/${file.id}/slides`, { cache: 'no-store' })
-      .then((r) => live && setUrl(r.url))
+    api<{ url: string; native?: boolean }>(`/api/drive/files/${file.id}/slides`, {
+      cache: 'no-store',
+    })
+      .then((r) => live && (setNative(!!r.native), setUrl(r.url)))
       .catch((e) => live && setError((e as Error).message));
     return () => {
       live = false;
@@ -778,7 +781,7 @@ function SlideViewer({ file }: { file: { id: string; name: string; mimeType: str
             ) : (
               <>
                 <iframe
-                  className="attachment-pdf slide-frame"
+                  className={`attachment-pdf slide-frame ${native ? 'slide-wide' : ''}`}
                   src={url}
                   title={file.name}
                   allow="fullscreen"

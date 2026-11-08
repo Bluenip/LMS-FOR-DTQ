@@ -168,3 +168,7 @@ Video của bài giảng mới tạo được xếp vào thư mục bài giảng
 ## Xóa tệp: thùng rác của Google Drive
 
 Job dọn dẹp (`pruneDrive`, chạy mỗi giờ hoặc bấm tay trong trang Quản trị / `npm run drive:prune`) **chỉ chuyển tệp vào thùng rác của Google Drive**, không xóa vĩnh viễn: tệp của bài giảng, bài tập, lớp đã xóa, tệp mồ côi quá 24 giờ và bản sao dùng để xem PPTX/DOCX. Google tự xóa hẳn tệp trong thùng rác sau 30 ngày; trước đó có thể khôi phục trong Google Drive (mục Thùng rác). Lưu ý dung lượng Drive vẫn tính cho tệp trong thùng rác cho đến khi bị xóa hẳn. Nút "Xóa" thủ công trong thư viện video vẫn xóa vĩnh viễn.
+
+## Xem PPTX trực tuyến (trình chiếu)
+
+Nút **Trình chiếu** mở trình phát Google Slides thật (mỗi slide một màn hình, có hiệu ứng, nút toàn màn hình và mở tab mới). Để phát được, máy chủ tạo một **bản sao Google Slides** của tệp PPTX và chia sẻ **riêng bản sao đó** theo đường link (tệp PPTX gốc vẫn riêng tư, chỉ xem được qua ứng dụng). Bản sao nằm cùng thư mục Drive của ứng dụng và bị chuyển vào thùng rác cùng tệp gốc. Nếu việc tạo bản sao thất bại, ứng dụng quay về bản xem PDF riêng tư (`/api/drive/files/{id}/pdf`, không có hiệu ứng). DOCX luôn xem qua bản PDF riêng tư.
