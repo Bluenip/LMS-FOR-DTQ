@@ -1,8 +1,8 @@
-# Tài khoản — Lớp Học Đạo
+# Tài khoản — LỚP LẬP MỆNH
 
 ## Đăng nhập
 
-Giao diện giữ thiết kế Lớp Học Đạo, chỉ có email, mật khẩu và nút đăng nhập. Người dùng không tự đăng ký, không đặt lại mật khẩu bằng email. Các đường dẫn đăng ký/khôi phục cũ chuyển về `/login`; API công khai của những luồng này trả 403 và không thay đổi dữ liệu.
+Giao diện giữ thiết kế LỚP LẬP MỆNH, chỉ có email, mật khẩu và nút đăng nhập. Người dùng không tự đăng ký, không đặt lại mật khẩu bằng email. Các đường dẫn đăng ký/khôi phục cũ chuyển về `/login`; API công khai của những luồng này trả 403 và không thay đổi dữ liệu.
 
 Mật khẩu mặc định khi quản trị viên tạo hoặc reset tài khoản là **`123@123aA`**. Người dùng đổi mật khẩu trong **Thông tin cá nhân** sau khi đăng nhập. Mật khẩu cá nhân mới cần từ 8 đến 128 ký tự.
 

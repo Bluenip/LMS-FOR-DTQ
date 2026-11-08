@@ -164,8 +164,13 @@ export function assertOrigin(request: Request) {
   const origin = request.headers.get('origin');
   const requestUrl = new URL(request.url);
   const host = request.headers.get('host');
-  const allowed =
-    process.env.APP_URL || (host ? `${requestUrl.protocol}//${host}` : requestUrl.origin);
+  // Behind a trusted tunnel/proxy (ngrok, Cloudflare) the app itself sees http while the browser used https.
+  const forwarded =
+    process.env.TRUST_PROXY_HEADERS === 'true'
+      ? request.headers.get('x-forwarded-proto')?.split(',')[0].trim()
+      : undefined;
+  const protocol = forwarded === 'https' || forwarded === 'http' ? `${forwarded}:` : requestUrl.protocol;
+  const allowed = process.env.APP_URL || (host ? `${protocol}//${host}` : requestUrl.origin);
   if (origin && origin !== allowed) throw new HttpError(403, 'Nguồn yêu cầu không hợp lệ.');
 }
 export function errorResponse(error: unknown) {

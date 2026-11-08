@@ -17,6 +17,18 @@ const config: NextConfig = {
             : []),
         ],
       },
+      {
+        // Any origin may call the API. "*" never carries cookies, so signed-in calls from other
+        // sites still fail; state-changing routes also keep their same-origin check.
+        source: '/api/:path*',
+        headers: [
+          { key: 'Access-Control-Allow-Origin', value: '*' },
+          { key: 'Access-Control-Allow-Methods', value: 'GET, POST, PUT, PATCH, DELETE, OPTIONS' },
+          { key: 'Access-Control-Allow-Headers', value: 'Content-Type, If-None-Match, Range' },
+          { key: 'Access-Control-Expose-Headers', value: 'ETag, Content-Range, Accept-Ranges' },
+          { key: 'Access-Control-Max-Age', value: '86400' },
+        ],
+      },
       ...['/verify-email', '/reset-password'].map((source) => ({
         source,
         headers: [

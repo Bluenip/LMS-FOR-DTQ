@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Lớp Học Đạo">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="LỚP LẬP MỆNH">
   <rect width="64" height="64" rx="14" fill="#8e2e10"/>
   <path d="M32 18c-5-3-12-3.500-18-2v28c6-1.500 13-1 18 2 5-3 12-3.500 18-2V16c-6-1.500-13-1-18 2Z" fill="none" stroke="#fff" stroke-width="3" stroke-linejoin="round"/>
   <path d="M32 18v28" stroke="#fff" stroke-width="3"/>

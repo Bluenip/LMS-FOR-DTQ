@@ -1,4 +1,4 @@
-# LMS — Lớp Học Đạo
+# LMS — LỚP LẬP MỆNH
 
 Ứng dụng quản lý lớp học trực tuyến bằng tiếng Việt: giáo viên tổ chức bài giảng và bài tập, học viên học và nộp bài, quản trị viên cấp tài khoản. Frontend và API cùng chạy trong một ứng dụng Next.js; PostgreSQL lưu dữ liệu vận hành, kho S3 tương thích lưu tệp và video.
 

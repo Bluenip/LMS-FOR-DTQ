@@ -2126,3 +2126,56 @@ h3 {
   background:
     radial-gradient(600px 300px at 80% 0, rgb(142 46 16 / 5%), transparent 70%), var(--color-paper);
 }
+
+/* Public pages: home, privacy policy, terms */
+.site-page {
+  max-width: 860px;
+}
+.site-hero {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 16px;
+  padding-block: 24px 40px;
+}
+.site-hero h1 {
+  font-size: 48px;
+}
+.site-hero p {
+  max-width: 640px;
+  font-size: 17px;
+  color: var(--color-ink-2);
+}
+.site-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: var(--space-lg);
+}
+.site-doc {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  line-height: 1.8;
+}
+.site-doc h2 {
+  margin-top: 20px;
+  font-size: 22px;
+}
+.site-doc ul {
+  margin: 0;
+  padding-left: 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.site-doc code {
+  background: var(--color-paper-3);
+  padding: 1px 6px;
+  border-radius: 5px;
+  font-size: 13px;
+}
+@media (max-width: 720px) {
+  .site-hero h1 {
+    font-size: 34px;
+  }
+}
