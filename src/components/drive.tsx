@@ -142,14 +142,14 @@ export function GoogleDriveConnect() {
       )}
       {status?.connected && (
         <p className="small">
-          Tài khoản: <strong>{status.email}</strong>. Video bài giảng được lưu trong thư mục “LMS Đệ
-          Tử Quy”.
+          Tài khoản: <strong>{status.email}</strong>. Tệp tải lên được lưu trong thư mục “LMS Đệ Tử
+          Quy” trên Drive; thư mục được tạo ở lượt tải lên đầu tiên.
         </p>
       )}
       <p className="small muted">
         Ứng dụng chỉ xin quyền <code>drive.file</code>: chỉ thấy các tệp do chính hệ thống này tạo,
-        không đọc phần Drive còn lại. Video tải lên được đặt ở chế độ “bất kỳ ai có liên kết có thể
-        xem” để phát trong bài giảng.
+        không đọc phần Drive còn lại. Chỉ video bài giảng được đặt chế độ “bất kỳ ai có liên kết có
+        thể xem” để phát trong bài giảng; học liệu và bài làm của học viên luôn riêng tư.
       </p>
       <div className="row">
         {/* Full-page navigation: the OAuth redirect and state cookie need a real request. */}
