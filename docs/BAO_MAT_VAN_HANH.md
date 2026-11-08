@@ -51,7 +51,7 @@ Các nhóm test: `hardening` (lỗi nghiệp vụ, hàng đợi xóa, giới h�
 ## Còn lại / quyết định có chủ ý
 
 - Giới hạn tần suất cho xem/tải tệp (mức cao, để tua video) và thao tác admin vẫn trong bộ nhớ từng bản chạy.
-- Mọi tệp Drive công khai theo liên kết (chính sách đã chọn); không có hạn mức dung lượng tải lên.
+- Chỉ video bài giảng công khai theo liên kết (Drive Preview cần); học liệu và bài làm học viên riêng tư, mở qua app. Hạn mức dung lượng 10 GiB/tài khoản, 100 GiB/lớp (cấu hình được).
 - Thăm dò 3 giây vẫn là cơ chế đồng bộ (đã giảm tải bằng ETag); đẩy thời gian thực (SSE) là bước tiếp theo nếu cần.
 - Mỗi lần ghi vẫn xếp hàng qua một khóa toàn cục; việc nạp từng phần giảm thời gian giữ khóa nhưng chưa chia khóa theo lớp.
 

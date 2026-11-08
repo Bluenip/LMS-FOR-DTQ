@@ -11,13 +11,13 @@ async function main() {
   if (process.env.DATABASE_URL) {
     const prisma = new PrismaClient();
     try {
-      // All application timestamps are ISO 8601 UTC strings, so their lexical
-      // order matches chronological order. Invalidate affected state atomically.
-      const cutoffIso = new Date(cutoff).toISOString();
+      // createdAt is TIMESTAMPTZ: bind a Date so PostgreSQL compares timestamps, not text.
+      // Invalidate affected state atomically.
+      const cutoffDate = new Date(cutoff);
       if (apply) {
         const result = await prisma.$queryRaw<{ count: bigint }[]>`
           WITH deleted AS (
-            DELETE FROM "Notification" WHERE "read" = true AND "createdAt" < ${cutoffIso}
+            DELETE FROM "Notification" WHERE "read" = true AND "createdAt" < ${cutoffDate}
             RETURNING "userId"
           ), versions AS (
             INSERT INTO "ChangeVersion" ("scope", "version")
@@ -28,7 +28,7 @@ async function main() {
         count = Number(result[0].count);
       } else {
         count = await prisma.notification.count({
-          where: { read: true, createdAt: { lt: cutoffIso } },
+          where: { read: true, createdAt: { lt: cutoffDate } },
         });
       }
     } finally {

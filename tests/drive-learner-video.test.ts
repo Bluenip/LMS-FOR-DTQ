@@ -20,7 +20,7 @@ process.env.DRIVE_ENCRYPTION_KEY = 'test-drive-encryption-key-0123456789abcdef';
 process.env.APP_URL = 'http://localhost:3000';
 delete process.env.DATABASE_URL;
 
-test('learners may submit videos; they are public by policy but never become class material', async (t) => {
+test('learners may submit videos; they stay private and never become class material', async (t) => {
   const original = globalThis.fetch;
   const cwd = process.cwd();
   process.chdir(mkdtempSync(join(tmpdir(), 'drive-learner-video-')));
@@ -132,8 +132,8 @@ test('learners may submit videos; they are public by policy but never become cla
   const mineDone = (await completeUpload('student-1', mine.job.id, { driveFileId: lastId }))
     .job as DriveFile;
   assert.equal(mineDone.status, 'COMPLETED');
-  assert.equal(mineDone.shared, true, 'every upload is public by policy');
-  assert.equal(publicGrants, 1, 'the anyone/reader permission was created for the learner video');
+  assert.equal(mineDone.shared, false, 'a learner video is never shared by link');
+  assert.equal(publicGrants, 0, 'no anyone/reader permission for the learner video');
 
   // A teacher's lesson video is still shared for the preview player.
   const lessonVideo = await initUpload(
@@ -145,7 +145,7 @@ test('learners may submit videos; they are public by policy but never become cla
     await completeUpload('teacher-1', lessonVideo.job.id, { driveFileId: lastId })
   ).job as DriveFile;
   assert.equal(lessonDone.shared, true);
-  assert.equal(publicGrants, 2);
+  assert.equal(publicGrants, 1);
 
   // The teacher's library lists class material only, not the learner's submission video.
   const library = (await listFiles('teacher-1', new URLSearchParams({ classId, kind: 'video' })))

@@ -18,9 +18,9 @@ export default function Terms() {
         </p>
         <h2>2. Nội dung tải lên</h2>
         <p>
-          Bạn chỉ tải lên nội dung mình có quyền sử dụng và phù hợp với lớp học. Tệp tải lên được
-          chia sẻ theo liên kết để xem trong ứng dụng, nên không tải lên thông tin cá nhân nhạy cảm
-          hoặc bí mật. Chúng tôi có thể xóa nội dung vi phạm.
+          Bạn chỉ tải lên nội dung mình có quyền sử dụng và phù hợp với lớp học. Video bài giảng
+          được chia sẻ theo liên kết để phát trong ứng dụng, nên không đưa thông tin cá nhân nhạy
+          cảm hoặc bí mật vào video bài giảng. Chúng tôi có thể xóa nội dung vi phạm.
         </p>
         <h2>3. Hành vi bị cấm</h2>
         <ul>

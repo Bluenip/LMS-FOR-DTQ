@@ -157,7 +157,7 @@ Sinh tự động cho: bài tập mới, nhắc nộp bài, học viên nộp b�
 - **Kiểm tra sau khi tải:** server đối chiếu dung lượng/tên/mã job với Drive và kiểm **chữ ký nội dung** (4 KiB đầu) so với định dạng khai báo; sai thì xóa khỏi Drive và báo lỗi.
 - **Xem/tải trong app:** `/api/drive/files/{id}/view` (xem ngay video/PDF/ảnh, hỗ trợ tua) và `/download`. Quyền đọc trong app: chủ tệp; thành viên lớp với học liệu của bài đã xuất bản; giáo viên lớp với bài **đã nộp** (không đọc bản nháp); admin mọi tệp. DOCX/PPTX chỉ có nút tải.
 - **Quản lý:** thư viện video lớp (tìm, chọn, xem, đổi tên giữ đuôi tệp, bật/tắt chia sẻ, xóa). Không xóa được tệp đang dùng trong bài giảng hoặc bài nộp (409). **Giáo viên chỉ sửa/xóa/đổi chia sẻ được học liệu của lớp**, không đụng được tệp của học viên (chỉ chủ tệp hoặc admin).
-- **Dọn tệp mồ côi:** tệp của bài tập/bài giảng/lớp bị xóa được đưa vào hàng đợi xóa trên Drive; tệp học viên không đính kèm hoặc học liệu bị gỡ quá 24 giờ, và bản ghi tải lên lỗi/hủy/bỏ dở cũng bị xóa. Video thư viện của giáo viên được **giữ lại** (tái sử dụng). Chạy tự động mỗi giờ (`DRIVE_PRUNE_INTERVAL_MINUTES`), bằng nút "Dọn tệp mồ côi" ở `/admin`, hoặc `npm run drive:prune [số giờ]`. **Không có hạn mức dung lượng tải lên** (theo yêu cầu).
+- **Dọn tệp mồ côi:** tệp của bài tập/bài giảng/lớp bị xóa được đưa vào hàng đợi xóa trên Drive; tệp học viên không đính kèm hoặc học liệu bị gỡ quá 24 giờ, và bản ghi tải lên lỗi/hủy/bỏ dở cũng bị xóa. Video thư viện của giáo viên được **giữ lại** (tái sử dụng). Chạy tự động mỗi giờ (`DRIVE_PRUNE_INTERVAL_MINUTES`), bằng nút "Dọn tệp mồ côi" ở `/admin`, hoặc `npm run drive:prune [số giờ]`. **Hạn mức dung lượng:** 10 GiB/tài khoản và 100 GiB/lớp mặc định (`LMS_UPLOAD_USER_QUOTA_BYTES`, `LMS_UPLOAD_CLASS_QUOTA_BYTES`). Chỉ video bài giảng được chia sẻ bằng liên kết; học liệu và bài làm của học viên luôn riêng tư.
 - **Kiểm tra định dạng sâu:** DOCX/PPTX phải thật sự chứa `word/document.xml` / `ppt/presentation.xml` (đọc phần cuối tệp), nên file ZIP/Excel đổi đuôi bị từ chối.
 - **Ngắt kết nối** giữ lại bản ghi và thư mục Drive; kết nối lại cùng tài khoản dùng lại thư mục cũ (không tạo thư mục trùng). Video bài nộp của học viên không hiện trong thư viện của giáo viên và không thể chọn làm video bài giảng.
 - **Kết nối (admin):** OAuth 2.0 scope `drive.file`, refresh token mã hóa AES-256-GCM, tự làm mới access token; phát hiện bị thu hồi thì đánh dấu `REVOKED`. Không đổi sang tài khoản Google khác khi đang kết nối. Ngắt kết nối thu hồi token và hủy các lượt tải dở.
@@ -223,7 +223,7 @@ Sinh tự động cho: bài tập mới, nhắc nộp bài, học viên nộp b�
 ## 16. Giới hạn và những điều chưa có
 
 - **Không có** đăng ký tự phục vụ, quên mật khẩu qua email, gửi email thông báo; mọi thứ qua admin và thông báo trong app.
-- Tệp trên Drive **công khai theo liên kết** (xem mục 11); ai có link xem được, kể cả bài nộp của học viên.
+- Chỉ **video bài giảng** trên Drive công khai theo liên kết (xem mục 11); học liệu và bài nộp của học viên riêng tư, chỉ mở qua ứng dụng.
 - Video bài nộp chỉ **tải xuống/xem qua server** (tốn băng thông server); giáo viên chưa có công cụ nhận xét trực tiếp trên video.
 - DOCX/PPTX không xem trực tiếp trong app (chỉ tải); video bài giảng phụ thuộc Google xử lý (có thể vài phút sau khi tải) và cookie bên thứ ba.
 - Tệp trên Drive của lớp/bài đã xóa được dọn theo lịch (mục 11), không xóa ngay lập tức.

@@ -44,9 +44,10 @@ export default function Privacy() {
             (refresh token) đã được mã hóa AES-256-GCM trên máy chủ của chúng tôi.
           </li>
           <li>
-            Tệp tải lên được đặt ở chế độ &ldquo;bất kỳ ai có liên kết đều xem được&rdquo; để học
-            viên và giáo viên xem trực tiếp trong ứng dụng. Vì vậy, hãy chỉ tải lên nội dung bạn sẵn
-            sàng chia sẻ trong phạm vi lớp học.
+            Bài làm của học viên (tệp và video) và học liệu của giáo viên được giữ ở chế độ riêng tư
+            trên Google Drive; chỉ người có quyền trong lớp mở được thông qua ứng dụng. Riêng video
+            bài giảng do giáo viên tải lên được đặt chế độ &ldquo;bất kỳ ai có liên kết đều xem
+            được&rdquo; để trình phát của Google Drive hoạt động.
           </li>
           <li>
             Việc sử dụng và chuyển giao thông tin nhận từ Google APIs tuân thủ{' '}

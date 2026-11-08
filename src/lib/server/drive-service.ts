@@ -43,6 +43,7 @@ import { consumeSharedRateLimit, RateLimit } from './rate-limit';
 import { readJsonObject } from './request';
 import { recordAudit, withDatabase } from './repository';
 import { MAX_DOCUMENT, MAX_VIDEO } from './storage';
+import { assertUploadQuota } from './upload-policy';
 
 const FOLDER_NAME = 'LMS Đệ Tử Quy';
 const SESSION_LIFETIME_MS = 6 * 86400000; // Drive keeps resumable sessions for one week.
@@ -147,6 +148,27 @@ function mutableJob(db: Database, user: StoredUser, jobId: string) {
       'Chỉ chủ tệp hoặc quản trị viên được thay đổi tệp bài làm của học viên.',
     );
   return job;
+}
+/**
+ * Sharing policy: only a teacher's lesson video is shared as "anyone with the link", because the
+ * Drive Preview player needs it. Everything else (lesson materials, learners' files and videos)
+ * stays private in Drive and is only reachable through the app's /view and /download routes,
+ * which check class membership on every request.
+ */
+export function autoPublic(db: Database, job: DriveUpload) {
+  return job.kind === 'video' && isClassMaterial(db, job);
+}
+/** Reserved bytes: completed files and uploads still in progress (failed/cancelled ones are free). */
+function checkQuota(db: Database, userId: string, classId: string, size: number) {
+  const used = (keep: (u: DriveUpload) => boolean) =>
+    db.driveUploads
+      .filter((u) => u.status !== 'FAILED' && u.status !== 'CANCELLED' && keep(u))
+      .reduce((sum, u) => sum + u.size, 0);
+  assertUploadQuota(
+    used((u) => u.ownerId === userId),
+    used((u) => u.classId === classId),
+    size,
+  );
 }
 function requireAdminUser(db: Database, userId: string) {
   const user = readUser(db, userId);
@@ -374,6 +396,7 @@ export async function initUpload(userId: string, origin: string, raw: unknown) {
     );
     if (!duplicate && mine.length >= MAX_ACTIVE_JOBS)
       throw new HttpError(429, 'Bạn có quá nhiều lượt tải lên đang dở. Hãy hoàn tất hoặc hủy bớt.');
+    if (!duplicate) checkQuota(db, user.id, classroom.id, v.size);
     return { folderId: connection.folderId, duplicateId: duplicate?.id };
   });
   // The same file selected again resumes the existing session instead of creating a duplicate.
@@ -409,11 +432,18 @@ export async function initUpload(userId: string, origin: string, raw: unknown) {
     createdAt: time,
     updatedAt: time,
   };
-  await withDatabase((db) => {
-    const classroom = uploadClass(db, readUser(db, userId), v);
-    if (classroom.status === 'ARCHIVED') throw new HttpError(409, 'Lớp học đã lưu trữ.');
-    db.driveUploads.push(job);
-  }, true);
+  try {
+    await withDatabase((db) => {
+      const classroom = uploadClass(db, readUser(db, userId), v);
+      if (classroom.status === 'ARCHIVED') throw new HttpError(409, 'Lớp học đã lưu trữ.');
+      // Checked again in the write: two uploads started together must not both slip under the limit.
+      checkQuota(db, userId, classroom.id, v.size);
+      db.driveUploads.push(job);
+    }, true);
+  } catch (error) {
+    await cancelResumable(uri).catch(() => undefined);
+    throw error;
+  }
   return { job: driveFileDto(job), uploadUrl: uri, offset: 0, chunkSize: CHUNK_SIZE };
 }
 /** Returns the resume offset (or completes the job when Drive already holds every byte). */
@@ -486,7 +516,10 @@ export async function completeUpload(userId: string, jobId: string, input: unkno
 }
 /** Verifies the Drive file really belongs to the job, applies the sharing policy and persists it. */
 async function finalize(userId: string, jobId: string, file: DriveRemoteFile): Promise<DriveFile> {
-  const job = await withDatabase((db) => ({ ...jobFor(db, readUser(db, userId), jobId) }));
+  const { job, publish } = await withDatabase((db) => {
+    const found = jobFor(db, readUser(db, userId), jobId);
+    return { job: { ...found }, publish: autoPublic(db, found) };
+  });
   if (job.status === 'COMPLETED') return driveFileDto(job);
   if (file.appProperties?.lmsJobId !== job.id || Number(file.size) !== job.size || file.trashed)
     throw new HttpError(409, 'Tệp trên Google Drive không khớp với lượt tải lên này.');
@@ -504,10 +537,10 @@ async function finalize(userId: string, jobId: string, file: DriveRemoteFile): P
       'Nội dung tệp không đúng định dạng đã khai báo. Tệp đã bị xóa khỏi Drive.',
     );
   }
-  // Policy: every uploaded file is "anyone with the link can view" (docs/GOOGLE_DRIVE.md). If Google
-  // refuses (e.g. a Workspace that blocks external sharing) the upload stays unfinished and can be
-  // retried, instead of silently ending up private.
-  await ensurePublicReader(file.id);
+  // Policy (see autoPublic): only lesson videos are shared by link, for the Drive Preview player. If
+  // Google refuses (e.g. a Workspace that blocks external sharing) the upload stays unfinished and
+  // can be retried, instead of ending up with a video learners cannot play.
+  if (publish) await ensurePublicReader(file.id);
   return withDatabase((db) => {
     const current = jobFor(db, readUser(db, userId), jobId);
     if (current.status === 'COMPLETED') return driveFileDto(current);
@@ -518,7 +551,7 @@ async function finalize(userId: string, jobId: string, file: DriveRemoteFile): P
       driveFileId: file.id,
       ...(file.webViewLink ? { webViewLink: file.webViewLink } : {}),
       bytesUploaded: current.size,
-      shared: true,
+      shared: publish,
       updatedAt: now(),
     });
     delete current.encryptedSessionUri;
@@ -652,7 +685,11 @@ export async function deleteFile(userId: string, jobId: string) {
 export async function setSharing(userId: string, jobId: string, input: unknown) {
   const { public: makePublic } = z.object({ public: z.boolean() }).strict().parse(input);
   const job = await withDatabase((db) => {
-    return { ...mutableJob(db, readUser(db, userId), jobId) };
+    const found = mutableJob(db, readUser(db, userId), jobId);
+    // A learner's work (files and videos) is never published, not even by its owner.
+    if (makePublic && !isClassMaterial(db, found))
+      throw new HttpError(403, 'Tệp bài làm của học viên luôn ở chế độ riêng tư.');
+    return { ...found };
   });
   if (job.status !== 'COMPLETED' || !job.driveFileId)
     throw new HttpError(409, 'Tệp chưa tải lên xong.');
@@ -778,12 +815,15 @@ export interface PruneResult {
   removedRecords: number;
   failed: number;
   skippedNoConnection: boolean;
+  /** Learner files that were still shared by link (older policy) and are now private. */
+  unshared: number;
 }
 /**
  * Deletes from Google Drive (and from the database):
  *  - files queued in DriveTrash (deleted lessons, assignments, classes);
  *  - learner files and lesson materials that never got attached, or were detached, after `graceHours`;
  *  - failed, cancelled and abandoned upload records.
+ * It also withdraws the public link from any learner file still shared under the older policy.
  * A teacher's library videos are kept on purpose: they are reusable material, not orphans.
  * Idempotent and safe to run from several instances.
  */
@@ -806,6 +846,9 @@ export async function pruneDrive(graceHours = 24, at = Date.now()): Promise<Prun
     });
     return {
       connected,
+      exposed: db.driveUploads
+        .filter((u) => u.shared && u.driveFileId && !isClassMaterial(db, u))
+        .map((u) => ({ id: u.id, driveFileId: u.driveFileId! })),
       trash: db.driveTrash.map((t) => t.id),
       stale: stale.map((u) => ({ id: u.id, driveFileId: u.driveFileId })),
     };
@@ -815,7 +858,27 @@ export async function pruneDrive(graceHours = 24, at = Date.now()): Promise<Prun
     removedRecords: 0,
     failed: 0,
     skippedNoConnection: false,
+    unshared: 0,
   };
+  if (plan.connected) {
+    const privatised = new Set<string>();
+    for (const job of plan.exposed)
+      try {
+        await revokePublicReader(job.driveFileId);
+        privatised.add(job.id);
+      } catch (error) {
+        result.failed++;
+        console.error(
+          'Drive prune could not make a learner file private',
+          error instanceof Error ? error.message : '',
+        );
+      }
+    if (privatised.size)
+      await withDatabase((db) => {
+        for (const u of db.driveUploads) if (privatised.has(u.id)) u.shared = false;
+      }, true);
+    result.unshared = privatised.size;
+  } else if (plan.exposed.length) result.skippedNoConnection = true;
   const goneTrash = new Set<string>();
   const goneJobs = new Set<string>();
   const drop = async (driveFileId: string | undefined) => {

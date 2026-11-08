@@ -20,7 +20,7 @@ process.env.DRIVE_ENCRYPTION_KEY = 'test-drive-encryption-key-0123456789abcdef';
 process.env.APP_URL = 'http://localhost:3000';
 delete process.env.DATABASE_URL;
 
-test('every upload goes to Drive and is public by policy; in-app access stays class-scoped', async (t) => {
+test('every upload goes to Drive; learner files stay private and in-app access is class-scoped', async (t) => {
   const original = globalThis.fetch;
   const cwd = process.cwd();
   process.chdir(mkdtempSync(join(tmpdir(), 'drive-upload-test-')));
@@ -143,8 +143,8 @@ test('every upload goes to Drive and is public by policy; in-app access stays cl
   const done = (await completeUpload('student-1', started.job.id, { driveFileId: sessionFor }))
     .job as DriveFile;
   assert.equal(done.status, 'COMPLETED');
-  assert.equal(done.shared, true, 'every upload is public by policy');
-  assert.ok(permissionCalls > 0, 'the anyone/reader permission was requested');
+  assert.equal(done.shared, false, 'a learner file is never shared by link');
+  assert.equal(permissionCalls, 0, 'no permission was requested at Google');
   assert.equal(done.previewUrl !== undefined, true);
 
   // Attach to an assignment draft, then submit.
