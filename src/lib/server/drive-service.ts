@@ -38,6 +38,7 @@ import {
   revokeToken,
   startResumable,
   hasViewerCopy,
+  viewerSlidesUrl,
   viewerPdf,
   ensureFolderByKey,
   placeDriveFile,
@@ -896,7 +897,10 @@ export async function slideUrl(userId: string, jobId: string) {
     false,
   );
   if (!hasViewerCopy(job.mimeType)) throw new HttpError(400, 'Tệp này không xem trực tuyến được.');
-  return { url: `/api/drive/files/${job.id}/pdf`, name: job.name };
+  // A PPTX plays in the real Google Slides player; anything else (or a failed conversion) falls
+  // back to the app's own PDF rendering, which stays private.
+  const native = await viewerSlidesUrl(job.driveFileId!, job.name, job.mimeType).catch(() => null);
+  return { url: native ?? `/api/drive/files/${job.id}/pdf`, name: job.name, native: !!native };
 }
 export async function servePdf(userId: string, jobId: string) {
   viewLimit.consume(userId);

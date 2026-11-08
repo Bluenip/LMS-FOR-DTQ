@@ -462,6 +462,18 @@ async function viewerCopy(fileId: string, name: string, mimeType: string): Promi
   copying.set(fileId, pending);
   return pending;
 }
+/**
+ * The real Google Slides player for a PPTX: one slide per screen, animations, full screen. It needs
+ * the Slides copy to be shared by link, so only that copy is (the uploaded file stays private); a
+ * file id nobody knows is not discoverable, and the copy is trashed together with the original.
+ */
+export async function viewerSlidesUrl(fileId: string, name: string, mimeType: string) {
+  if (!/presentationml\.presentation$/.test(mimeType))
+    throw new HttpError(400, 'Chỉ bản trình chiếu PPTX mới có trình phát Slides.');
+  const copyId = await viewerCopy(fileId, name, mimeType);
+  await ensurePublicReader(copyId);
+  return `https://docs.google.com/presentation/d/${encodeURIComponent(copyId)}/embed?start=false&loop=false&delayms=3000&rm=minimal`;
+}
 /** PDF rendering of a PPTX/DOCX (Drive limits an export to 10 MB of output). */
 export async function viewerPdf(fileId: string, name: string, mimeType: string) {
   const copyId = await viewerCopy(fileId, name, mimeType);
