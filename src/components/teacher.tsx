@@ -13,7 +13,6 @@ import {
   Copy,
   Download,
   Edit3,
-  Eye,
   FileText,
   FolderOpen,
   Plus,
@@ -43,6 +42,7 @@ import { api, fold } from '@/lib/client';
 import { uploadFile } from '@/lib/drive-upload';
 import { AttachmentViewer, CourseLessonVideo, DriveVideoPlayer, VideoUploader } from './drive';
 import { bindUploads, uploadActive, useUploads } from '@/lib/upload-manager';
+import { SubmissionDetail } from './submission-detail';
 import { useUnsavedWarning } from '@/lib/use-unsaved-warning';
 import { readSessionDraft, removeSessionDraft, writeSessionDraft } from '@/lib/session-draft';
 import { wordRequirement } from '@/lib/assignment-policy';
@@ -560,6 +560,12 @@ export function TeacherClasses() {
                           <span className="avatar">{initials(u?.name || '?')}</span>
                           <span>
                             {u?.name}
+                            {e.leader && (
+                              <>
+                                {' '}
+                                <Badge tone="success">Trưởng nhóm {e.group}</Badge>
+                              </>
+                            )}
                             <small className="muted">{u?.email}</small>
                           </span>
                         </div>
@@ -601,6 +607,15 @@ export function TeacherClasses() {
                                 </option>
                               ))}
                             </select>
+                            <Button
+                              variant={e.leader ? 'secondary' : 'ghost'}
+                              disabled={busy || members?.status === 'ARCHIVED'}
+                              onClick={() =>
+                                run('setGroupLeader', { enrollmentId: e.id, leader: !e.leader })
+                              }
+                            >
+                              {e.leader ? 'Bỏ trưởng nhóm' : 'Đặt làm trưởng nhóm'}
+                            </Button>
                             <Button
                               variant="ghost"
                               disabled={busy || members?.status === 'ARCHIVED'}
@@ -905,91 +920,6 @@ function ClassForm({
         />
       </fieldset>
     </form>
-  );
-}
-
-/** Read-only view of one submission: text, link, files (with in-page viewer) and the grade. */
-function SubmissionDetail({
-  submission,
-  studentName,
-  dueAt,
-}: {
-  submission: Submission;
-  studentName: string;
-  dueAt: string;
-}) {
-  const [open, setOpen] = useState(false);
-  const late = !!submission.submittedAt && new Date(submission.submittedAt) > new Date(dueAt);
-  return (
-    <>
-      <Button variant="ghost" onClick={() => setOpen(true)}>
-        <Eye size={15} /> Chi tiết
-      </Button>
-      <Dialog open={open} title={`Bài nộp của ${studentName}`} onClose={() => setOpen(false)} wide>
-        {open && (
-          <div className="stack">
-            <div className="inline-actions">
-              <Badge
-                tone={
-                  submission.status === 'GRADED'
-                    ? 'success'
-                    : submission.status === 'SUBMITTED'
-                      ? 'warning'
-                      : 'neutral'
-                }
-              >
-                {submissionStatus(submission)}
-              </Badge>
-              <span className="small muted">
-                Lần nộp {submission.attempt} · {date(submission.submittedAt)} (GMT+7){' '}
-                {submission.submittedAt && (late ? '· Nộp muộn' : '· Đúng hạn')}
-              </span>
-            </div>
-            <section className="stack">
-              <h3>Nội dung bài viết</h3>
-              {submission.content.trim() ? (
-                <p className="reading-copy" style={{ whiteSpace: 'pre-wrap' }}>
-                  {submission.content}
-                </p>
-              ) : (
-                <p className="muted small">Học viên không viết nội dung trực tiếp.</p>
-              )}
-            </section>
-            {submission.link && (
-              <section className="stack">
-                <h3>Liên kết minh chứng</h3>
-                <a className="text-link" href={submission.link} target="_blank" rel="noreferrer">
-                  {submission.link}
-                </a>
-              </section>
-            )}
-            <section className="stack">
-              <h3>Tệp đính kèm ({submission.attachments.length})</h3>
-              {submission.attachments.length === 0 && <p className="muted small">Không có tệp.</p>}
-              {submission.attachments.map((a) => (
-                <div className="attachment" key={a.id}>
-                  <FileText size={17} />
-                  <a href={a.url || `/api/files/${a.id}`} target="_blank" rel="noreferrer">
-                    {a.name}
-                  </a>
-                  <small>{(a.size / 1024 / 1024).toFixed(1)} MB</small>
-                  <AttachmentViewer file={a} />
-                </div>
-              ))}
-            </section>
-            {submission.status === 'GRADED' && (
-              <section className="stack">
-                <h3>Kết quả</h3>
-                <p>
-                  <strong>{submission.score}</strong> điểm
-                  {submission.feedback ? ` — ${submission.feedback}` : ''}
-                </p>
-              </section>
-            )}
-          </div>
-        )}
-      </Dialog>
-    </>
   );
 }
 
@@ -1712,6 +1642,15 @@ function LessonEditor({
               </Button>
               {lesson && (
                 <Link
+                  className="button secondary"
+                  href={`/teacher/assignments?class=${classId}&new=1&lesson=${lesson.id}`}
+                >
+                  <ClipboardCheck size={16} />
+                  Thêm bài tập
+                </Link>
+              )}
+              {lesson && (
+                <Link
                   className="button ghost"
                   href={`/classes/${classId}/lessons/${lesson.id}?tab=discussion`}
                 >
@@ -1893,7 +1832,21 @@ export function TeacherAssignments() {
       ? { ...openedSubmission, status: 'DRAFT' as const }
       : undefined);
   const [gradingDirty, setGradingDirty] = useState(false);
-  const [editor, setEditor] = useState<{ classId: string; assignment?: Assignment } | null>(null);
+  const [editor, setEditor] = useState<{
+    classId: string;
+    assignment?: Assignment;
+    lessonId?: string;
+  } | null>(null);
+  // Arriving from a lesson ("Thêm bài tập"): open the new-assignment form with that lesson chosen.
+  const wantsNew = params.get('new') === '1' ? params.get('lesson') || '' : null;
+  useEffect(() => {
+    if (wantsNew === null || !classId) return;
+    setEditor({ classId, lessonId: wantsNew || undefined });
+    const next = new URLSearchParams(window.location.search);
+    next.delete('new');
+    next.delete('lesson');
+    window.history.replaceState(null, '', `/teacher/assignments?${next.toString()}`);
+  }, [wantsNew, classId]);
   const [editorDirty, setEditorDirty] = useState(false);
   const [editorSaving, setEditorSaving] = useState(false);
   const [deleting, setDeleting] = useState<Assignment | null>(null);
@@ -2498,6 +2451,7 @@ export function TeacherAssignments() {
             key={editor.assignment?.id || `new-${editor.classId}`}
             classId={editor.classId}
             assignment={editor.assignment}
+            initialLessonId={editor.lessonId}
             lessons={state.lessons.filter((l) => l.classId === editor.classId)}
             onDirty={() => setEditorDirty(true)}
             onClose={closeAssignmentEdit}
@@ -2812,6 +2766,7 @@ function AssignmentForm({
   classId,
   lessons,
   assignment,
+  initialLessonId,
   onDirty,
   onClose,
   onSave,
@@ -2819,6 +2774,7 @@ function AssignmentForm({
   classId: string;
   lessons: Lesson[];
   assignment?: Assignment;
+  initialLessonId?: string;
   onDirty: () => void;
   onClose: () => void;
   onSave: (data: Record<string, unknown>) => Promise<void>;
@@ -2827,7 +2783,9 @@ function AssignmentForm({
     ? new Date(Date.parse(assignment.dueAt) + 7 * 60 * 60 * 1000).toISOString()
     : '';
   const [title, setTitle] = useState(assignment?.title || '');
-  const [lessonId, setLessonId] = useState(assignment?.lessonId || '');
+  const [lessonId, setLessonId] = useState(
+    assignment?.lessonId || (lessons.some((l) => l.id === initialLessonId) ? initialLessonId! : ''),
+  );
   const [published, setPublished] = useState(assignment?.published !== false);
   const initiallyVisible =
     !!assignment &&

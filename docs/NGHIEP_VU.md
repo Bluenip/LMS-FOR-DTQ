@@ -231,3 +231,35 @@ Sinh tự động cho: bài tập mới, nhắc nộp bài, học viên nộp b�
 - Trạng thái được tải theo phạm vi lớp của người dùng và đồng bộ bằng thăm dò 3 giây (có ETag/304); chưa có đẩy thời gian thực (SSE) hay phân trang phía server.
 - Một tài khoản Google Drive dùng chung cho cả hệ thống; dung lượng và hạn mức API là của tài khoản đó.
 - Điểm chỉ theo rubric cố định 40/40/20; chưa có nhiều thang điểm, nhóm bài tập, hay chấm theo nhóm học viên.
+
+## Trưởng nhóm
+
+Mỗi học viên trong lớp thuộc một nhóm (1–4). Giáo viên của lớp có thể đặt **một Trưởng nhóm cho mỗi nhóm** (trang Thành viên của lớp → "Đặt làm trưởng nhóm"; chỉ có hiệu lực trong lớp đó). Trưởng nhóm vẫn là học viên và vẫn nộp bài như bình thường, thêm quyền:
+
+- Thấy email và bài **đã nộp** của các thành viên cùng nhóm (nội dung, liên kết, tệp; xem trực tuyến cả PPTX), ở mục "Nhóm của bạn" trong trang Thành viên.
+- Không thấy điểm hay nhận xét của bạn, không thấy bản nháp, không thấy nhóm khác.
+- Không chấm bài, không tạo/sửa/xóa bài tập, bài giảng hay lớp.
+
+Đổi nhóm của một học viên hoặc cho học viên rời lớp sẽ tự gỡ quyền Trưởng nhóm của họ.
+
+## Thực hành theo bài giảng (bảng phân lịch học tập và thực hành)
+
+Mỗi bài giảng có tab **Thực hành**, gồm 13 mục tick theo bảng phân lịch của lớp: 4 mục *Nhiệm vụ học tập*, 3 mục *Thực hành đạo lý hằng ngày*, 2 mục *Thực hành đạo lý hằng tuần* và 4 mục *Tinh thần thực hành*. Điểm thực hành của một bài là số mục được tick trên 13.
+
+| Người dùng | Thấy | Được tick |
+|---|---|---|
+| Trưởng nhóm | Thành viên trong nhóm mình: đã học bài chưa, tiến độ thực hành | Có, cho các thành viên cùng nhóm (không tự chấm mình) |
+| Học viên | Chỉ phiếu của chính mình (chỉ xem) | Không |
+| Giáo viên của lớp, quản trị viên | Toàn lớp | Chỉ khi nhóm chưa có trưởng nhóm, hoặc cho chính trưởng nhóm (không ai khác chấm được) |
+
+Phiếu được lưu theo từng cặp (bài giảng, học viên) kèm nhận xét và người chấm gần nhất; bị xóa theo bài giảng, lớp hoặc tài khoản.
+
+## Bảng xếp hạng thực hành
+
+Chỉ **giáo viên của lớp** và **quản trị viên** xem được; học viên và trưởng nhóm không thấy (máy chủ trả 403 cho `GET /api/ranking`).
+
+- **Xếp hạng tổng của lớp:** tổng số mục thực hành được tick trên mọi bài giảng đã xuất bản (13 mục mỗi bài) và phần trăm.
+- **Xếp hạng từng bài giảng:** điểm thực hành của bài đó (tối đa 13).
+- Cùng điểm thì cùng hạng (1, 2, 2, 4); nếu bằng điểm thực hành thì người đã học nhiều bài hơn xếp trước.
+- Vị trí: tab **Xếp hạng** của lớp (giáo viên), cuối tab **Thực hành** của mỗi bài giảng (giáo viên), và mục **Bảng xếp hạng thực hành** trong trang Quản trị (chọn bất kỳ lớp nào).
+- Chấm cho từng thành viên: ở tab **Thực hành** của bài, hoặc trong hộp thoại **Chi tiết** của thành viên (trang Thành viên) → "Thực hành theo bài giảng" → **Chấm thực hành**.

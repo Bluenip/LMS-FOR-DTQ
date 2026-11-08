@@ -1,3 +1,4 @@
+import { PRACTICE_ITEM_IDS } from '@/lib/practice';
 import { randomBytes, randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import type {
@@ -136,6 +137,21 @@ export function accessDriveDocument(db: Database, user: StoredUser, jobId: strin
     )
   )
     return job;
+  const mates = ledGroupMembers(db, user, classroom.id);
+  if (
+    mates.size &&
+    db.submissions.some(
+      (submission) =>
+        submission.status !== 'DRAFT' &&
+        mates.has(submission.studentId) &&
+        submission.attachments.some((attachment) => attachment.id === job.id) &&
+        db.assignments.some(
+          (assignment) =>
+            assignment.id === submission.assignmentId && assignment.classId === classroom.id,
+        ),
+    )
+  )
+    return job;
   throw new HttpError(403, 'Bạn không có quyền đọc tệp này.');
 }
 export function accessFile(db: Database, user: StoredUser, fileId: string): StoredFile {
@@ -178,7 +194,55 @@ export function accessFile(db: Database, user: StoredUser, fileId: string): Stor
     )
   )
     return file;
+  const mates = ledGroupMembers(db, user, classroom.id);
+  if (
+    mates.size &&
+    db.submissions.some(
+      (submission) =>
+        submission.status !== 'DRAFT' &&
+        mates.has(submission.studentId) &&
+        submission.attachments.some((attachment) => attachment.id === file.id) &&
+        db.assignments.some(
+          (assignment) =>
+            assignment.id === submission.assignmentId && assignment.classId === classroom.id,
+        ),
+    )
+  )
+    return file;
   throw new HttpError(403, 'Bạn không có quyền đọc tệp này.');
+}
+/**
+ * Learners in the same group as `user` when `user` is the approved leader of that group in the
+ * class (never includes the leader). Leaders see their group's submitted work, nothing more.
+ */
+export function ledGroupMembers(db: Database, user: Pick<StoredUser, 'id'>, classId: string) {
+  const own = db.enrollments.find(
+    (e) => e.classId === classId && e.userId === user.id && e.status === 'APPROVED' && e.leader,
+  );
+  if (!own) return new Set<string>();
+  return new Set(
+    db.enrollments
+      .filter(
+        (e) =>
+          e.classId === classId &&
+          e.status === 'APPROVED' &&
+          e.group === own.group &&
+          e.userId !== user.id,
+      )
+      .map((e) => e.userId),
+  );
+}
+/** What a group leader sees of a groupmate's work: the submission, never the grade or feedback. */
+function submissionForLeader(submission: Submission): Submission {
+  const {
+    score: _score,
+    rubric: _rubric,
+    feedback: _feedback,
+    gradedAt: _gradedAt,
+    gradeRevision: _gradeRevision,
+    ...rest
+  } = submission;
+  return { ...rest, feedback: '' };
 }
 function submissionFor(submission: Submission, canGrade = false): Submission {
   if (canGrade || submission.status === 'GRADED') return { ...submission };
@@ -329,6 +393,7 @@ function deleteClassData(db: Database, classId: string) {
     (n) => !n.assignmentId || !assignmentIds.has(n.assignmentId),
   );
   db.progress = db.progress.filter((x) => !lessonIds.has(x.lessonId));
+  db.practiceChecks = db.practiceChecks.filter((x) => x.classId !== classId);
   db.notes = db.notes.filter((x) => !lessonIds.has(x.lessonId));
   db.discussions = db.discussions.filter((x) => !lessonIds.has(x.lessonId));
   db.files = db.files.filter((x) => x.classId !== classId);
@@ -360,6 +425,7 @@ export function stateFor(db: Database, user: StoredUser): AppState {
       assignments: [],
       submissions: [],
       progress: [],
+      practiceChecks: [],
       notes: [],
       discussions: [],
       notifications: [],
@@ -390,6 +456,7 @@ export function stateFor(db: Database, user: StoredUser): AppState {
     (l) => allowed.has(l.classId) && (managed.has(l.classId) || l.published),
   );
   const lessonIds = new Set(lessons.map((l) => l.id));
+  const lessonById = new Map(lessons.map((l) => [l.id, l]));
   const assignments = db.assignments.filter(
     (a) =>
       allowed.has(a.classId) &&
@@ -400,6 +467,17 @@ export function stateFor(db: Database, user: StoredUser): AppState {
         )),
   );
   const assignmentIds = new Set(assignments.map((a) => a.id));
+  const assignmentById = new Map(assignments.map((a) => [a.id, a]));
+  const ledCache = new Map<string, Set<string>>();
+  const ledMates = (classId: string) => {
+    if (!ledCache.has(classId)) ledCache.set(classId, ledGroupMembers(db, user, classId));
+    return ledCache.get(classId)!;
+  };
+  const isLedSubmission = (s: Submission) => {
+    const classId = assignmentById.get(s.assignmentId)?.classId;
+    if (!classId || managed.has(classId)) return false;
+    return ledMates(classId).has(s.studentId);
+  };
   const enrollments = db.enrollments.filter(
     (e) =>
       (allowed.has(e.classId) && (managed.has(e.classId) || e.status === 'APPROVED')) ||
@@ -418,6 +496,7 @@ export function stateFor(db: Database, user: StoredUser): AppState {
     user.id,
     ...db.enrollments.filter((e) => managed.has(e.classId)).map((e) => e.userId),
     ...classes.filter((c) => managed.has(c.id)).flatMap(assignedTeacherIds),
+    ...classes.flatMap((c) => [...ledGroupMembers(db, user, c.id)]),
   ]);
   return {
     user: publicUser(user),
@@ -447,20 +526,33 @@ export function stateFor(db: Database, user: StoredUser): AppState {
           assignmentIds.has(s.assignmentId) &&
           (s.studentId === user.id ||
             (s.status !== 'DRAFT' &&
-              assignments.some((a) => a.id === s.assignmentId && managed.has(a.classId)))),
+              (assignments.some((a) => a.id === s.assignmentId && managed.has(a.classId)) ||
+                isLedSubmission(s)))),
       )
       .map((s) =>
-        submissionFor(
-          s,
-          s.studentId !== user.id &&
-            assignments.some((a) => a.id === s.assignmentId && managed.has(a.classId)),
-        ),
+        s.studentId !== user.id && isLedSubmission(s)
+          ? submissionForLeader(s)
+          : submissionFor(
+              s,
+              s.studentId !== user.id &&
+                assignments.some((a) => a.id === s.assignmentId && managed.has(a.classId)),
+            ),
       ),
-    progress: db.progress.filter(
-      (p) =>
-        lessonIds.has(p.lessonId) &&
+    progress: db.progress.filter((p) => {
+      const lesson = lessonById.get(p.lessonId);
+      return (
+        !!lesson &&
         (p.userId === user.id ||
-          lessons.some((l) => l.id === p.lessonId && managed.has(l.classId))),
+          managed.has(lesson.classId) ||
+          ledMates(lesson.classId).has(p.userId))
+      );
+    }),
+    practiceChecks: db.practiceChecks.filter(
+      (pc) =>
+        lessonIds.has(pc.lessonId) &&
+        (pc.studentId === user.id ||
+          managed.has(pc.classId) ||
+          ledMates(pc.classId).has(pc.studentId)),
     ),
     notes: db.notes.filter((n) => n.userId === user.id && lessonIds.has(n.lessonId)),
     discussions: db.discussions.filter((d) => lessonIds.has(d.lessonId)),
@@ -686,6 +778,7 @@ export function runAction(db: Database, user: StoredUser, input: Record<string, 
       if (expectedJoinedAt !== undefined && expectedJoinedAt !== e.joinedAt)
         throw new HttpError(409, 'Lần tham gia lớp đã thay đổi. Hãy tải lại danh sách thành viên.');
       e.status = 'REMOVED';
+      e.leader = false;
       return null;
     }
     case 'setEnrollmentGroup': {
@@ -693,7 +786,81 @@ export function runAction(db: Database, user: StoredUser, input: Record<string, 
       const e = needed(db.enrollments.find((x) => x.id === v.enrollmentId));
       active(teacherClass(db, user, e.classId));
       if (e.status !== 'APPROVED') throw new HttpError(409, 'Học viên không còn trong lớp.');
+      if (e.group !== v.group) e.leader = false;
       e.group = v.group;
+      return e;
+    }
+    case 'savePracticeCheck': {
+      const v = z
+        .object({
+          lessonId: id,
+          studentId: id,
+          items: z.array(z.string().max(60)).max(100),
+          note: z.string().trim().max(1000).default(''),
+        })
+        .parse(input);
+      const lesson = needed(db.lessons.find((l) => l.id === v.lessonId));
+      const classroom = needed(db.classes.find((c) => c.id === lesson.classId));
+      active(classroom);
+      const manages = managesClass(classroom, user) || user.isAdmin === true;
+      if (!lesson.published && !manages) throw new HttpError(404, 'Không tìm thấy bài giảng.');
+      const target = db.enrollments.find(
+        (e) => e.classId === classroom.id && e.userId === v.studentId && e.status === 'APPROVED',
+      );
+      if (!target) throw new HttpError(404, 'Học viên không còn trong lớp.');
+      // The group leader ticks their members. Where nobody can (the group has no leader, or the
+      // learner is the leader) a teacher of the class or an administrator does it instead.
+      const groupHasLeader = db.enrollments.some(
+        (e) =>
+          e.classId === classroom.id &&
+          e.group === target.group &&
+          e.status === 'APPROVED' &&
+          e.leader,
+      );
+      const allowed =
+        ledGroupMembers(db, user, classroom.id).has(v.studentId) ||
+        (manages && (!groupHasLeader || target.leader === true));
+      if (!allowed)
+        throw new HttpError(
+          403,
+          'Chỉ trưởng nhóm của học viên này được chấm thực hành (giáo viên chấm khi nhóm chưa có trưởng nhóm).',
+        );
+      const items = [...new Set(v.items)].filter((i) => PRACTICE_ITEM_IDS.has(i));
+      let sheet = db.practiceChecks.find(
+        (p) => p.lessonId === lesson.id && p.studentId === v.studentId,
+      );
+      if (!sheet) {
+        sheet = {
+          id: uid(),
+          classId: classroom.id,
+          lessonId: lesson.id,
+          studentId: v.studentId,
+          items: [],
+          note: '',
+          checkedBy: user.id,
+          updatedAt: time(),
+        };
+        db.practiceChecks.push(sheet);
+      }
+      Object.assign(sheet, {
+        items,
+        note: v.note,
+        checkedBy: user.id,
+        updatedAt: time(),
+        revision: uid(),
+      });
+      return sheet;
+    }
+    case 'setGroupLeader': {
+      const v = z.object({ enrollmentId: id, leader: z.boolean() }).parse(input);
+      const e = needed(db.enrollments.find((x) => x.id === v.enrollmentId));
+      active(teacherClass(db, user, e.classId));
+      if (e.status !== 'APPROVED') throw new HttpError(409, 'Học viên không còn trong lớp.');
+      // One leader per group: appointing a new one replaces the previous one.
+      if (v.leader)
+        for (const other of db.enrollments)
+          if (other.classId === e.classId && other.group === e.group) other.leader = false;
+      e.leader = v.leader;
       return e;
     }
     case 'approveEnrollment':
@@ -869,6 +1036,7 @@ export function runAction(db: Database, user: StoredUser, input: Record<string, 
       });
       discardDriveJobs(db, new Set(l.documents.map((d) => d.id)));
       db.progress = db.progress.filter((x) => x.lessonId !== l.id);
+      db.practiceChecks = db.practiceChecks.filter((x) => x.lessonId !== l.id);
       db.notes = db.notes.filter((x) => x.lessonId !== l.id);
       db.discussions = db.discussions.filter((x) => x.lessonId !== l.id);
       return null;

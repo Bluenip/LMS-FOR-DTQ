@@ -52,10 +52,15 @@ test('Drive maintenance: orphans are removed, reusable material is kept, learner
         permissions: [{ id: 'anyoneWithLink', type: 'anyone', role: 'reader' }],
       });
     }
-    if (method === 'DELETE' && url.includes('/drive/v3/files/')) {
+    // Looking for viewer copies of a file about to be trashed: there are none.
+    if (method === 'GET' && url.includes('/drive/v3/files?')) return Response.json({ files: [] });
+    // The sweep never deletes for good: it only moves files to the Drive trash.
+    assert.notEqual(method, 'DELETE', `unexpected permanent delete ${url}`);
+    if (method === 'PATCH' && url.includes('/drive/v3/files/')) {
+      assert.deepEqual(JSON.parse(String(init.body)), { trashed: true });
       const id = decodeURIComponent(url.split('/files/')[1].split('?')[0]);
       deleted.push(id);
-      return new Response(null, { status: id.startsWith('gone-') ? 404 : 204 });
+      return id.startsWith('gone-') ? new Response('{}', { status: 404 }) : Response.json({ id });
     }
     throw new Error(`unexpected request ${method} ${url}`);
   }) as typeof fetch;
@@ -169,7 +174,7 @@ test('Drive maintenance: orphans are removed, reusable material is kept, learner
     ctx.orphan.driveFileId!,
     ctx.teacherMaterial.driveFileId!,
   ])
-    assert.ok(deleted.includes(id), `${id} should be deleted`);
+    assert.ok(deleted.includes(id), `${id} should be moved to the trash`);
   // Kept: recent upload, attached file, library video (reusable), unreferenced-but-fresh nothing else.
   for (const kept of [ctx.recent, ctx.attached, ctx.libraryVideo])
     assert.ok(!deleted.includes(kept.driveFileId!), `${kept.id} must be kept`);

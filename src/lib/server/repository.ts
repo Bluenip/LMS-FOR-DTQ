@@ -15,6 +15,7 @@ const tables = {
   assignments: 'assignment',
   submissions: 'submission',
   progress: 'progress',
+  practiceChecks: 'practiceCheck',
   notes: 'note',
   discussions: 'discussion',
   notifications: 'notification',
@@ -49,6 +50,7 @@ function emptyDatabase(): Database {
     assignments: [],
     submissions: [],
     progress: [],
+    practiceChecks: [],
     notes: [],
     discussions: [],
     notifications: [],
@@ -224,18 +226,58 @@ export async function withScopedState<T>(
       const managedAssignments = assignments
         .filter((a) => managed.includes(a.classId))
         .map((a) => a.id);
-      const [submissions, progress, notes, discussions] = await Promise.all([
+      // A group leader also reads the submitted work, progress and tick sheets of their own group.
+      const ledGroups = own
+        .filter((e) => e.status === 'APPROVED' && e.leader && !managed.includes(e.classId))
+        .map((leader) => ({
+          classId: leader.classId,
+          mateIds: enrollments
+            .filter(
+              (e) =>
+                e.classId === leader.classId &&
+                e.group === leader.group &&
+                e.status === 'APPROVED' &&
+                e.userId !== userId,
+            )
+            .map((e) => e.userId),
+        }));
+      const ledClauses = ledGroups.map((g) => ({
+        assignmentId: {
+          in: assignments.filter((a) => a.classId === g.classId).map((a) => a.id),
+        },
+        studentId: { in: g.mateIds },
+        status: { not: 'DRAFT' },
+      }));
+      const ledLessonClauses = ledGroups.map((g) => ({
+        lessonId: { in: lessons.filter((l) => l.classId === g.classId).map((l) => l.id) },
+        userId: { in: g.mateIds },
+      }));
+      const [submissions, progress, practiceChecks, notes, discussions] = await Promise.all([
         tx.submission.findMany({
           where: {
             OR: [
               { assignmentId: { in: assignments.map((a) => a.id) }, studentId: userId },
               { assignmentId: { in: managedAssignments }, status: { not: 'DRAFT' } },
+              ...ledClauses,
             ],
           },
         }),
         tx.progress.findMany({
           where: {
-            OR: [{ lessonId: { in: lessonIds }, userId }, { lessonId: { in: managedLessons } }],
+            OR: [
+              { lessonId: { in: lessonIds }, userId },
+              { lessonId: { in: managedLessons } },
+              ...ledLessonClauses,
+            ],
+          },
+        }),
+        tx.practiceCheck.findMany({
+          where: {
+            OR: [
+              { lessonId: { in: lessonIds }, studentId: userId },
+              { lessonId: { in: managedLessons } },
+              ...ledLessonClauses.map((c) => ({ lessonId: c.lessonId, studentId: c.userId })),
+            ],
           },
         }),
         tx.note.findMany({ where: { lessonId: { in: lessonIds }, userId } }),
@@ -265,6 +307,7 @@ export async function withScopedState<T>(
         assignments: assignments.map((a) => ({ ...cleanRow(a), maxWords: a.maxWords })),
         submissions: clean(submissions),
         progress: clean(progress),
+        practiceChecks: clean(practiceChecks),
         notes: clean(notes),
         discussions: clean(discussions),
         notifications: clean(notifications),
@@ -600,6 +643,7 @@ export async function withDatabase<T>(
     db.driveConnections ??= [];
     db.driveUploads ??= [];
     db.driveTrash ??= [];
+    db.practiceChecks ??= [];
     db.auditLogs ??= [];
     for (const user of db.users) {
       user.emailVerified ??= true;
@@ -657,43 +701,45 @@ async function readScoped(
   ]);
   const lessonIds = lessons.map((l) => l.id);
   const assignmentIds = assignments.map((a) => a.id);
-  const [submissions, progress, notes, discussions, notifications] = await Promise.all([
-    tx.submission.findMany({ where: { assignmentId: { in: assignmentIds } } }),
-    tx.progress.findMany({ where: { lessonId: { in: lessonIds } } }),
-    tx.note.findMany({ where: { lessonId: { in: lessonIds } } }),
-    tx.discussion.findMany({ where: { lessonId: { in: lessonIds } } }),
-    notificationScope?.action === 'markNotificationsRead'
-      ? tx.notification.findMany({
-          where: {
-            userId: actorId,
-            read: false,
-            ...(notificationScope.ids ? { id: { in: notificationScope.ids } } : {}),
-          },
-        })
-      : notificationScope?.action === 'remindStudents'
+  const [submissions, progress, practiceChecks, notes, discussions, notifications] =
+    await Promise.all([
+      tx.submission.findMany({ where: { assignmentId: { in: assignmentIds } } }),
+      tx.progress.findMany({ where: { lessonId: { in: lessonIds } } }),
+      tx.practiceCheck.findMany({ where: { lessonId: { in: lessonIds } } }),
+      tx.note.findMany({ where: { lessonId: { in: lessonIds } } }),
+      tx.discussion.findMany({ where: { lessonId: { in: lessonIds } } }),
+      notificationScope?.action === 'markNotificationsRead'
         ? tx.notification.findMany({
             where: {
-              assignmentId: {
-                in: assignmentIds.filter((id) => id === notificationScope.assignmentId),
-              },
-              content: { startsWith: 'Nhắc nộp bài:' },
-              createdAt: { gt: new Date(Date.now() - 60 * 60 * 1000).toISOString() },
+              userId: actorId,
+              read: false,
+              ...(notificationScope.ids ? { id: { in: notificationScope.ids } } : {}),
             },
           })
-        : notificationScope?.action === 'deleteClass' ||
-            notificationScope?.action === 'deleteAssignment'
+        : notificationScope?.action === 'remindStudents'
           ? tx.notification.findMany({
               where: {
                 assignmentId: {
-                  in:
-                    notificationScope.action === 'deleteClass'
-                      ? assignmentIds
-                      : assignmentIds.filter((id) => id === notificationScope.assignmentId),
+                  in: assignmentIds.filter((id) => id === notificationScope.assignmentId),
                 },
+                content: { startsWith: 'Nhắc nộp bài:' },
+                createdAt: { gt: new Date(Date.now() - 60 * 60 * 1000).toISOString() },
               },
             })
-          : Promise.resolve([]),
-  ]);
+          : notificationScope?.action === 'deleteClass' ||
+              notificationScope?.action === 'deleteAssignment'
+            ? tx.notification.findMany({
+                where: {
+                  assignmentId: {
+                    in:
+                      notificationScope.action === 'deleteClass'
+                        ? assignmentIds
+                        : assignmentIds.filter((id) => id === notificationScope.assignmentId),
+                  },
+                },
+              })
+            : Promise.resolve([]),
+    ]);
   const userIds = new Set([
     actorId,
     ...extraUserIds,
@@ -710,6 +756,7 @@ async function readScoped(
     assignments: rows('assignments', assignments),
     submissions: rows('submissions', submissions),
     progress: rows('progress', progress),
+    practiceChecks: rows('practiceChecks', practiceChecks),
     notes: rows('notes', notes),
     discussions: rows('discussions', discussions),
     notifications: rows('notifications', notifications),

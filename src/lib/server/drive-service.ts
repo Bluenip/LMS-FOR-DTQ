@@ -14,6 +14,7 @@ import {
   createFolder,
   decryptSecret,
   deleteDriveFile,
+  trashDriveFile,
   driveDownload,
   driveAccountEmail,
   driveConfigured,
@@ -613,7 +614,14 @@ export function planPlacement(db: Database, jobId: string): Placement | null {
   };
 }
 /** Files the upload into its folder and gives it the standard name; failures keep the old place. */
+let organizing: Promise<unknown> = Promise.resolve();
 async function organizeJob(jobId: string) {
+  // One at a time, so two uploads finishing together do not both take "Video 1".
+  const turn = organizing.then(() => organizeNow(jobId));
+  organizing = turn.catch(() => undefined);
+  return turn;
+}
+async function organizeNow(jobId: string) {
   try {
     const plan = await withDatabase((db) => planPlacement(db, jobId), false);
     if (!plan?.rootId) return;
@@ -835,6 +843,16 @@ function lessonUses(driveFileId: string) {
 /** Binds a finished upload to a lesson (video, or reference document) once the upload completes. */
 export async function attachToLesson(userId: string, jobId: string, input: unknown) {
   const { lessonId } = z.object({ lessonId: z.string().min(1).max(120) }).parse(input);
+  // A lesson video must be shared by link for the Drive Preview player (see autoPublic). Videos
+  // uploaded by an administrator who does not teach the class are not shared yet: do it now.
+  const unshared = await withDatabase((db) => {
+    const user = readUser(db, userId);
+    const job = mutableJob(db, user, jobId);
+    return job.kind === 'video' && job.status === 'COMPLETED' && !job.shared
+      ? job.driveFileId
+      : undefined;
+  });
+  if (unshared) await ensurePublicReader(unshared);
   const attached = await withDatabase((db) => {
     const user = readUser(db, userId);
     const job = mutableJob(db, user, jobId);
@@ -846,6 +864,7 @@ export async function attachToLesson(userId: string, jobId: string, input: unkno
     const lesson = db.lessons.find((l) => l.id === lessonId && l.classId === job.classId);
     if (!lesson) throw new HttpError(404, 'Bài giảng không còn tồn tại.');
     if (job.kind === 'video') {
+      job.shared = true;
       lesson.videoType = 'DRIVE';
       lesson.driveFileId = job.driveFileId;
       lesson.videoFileId = undefined;
@@ -1005,7 +1024,7 @@ export interface PruneResult {
   unshared: number;
 }
 /**
- * Deletes from Google Drive (and from the database):
+ * Moves to the Google Drive trash (and drops from the database):
  *  - files queued in DriveTrash (deleted lessons, assignments, classes);
  *  - learner files and lesson materials that never got attached, or were detached, after `graceHours`;
  *  - failed, cancelled and abandoned upload records.
@@ -1074,13 +1093,14 @@ export async function pruneDrive(graceHours = 24, at = Date.now()): Promise<Prun
       return false;
     }
     try {
-      await deleteDriveFile(driveFileId);
+      // The sweep only moves files to the Drive trash; Google deletes them for good later.
+      await trashDriveFile(driveFileId);
       result.deletedFromDrive++;
       return true;
     } catch (error) {
       result.failed++;
       console.error(
-        'Drive prune could not delete a file',
+        'Drive prune could not move a file to the trash',
         error instanceof Error ? error.message : '',
       );
       return false;

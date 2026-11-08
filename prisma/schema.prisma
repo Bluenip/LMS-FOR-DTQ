@@ -25,6 +25,7 @@ model User {
   enrollments        Enrollment[]
   submissions        Submission[]
   progress           Progress[]
+  practiceChecks     PracticeCheck[]
   notes              Note[]
   discussions        Discussion[]
   notifications      Notification[]
@@ -84,6 +85,8 @@ model Enrollment {
   user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   status    String
   group     Int       @default(1)
+  // Team leader of `group` in this class: can see the group's members and their submissions.
+  leader    Boolean   @default(false)
   joinedAt  DateTime  @db.Timestamptz(3)
 
   @@unique([classId, userId])
@@ -91,28 +94,29 @@ model Enrollment {
 }
 
 model Lesson {
-  id           String        @id
-  classId      String
-  classroom    Classroom     @relation(fields: [classId], references: [id], onDelete: Cascade)
-  title        String
-  chapter      String
-  order        Int
-  description  String
-  videoType    String
-  videoUrl     String
-  videoFileId  String?
-  driveFileId  String?
-  duration     String
-  published    Boolean       @default(false)
-  revision     String        @default("")
-  timestamps   Json          @default("[]")
-  documents    Json          @default("[]")
-  createdAt    DateTime      @db.Timestamptz(3)
-  assignments  Assignment[]
-  progress     Progress[]
-  notes        Note[]
-  discussions  Discussion[]
-  driveUploads DriveUpload[]
+  id             String          @id
+  classId        String
+  classroom      Classroom       @relation(fields: [classId], references: [id], onDelete: Cascade)
+  title          String
+  chapter        String
+  order          Int
+  description    String
+  videoType      String
+  videoUrl       String
+  videoFileId    String?
+  driveFileId    String?
+  duration       String
+  published      Boolean         @default(false)
+  revision       String          @default("")
+  timestamps     Json            @default("[]")
+  documents      Json            @default("[]")
+  createdAt      DateTime        @db.Timestamptz(3)
+  assignments    Assignment[]
+  progress       Progress[]
+  practiceChecks PracticeCheck[]
+  notes          Note[]
+  discussions    Discussion[]
+  driveUploads   DriveUpload[]
 
   @@index([classId, order])
 }
@@ -175,6 +179,25 @@ model Progress {
 
   @@unique([userId, lessonId])
   @@index([lessonId])
+}
+
+// Tick sheet a group leader fills in for one member and one lesson (items are ids from lib/practice.ts).
+model PracticeCheck {
+  id        String   @id
+  classId   String
+  lessonId  String
+  lesson    Lesson   @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  studentId String
+  student   User     @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  items     String[] @default([])
+  note      String   @default("")
+  checkedBy String
+  updatedAt DateTime @db.Timestamptz(3)
+  revision  String?
+
+  @@unique([lessonId, studentId])
+  @@index([classId])
+  @@index([studentId])
 }
 
 model Note {

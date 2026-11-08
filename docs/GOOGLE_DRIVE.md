@@ -164,3 +164,7 @@ Tên tệp: `<tên bài tập hoặc bài giảng> - Bài <số bài> - <Loại>
 trở đi là `Slide 2`, …), **File** (các tệp còn lại). Số thứ tự tiếp tục từ số lớn nhất đang có trong
 cùng thư mục và cùng loại. Đổi tên lớp hoặc bài giảng sẽ đổi tên thư mục tương ứng ở lần tải kế tiếp.
 Video của bài giảng mới tạo được xếp vào thư mục bài giảng ngay khi bài được lưu.
+
+## Xóa tệp: thùng rác của Google Drive
+
+Job dọn dẹp (`pruneDrive`, chạy mỗi giờ hoặc bấm tay trong trang Quản trị / `npm run drive:prune`) **chỉ chuyển tệp vào thùng rác của Google Drive**, không xóa vĩnh viễn: tệp của bài giảng, bài tập, lớp đã xóa, tệp mồ côi quá 24 giờ và bản sao dùng để xem PPTX/DOCX. Google tự xóa hẳn tệp trong thùng rác sau 30 ngày; trước đó có thể khôi phục trong Google Drive (mục Thùng rác). Lưu ý dung lượng Drive vẫn tính cho tệp trong thùng rác cho đến khi bị xóa hẳn. Nút "Xóa" thủ công trong thư viện video vẫn xóa vĩnh viễn.

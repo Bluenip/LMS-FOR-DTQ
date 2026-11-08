@@ -16,6 +16,7 @@ import {
 import { useLms } from '@/components/lms-provider';
 import { Badge, Button, Dialog, Empty, Field, PageHeading, Search, Tabs } from '@/components/ui';
 import { DriveLibrary, GoogleDriveConnect } from '@/components/drive';
+import { RankingPanel } from '@/components/ranking';
 import { AuditLogPanel } from '@/components/audit';
 import { api, ApiError, fold, initials } from '@/lib/client';
 import type { AdminState, AdminUser, Role } from '@/lib/types';
@@ -114,6 +115,30 @@ function ErrorLine({ message }: { message: string }) {
   ) : null;
 }
 
+/** Practice ranking of any class (administrators see every class, not only their own). */
+function AdminRanking({ classes }: { classes: { id: string; title: string }[] }) {
+  const [classId, setClassId] = useState(classes[0]?.id || '');
+  if (!classes.length) return null;
+  return (
+    <section className="panel stack">
+      <div className="row">
+        <h2>Bảng xếp hạng thực hành</h2>
+        <select
+          aria-label="Chọn lớp học"
+          value={classId}
+          onChange={(e) => setClassId(e.target.value)}
+        >
+          {classes.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.title}
+            </option>
+          ))}
+        </select>
+      </div>
+      {classId && <RankingPanel key={classId} classId={classId} />}
+    </section>
+  );
+}
 export function AdminAccounts() {
   const { state, refresh: refreshLms } = useLms();
   const { data, error, refresh } = useAdminAccounts(!!state.user.isAdmin, state.user.id);
@@ -242,6 +267,7 @@ export function AdminAccounts() {
       )}
       {state.user.isAdmin && <GoogleDriveConnect />}
       {state.user.isAdmin && <DriveLibrary />}
+      {state.user.isAdmin && data && <AdminRanking classes={data.managedClasses} />}
       {state.user.isAdmin && <AuditLogPanel />}
       {notice && (
         <p className="notice admin-notice" role="status">

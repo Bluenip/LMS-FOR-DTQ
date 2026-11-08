@@ -143,6 +143,7 @@ export function seedData(): Database {
         bookmarked: false,
       },
     ],
+    practiceChecks: [],
     notes: [],
     discussions: [
       {

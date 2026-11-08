@@ -51,6 +51,8 @@ export interface Enrollment {
   userId: string;
   status: 'APPROVED' | 'PENDING' | 'REMOVED';
   group: number;
+  /** Team leader of `group`: sees the group's members and their submitted work. */
+  leader?: boolean;
   joinedAt: string;
 }
 export interface Lesson {
@@ -113,6 +115,20 @@ export interface Submission {
   revision?: string;
   gradeRevision?: string;
 }
+/** A group leader's tick sheet for one member and one lesson (see lib/practice.ts). */
+export interface PracticeCheck {
+  id: string;
+  classId: string;
+  lessonId: string;
+  studentId: string;
+  /** Ids of the ticked items. */
+  items: string[];
+  note: string;
+  /** Who ticked last. */
+  checkedBy: string;
+  updatedAt: string;
+  revision?: string;
+}
 export interface Progress {
   id: string;
   userId: string;
@@ -152,6 +168,7 @@ export interface AppState {
   assignments: Assignment[];
   submissions: Submission[];
   progress: Progress[];
+  practiceChecks: PracticeCheck[];
   notes: Note[];
   discussions: Discussion[];
   notifications: Notification[];
@@ -272,6 +289,7 @@ export interface Database {
   assignments: Assignment[];
   submissions: Submission[];
   progress: Progress[];
+  practiceChecks: PracticeCheck[];
   notes: Note[];
   discussions: Discussion[];
   notifications: Notification[];

@@ -324,6 +324,23 @@ async function removeDriveFile(fileId: string) {
   if (res.status === 404) return;
   if (!res.ok) throw await googleError(res);
 }
+/**
+ * Moves a file (and its viewer copies) to the Drive trash. Google empties the trash itself after
+ * 30 days, and until then the file can still be restored. Already gone counts as done.
+ */
+export async function trashDriveFile(fileId: string) {
+  // If this search fails the whole call fails and the sweep retries: never orphan a copy.
+  const copies = await findViewerCopies(fileId);
+  for (const id of [fileId, ...copies]) {
+    const res = await driveCall(`${API}/files/${encodeURIComponent(id)}?fields=id`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json; charset=UTF-8' },
+      body: JSON.stringify({ trashed: true }),
+    });
+    if (res.status === 404) continue;
+    if (!res.ok) throw await googleError(res);
+  }
+}
 export async function deleteDriveFile(fileId: string) {
   await removeDriveFile(fileId);
   // The Google Slides/Docs copy made for the in-page viewer goes with its original.

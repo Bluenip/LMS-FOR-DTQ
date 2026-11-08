@@ -294,6 +294,7 @@ export function deleteManagedUser(
   db.enrollments = db.enrollments.filter((e) => e.userId !== user.id);
   db.submissions = db.submissions.filter((s) => s.studentId !== user.id);
   db.progress = db.progress.filter((p) => p.userId !== user.id);
+  db.practiceChecks = db.practiceChecks.filter((p) => p.studentId !== user.id);
   db.notes = db.notes.filter((n) => n.userId !== user.id);
   db.discussions = db.discussions.filter((d) => d.userId !== user.id);
   db.notifications = db.notifications.filter((n) => n.userId !== user.id);
