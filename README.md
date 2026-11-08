@@ -100,7 +100,7 @@ Giáo viên có thể vào **Kho bài giảng → chọn bài → Xem thảo lu�
 
 Tài khoản do quản trị viên cấp. Các trang `/register`, `/verify-email`, `/forgot-password`, `/reset-password` chuyển về `/login`; API công khai tương ứng trả `403`. Luồng đang sử dụng không cần SMTP; mã gửi email, đăng ký công khai và liên kết đặt lại mật khẩu đã được gỡ khỏi mã nguồn.
 
-Tài khoản mới hoặc được reset nhận mật khẩu tạm ngẫu nhiên riêng, chỉ hiển thị một lần cho quản trị viên. Người dùng phải đổi mật khẩu tại `/profile` trước khi dùng chức năng khác. Tài khoản cũ vẫn dùng mật khẩu chung trước đây cũng được yêu cầu đổi; tài khoản có mật khẩu riêng được giữ nguyên. Mật khẩu mới phải khác mật khẩu hiện tại, dài 8–128 ký tự và xác nhận trùng khớp.
+Tài khoản mới hoặc được reset dùng mật khẩu mặc định **`123@123aA`** (`src/lib/account-policy.ts`). Đăng nhập bằng mật khẩu này sẽ được chuyển ngay tới `/profile` và phải đổi sang mật khẩu riêng trước khi dùng chức năng khác; không được chọn lại `123@123aA`. Vì mọi tài khoản mới có cùng mật khẩu, hãy nhắc người dùng đăng nhập và đổi mật khẩu sớm. Mật khẩu mới phải khác mật khẩu hiện tại, dài 8–128 ký tự và xác nhận trùng khớp.
 
 Quyền quản trị (`isAdmin`) tách biệt với vai trò `TEACHER` / `STUDENT`. Giáo viên thông thường không được quản trị tài khoản. Không có tài khoản quản trị demo được cấp sẵn. Bảng quản trị không cho khóa, reset hoặc xóa tài khoản có quyền quản trị.
 
@@ -173,7 +173,7 @@ npm run account:grant-admin -- owner@example.com
 npm run dev
 ```
 
-Trước khi chạy, đặt `LMS_INITIAL_PASSWORD` bằng một mật khẩu tạm riêng. CLI yêu cầu `ACCOUNT_INITIAL_PASSWORD` từ môi trường và không in mật khẩu riêng ra log. Người dùng phải đổi mật khẩu tại `/profile` sau khi đăng nhập. Từ `/admin`, tạo các tài khoản còn lại. Nếu tài khoản thật đã có sẵn và đang hoạt động, chỉ cần chạy `account:grant-admin`.
+`ACCOUNT_INITIAL_PASSWORD` là tùy chọn: bỏ trống thì tài khoản dùng mật khẩu mặc định `123@123aA`; đặt giá trị riêng thì CLI dùng mật khẩu đó và không in ra log. Người dùng phải đổi mật khẩu tại `/profile` sau khi đăng nhập. Từ `/admin`, tạo các tài khoản còn lại. Nếu tài khoản thật đã có sẵn và đang hoạt động, chỉ cần chạy `account:grant-admin`.
 
 ### Dữ liệu minh họa trên PostgreSQL
 

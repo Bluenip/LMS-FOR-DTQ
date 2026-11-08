@@ -34,11 +34,11 @@ Một giáo viên "quản lý lớp" (`managesClass`) khi là chủ lớp **ho�
 ## 3. Tài khoản và xác thực
 
 - **Không có đăng ký công khai.** `/api/auth/register`, quên mật khẩu, xác minh email, gửi lại xác minh đều trả "Tài khoản do quản trị viên cấp". Chỉ admin tạo tài khoản.
-- **Admin tạo tài khoản** (giáo viên hoặc học viên): hệ thống sinh **mật khẩu tạm** ngẫu nhiên, hiển thị **một lần** cho admin để chuyển riêng cho người dùng. Tài khoản mới có `mustChangePassword = true`.
+- **Admin tạo tài khoản** (giáo viên hoặc học viên): mật khẩu ban đầu là mật khẩu mặc định **`123@123aA`**. Tài khoản mới có `mustChangePassword = true`: đăng nhập xong được chuyển tới `/profile` và phải đổi mật khẩu (không được chọn lại mật khẩu mặc định).
 - **Đăng nhập:** email + mật khẩu → cookie `dtq_session` (HttpOnly, ký HMAC, hạn 7 ngày). Cookie gắn `sessionVersion`; đổi mật khẩu, khóa, đổi vai trò, reset mật khẩu đều tăng `sessionVersion` nên **mọi phiên cũ bị đăng xuất**.
 - **Ép đổi mật khẩu:** nếu `mustChangePassword` hoặc mật khẩu là mật khẩu mặc định cũ (`123@123aA`), người dùng chỉ được vào `/profile`; mọi API nghiệp vụ trả 403 cho đến khi đổi. `GET /api/state` vẫn trả khung tối thiểu (không có lớp/bài).
 - **Hồ sơ** (`/profile`): đổi họ tên; đổi mật khẩu cần mật khẩu hiện tại, mật khẩu mới ≥ 8 ký tự (≤ 128), khác mật khẩu cũ, không dùng mật khẩu mặc định.
-- **Admin quản lý tài khoản** (`/admin`): tạo, sửa tên, đổi vai trò (không đổi được nếu người đó đang dạy lớp), khóa/mở khóa, kích hoạt, đặt lại mật khẩu (sinh mật khẩu tạm mới), chuyển chủ lớp, xóa vĩnh viễn tài khoản (gõ lại email; không xóa được chủ lớp, admin hay chính mình; học liệu bài giảng còn dùng được chuyển cho chủ lớp). Không thao tác được trên tài khoản quản trị khác. Giữ nguyên tài khoản demo.
+- **Admin quản lý tài khoản** (`/admin`): tạo, sửa tên, đổi vai trò (không đổi được nếu người đó đang dạy lớp), khóa/mở khóa, kích hoạt, đặt lại mật khẩu (về mặc định `123@123aA`, bắt đổi khi đăng nhập), chuyển chủ lớp, xóa vĩnh viễn tài khoản (gõ lại email; không xóa được chủ lớp, admin hay chính mình; học liệu bài giảng còn dùng được chuyển cho chủ lớp). Không thao tác được trên tài khoản quản trị khác. Giữ nguyên tài khoản demo.
 - **Tài khoản demo** (`teacher@detuquy.vn`, `student@detuquy.vn`…) chỉ đăng nhập được khi chạy localhost/demo hoặc bật `ALLOW_DEMO_ACCOUNTS=true`.
 - **Giới hạn tần suất:** đăng nhập 20 lần/15 phút/(IP+email); thử mã lớp 30/15 phút/người; khởi tạo tải lên Drive 60/15 phút/người; thao tác admin 120/15 phút; đổi hồ sơ 30/15 phút. Ba bộ đếm đầu **lưu trong PostgreSQL** nên không mất khi khởi động lại và dùng chung giữa nhiều bản chạy.
 - **Chống dò tài khoản:** đăng nhập sai luôn trả cùng một thông báo và tốn thời gian như nhau dù email có tồn tại hay không.

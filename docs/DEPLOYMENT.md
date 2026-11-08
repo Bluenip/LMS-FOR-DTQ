@@ -108,7 +108,7 @@ unset ACCOUNT_INITIAL_PASSWORD
 docker compose --env-file .env.production -f compose.production.yml run --rm -T migrate npm run account:grant-admin -- admin@zimaos.click
 ```
 
-CLI từ chối ghi đè tài khoản đã tồn tại và yêu cầu `ACCOUNT_INITIAL_PASSWORD` riêng. Nếu đã có tài khoản thật đang hoạt động, chỉ cấp quyền quản trị. Tài khoản tạo/reset từ giao diện nhận mật khẩu tạm ngẫu nhiên chỉ hiển thị một lần và phải đổi tại `/profile` trước khi sử dụng; cấp các tài khoản còn lại từ `/admin`.
+CLI từ chối ghi đè tài khoản đã tồn tại; `ACCOUNT_INITIAL_PASSWORD` là tùy chọn (bỏ trống thì dùng mật khẩu mặc định `123@123aA`). Nếu đã có tài khoản thật đang hoạt động, chỉ cấp quyền quản trị. Tài khoản tạo/reset từ giao diện dùng mật khẩu mặc định `123@123aA` và phải đổi tại `/profile` trước khi sử dụng; cấp các tài khoản còn lại từ `/admin`.
 
 ## Cloudflare Tunnel
 
@@ -171,6 +171,7 @@ Chỉ đưa migration tương thích ngược vào luồng auto-deploy. Thêm c�
 Backup chạy với thời hạn tổng mặc định 600 giây (`LMS_BACKUP_TIMEOUT_SECONDS`), SSH keepalive và timeout lệnh từ xa. User service có `TimeoutStartSec=11min`; xem lỗi bằng `journalctl --user -u lms-dtq-backup.service` và `systemctl --user --failed`. Khi đổi máy, sửa `~/.config/lms-dtq-backup/host`, chạy service không tương tác và xác minh archive. Khi có object storage, cần backup/versioning riêng bucket và kiểm tra khôi phục kèm database trước khi bật dọn tệp.
 
 Trên máy production, chạy `bash scripts/install-notification-prune-timer.sh` để cài timer hằng ngày xóa thông báo đã đọc sau 90 ngày. Timer chạy trong container `lms-dtq-app-1`; kiểm tra bằng `systemctl --user list-timers lms-dtq-notification-prune.timer` và xem lỗi bằng `journalctl --user -u lms-dtq-notification-prune.service`. Nếu đổi tên project hoặc tăng số replica, điều chỉnh container trong service. Chạy `npm run notifications:prune` để khảo sát trước, và thêm `-- --apply` để thực sự xóa.
+
 # Chính sách nội dung cho kho tệp
 
 CSP chỉ cho phép origin của `S3_ENDPOINT` đối với URL ký. Khi dùng AWS S3 không có endpoint riêng, ứng dụng cho phép origin tương ứng với bucket và region; nếu URL ký thực tế dùng origin khác, đặt `CSP_STORAGE_ORIGIN` thành origin HTTPS chính xác trong `.env.production` rồi triển khai lại. Xác nhận bằng upload, phát video và tải tài liệu trong trình duyệt. Không dùng wildcard HTTPS. HSTS áp dụng cả subdomain: mọi subdomain hiện tại và tương lai phải hỗ trợ HTTPS với chứng chỉ hợp lệ.

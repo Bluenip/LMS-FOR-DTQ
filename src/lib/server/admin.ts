@@ -1,4 +1,5 @@
-import { randomBytes, randomUUID } from 'node:crypto';
+import { randomUUID } from 'node:crypto';
+import { DEFAULT_ACCOUNT_PASSWORD } from '@/lib/account-policy';
 import { z } from 'zod';
 import { cookies } from 'next/headers';
 import type { AdminState, AdminUser, Database, StoredUser } from '@/lib/types';
@@ -66,8 +67,12 @@ function managedUser(db: Database, id: string) {
   return user;
 }
 type TemporaryCredential = { password: string; hash: string };
+/**
+ * New and reset accounts start with the shared default password (DEFAULT_ACCOUNT_PASSWORD) and
+ * must choose their own at first sign-in; the default can never be chosen again (see profile.ts).
+ */
 function temporaryCredential(): TemporaryCredential {
-  const password = randomBytes(12).toString('base64url');
+  const password = DEFAULT_ACCOUNT_PASSWORD;
   return { password, hash: hashPassword(password) };
 }
 export function createManagedUser(
@@ -104,7 +109,7 @@ export function createManagedUser(
   db.users.push(user);
   return {
     user: adminUser(db, user),
-    message: 'Đã tạo tài khoản. Hãy chuyển mật khẩu tạm riêng cho người dùng.',
+    message: `Đã tạo tài khoản. Mật khẩu đăng nhập lần đầu: ${prepared.password}.`,
     temporaryPassword: prepared.password,
   };
 }
@@ -219,7 +224,7 @@ export function resetManagedPassword(
   user.sessionVersion = (user.sessionVersion ?? 0) + 1;
   db.authTokens = db.authTokens.filter((t) => t.userId !== user.id);
   return {
-    message: 'Đã tạo mật khẩu tạm mới và đăng xuất các phiên cũ.',
+    message: `Đã đặt lại mật khẩu về mặc định (${prepared.password}) và đăng xuất các phiên cũ.`,
     temporaryPassword: prepared.password,
   };
 }

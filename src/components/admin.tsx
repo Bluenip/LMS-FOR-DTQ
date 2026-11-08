@@ -528,12 +528,13 @@ export function AdminAccounts() {
       </Dialog>
       <Dialog
         open={!!temporaryPassword}
-        title="Mật khẩu tạm"
+        title="Mật khẩu đăng nhập lần đầu"
         onClose={() => setTemporaryPassword('')}
       >
         <div className="stack">
           <p>
-            Mật khẩu tạm chỉ được hiển thị lần này. Hãy sao chép và chuyển riêng cho người dùng.
+            Người dùng đăng nhập bằng mật khẩu mặc định dưới đây và phải đổi sang mật khẩu riêng
+            ngay sau khi đăng nhập.
           </p>
           <p className="notice">
             <strong>{temporaryPassword}</strong>
@@ -546,7 +547,7 @@ export function AdminAccounts() {
             >
               Sao chép
             </Button>
-            <Button onClick={() => setTemporaryPassword('')}>Đã lưu lại</Button>
+            <Button onClick={() => setTemporaryPassword('')}>Đã hiểu</Button>
           </div>
         </div>
       </Dialog>
@@ -694,7 +695,8 @@ function CreateAccountForm({
         />
       </Field>
       <p className="small muted">
-        Hệ thống tạo mật khẩu tạm riêng và yêu cầu người dùng đổi mật khẩu sau khi đăng nhập.
+        Tài khoản mới dùng mật khẩu mặc định và người dùng phải đổi mật khẩu sau khi đăng nhập lần
+        đầu.
       </p>
       <ErrorLine message={error} />
       <div className="dialog-footer">
@@ -801,7 +803,7 @@ function ResetAccountForm({
       }}
     >
       <p>
-        Tạo mật khẩu tạm mới cho <strong>{user.name}</strong> ({user.email})?
+        Đặt lại mật khẩu của <strong>{user.name}</strong> ({user.email}) về mật khẩu mặc định?
       </p>
       <p className="small muted">
         Các phiên đăng nhập hiện tại sẽ hết hiệu lực. Người dùng phải đổi mật khẩu sau khi đăng
@@ -814,7 +816,9 @@ function ResetAccountForm({
           checked={acknowledged}
           onChange={(event) => setAcknowledged(event.target.checked)}
         />
-        <span>Tôi hiểu người dùng sẽ phải đăng nhập lại bằng mật khẩu tạm mới.</span>
+        <span>
+          Tôi hiểu người dùng sẽ phải đăng nhập lại bằng mật khẩu mặc định rồi đổi mật khẩu.
+        </span>
       </label>
       <ErrorLine message={error} />
       <div className="dialog-footer">
