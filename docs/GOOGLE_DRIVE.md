@@ -18,7 +18,7 @@ Học viên ─► <iframe https://drive.google.com/file/d/{id}/preview>
 
 | | A: qua backend | B: trực tiếp (đang dùng) |
 |---|---|---|
-| Băng thông/RAM server | Mọi byte video đi qua server (tới 2 GB/video) | Gần như không |
+| Băng thông/RAM server | Mọi byte video đi qua server (tới 5 GB/video) | Gần như không |
 | Bảo mật | Session URI không lộ ra client | Session URI (bearer credential) nằm trong tay người tải lên; chỉ trả cho chính chủ, lưu DB dạng mã hóa, không log |
 | CORS | Không cần | Backend gửi `Origin` khi tạo session để Drive cho phép đọc phản hồi |
 | Retry/resume | Server phải tự giữ trạng thái | Hỏi Drive offset (`Content-Range: bytes */size` → 308) rồi gửi tiếp |
@@ -65,9 +65,9 @@ Phản hồi lỗi theo mẫu hiện có: `{ "error": "..." }`. Mọi `POST/PATC
 
 ## Chính sách chia sẻ & giới hạn cần biết
 
-- **Chính sách hiện tại: MỌI tệp tải lên Drive (video bài giảng, học liệu, tệp/video bài nộp của học viên) được tự đặt `anyone/reader`** (anyone with the link; `allowFileDiscovery=false`, không xuất hiện khi tìm kiếm). Nếu Google từ chối đặt quyền (ví dụ Workspace chặn chia sẻ ra ngoài) lượt tải không hoàn tất và có thể thử lại. **Ai có link Drive đều xem được, không cần đăng nhập website** — kể cả bài làm của học viên. Kiểm soát trong ứng dụng (chỉ thành viên lớp mở được qua `/view`, `/download`) chỉ che *đường dẫn trong app*, không che link Drive. Muốn nội dung kín thật sự phải bỏ chính sách này (chia sẻ theo email, hoặc kho S3/R2 có signed URL).
-- **Mọi luồng upload của ứng dụng đều đi qua Drive**: video bài giảng, học liệu bài giảng (giáo viên) và tệp đính kèm bài làm (học viên). Học viên đã được duyệt được đính kèm vào bài làm *tài liệu* (PDF, DOCX, PPTX, JPG, PNG, GIF, WebP; tối đa 25 MB) hoặc *video* (MP4, WebM, MOV; tối đa 2 GB), nhưng không được tải học liệu cho bài giảng.
-- Video bài nộp của học viên không hiện trong thư viện video của giáo viên và không thể chọn làm video bài giảng (dù cũng công khai theo chính sách trên).
+- **Chính sách chia sẻ: chỉ video bài giảng của giáo viên được tự đặt `anyone/reader`** (anyone with the link; `allowFileDiscovery=false`), vì trình phát Drive Preview cần quyền này. Nếu Google từ chối đặt quyền (ví dụ Workspace chặn chia sẻ ra ngoài) lượt tải không hoàn tất và có thể thử lại. **Mọi tệp khác — học liệu, tệp và video bài làm của học viên — giữ riêng tư trên Drive**; chỉ mở được qua `/view`, `/download` của ứng dụng (kiểm tra quyền mỗi lần, server stream bằng token của tài khoản Drive). Tệp học viên không thể bật chia sẻ, kể cả chính chủ (403). Video bài giảng bị thu hồi chia sẻ thì không gắn được vào bài giảng (409). Job dọn dẹp hằng giờ tự thu hồi link của mọi tệp học viên còn công khai (ví dụ tải lên theo chính sách cũ) — trường `unshared` trong kết quả.
+- **Mọi luồng upload của ứng dụng đều đi qua Drive**: video bài giảng, học liệu bài giảng (giáo viên) và tệp đính kèm bài làm (học viên). Học viên đã được duyệt được đính kèm vào bài làm *tài liệu* (PDF, DOCX, PPTX, JPG, PNG, GIF, WebP; tối đa 1 GB) hoặc *video* (MP4, WebM, MOV; tối đa 5 GB), nhưng không được tải học liệu cho bài giảng.
+- Video bài nộp của học viên không hiện trong thư viện video của giáo viên và không thể chọn làm video bài giảng (và luôn riêng tư).
 - Truy cập qua app: `GET /api/drive/files/{id}/download` và `/view` kiểm quyền rồi stream từ Drive. Quyền đọc trong app: chủ tệp; thành viên lớp với học liệu của bài đã xuất bản; giáo viên của lớp với bài đã nộp (không đọc được bản nháp); quản trị viên mọi tệp.
 - **Xem trực tiếp**: nút "Xem" cạnh mỗi tệp đính kèm mở video/PDF/ảnh ngay trong trang (học viên, giáo viên, quản trị viên đều dùng được theo đúng quyền). Quản trị viên mở được mọi tệp. Video/ảnh được trả kèm `Content-Security-Policy: sandbox` và `nosniff`. Video bài giảng vẫn phát bằng Drive Preview.
 - Tệp đang được bài giảng hoặc bài nộp dùng thì không xóa được (HTTP 409).
@@ -120,7 +120,7 @@ Kiểm thử thủ công với Google thật:
 ## Trạng thái kiểm thử đã thực hiện
 
 - `npm run typecheck`, `npm run build`: đạt.
-- `tests/drive-uploads.test.ts`: học viên đính kèm tài liệu vào bài nộp, mọi upload tự công khai, phân quyền đọc trong app theo vai trò, tải xuống qua server, chặn xóa tệp đang dùng.
+- `tests/drive-uploads.test.ts`: học viên đính kèm tài liệu vào bài nộp, chỉ video bài giảng được công khai, tệp học viên luôn riêng tư, phân quyền đọc trong app theo vai trò, tải xuống qua server, chặn xóa tệp đang dùng.
 - `tests/drive.test.ts` (8 test): mã hóa token, OAuth URL/state, validate upload, chữ ký nội dung, phân loại lỗi Google, truy vấn 308/hoàn tất/hết hạn, gắn video vào bài giảng, và toàn bộ vòng đời upload (init, resume, trùng lặp, IDOR, hoàn tất ràng buộc theo job, từ chối nội dung sai, reconcile, idempotent, chặn xóa khi đang dùng) với **Google API được mock**.
 - Smoke test route trên bản build production: 401 khi chưa đăng nhập, 403 cho non-admin, chặn sai Origin.
 - **Chưa kiểm thử với Google thật** (cần Client ID/secret của bạn): OAuth consent, upload thực, CORS của trình duyệt khi PUT tới session URI, phát Preview. Xem các bước thủ công ở trên.
@@ -131,7 +131,7 @@ Kiểm thử thủ công với Google thật:
 - [ ] `APP_URL`, `GOOGLE_*`, `DRIVE_ENCRYPTION_KEY` đặt trong `.env.production`; `SESSION_SECRET` riêng, không dùng chung với key mã hóa nếu có thể.
 - [ ] Chạy migration `20261103150000_google_drive`.
 - [ ] Thử upload + phát bằng video thật, cả trình duyệt chặn cookie bên thứ ba.
-- [ ] Đã quyết định chấp nhận chính sách “anyone with link” cho video.
+- [ ] Đã chấp nhận chính sách “anyone with link” cho video bài giảng (tệp khác luôn riêng tư).
 - [ ] Theo dõi dung lượng Drive và quota API (Drive API mặc định 12.000 request/phút/project).
 - [ ] Quy trình dọn file Drive khi xóa lớp.
 
@@ -141,7 +141,30 @@ Kiểm thử thủ công với Google thật:
 - **`pruneDrive(graceHours = 24)`** xóa (trên Drive và trong DB): hàng đợi xóa; tệp học viên chưa/không còn được đính kèm và học liệu giáo viên không còn dùng sau 24 giờ; bản ghi tải lên lỗi, hủy hoặc bỏ dở. **Video thư viện của giáo viên được giữ lại.** Idempotent; nếu chưa kết nối Drive chỉ xử lý bản ghi không có tệp.
 - **Chạy khi nào:** tự động mỗi giờ khi có `GOOGLE_CLIENT_ID` (`src/instrumentation.ts`; `DRIVE_PRUNE_INTERVAL_MINUTES`, đặt `0` để tắt), bằng nút "Dọn tệp mồ côi" ở `/admin`, hoặc `npm run drive:prune [số giờ]` (ví dụ từ cron).
 - **Ai sửa được tệp:** chủ tệp và admin. Giáo viên của lớp chỉ sửa/xóa/đổi chia sẻ **học liệu của lớp** (tệp do giáo viên tải), không đụng tới tệp của học viên.
-- **Không có hạn mức dung lượng** tải lên (theo yêu cầu). Dung lượng và hạn mức API là của tài khoản Google đã kết nối; cần tự theo dõi.
+- **Hạn mức dung lượng** dùng chung với kho S3: `LMS_UPLOAD_USER_QUOTA_BYTES` (mặc định 10 GiB/tài khoản) và `LMS_UPLOAD_CLASS_QUOTA_BYTES` (mặc định 100 GiB/lớp). Tính cả tệp đã xong và đang tải; tệp lỗi/hủy không tính. Vượt hạn mức trả 413. Dung lượng và hạn mức API của tài khoản Google đã kết nối vẫn cần tự theo dõi.
 - **DOCX/PPTX**: ngoài chữ ký "PK" đầu tệp, server đọc 256 KiB cuối để kiểm tra danh mục ZIP có `word/document.xml` / `ppt/presentation.xml`; Excel hay ZIP đổi đuôi bị từ chối và bị xóa khỏi Drive.
 - **Ngắt kết nối** chỉ xóa bí mật (refresh token) và đánh dấu `DISCONNECTED`; email và thư mục được giữ để kết nối lại cùng tài khoản dùng lại thư mục cũ. Đổi sang tài khoản khác tạo thư mục mới.
 - **Tiến trình upload**: trình duyệt không đọc được header `Range` của Drive (CORS không công khai header này), nên coi mỗi đoạn 8 MiB là đã nhận khi Drive trả 308; offset chính xác luôn được lấy lại từ Drive qua `/resume` khi có lỗi.
+
+## Cấu trúc thư mục và quy ước đặt tên tệp
+
+Mỗi tệp tải lên được tự xếp vào thư mục và đổi tên khi tải xong:
+
+```
+<Thư mục gốc>
+└── <Tên lớp>
+    ├── Bài 1 - <Tên bài giảng>        ← video và học liệu của bài giảng
+    │   └── <Tên học viên> - <email>   ← tệp bài tập của từng học viên (bài tập gắn với bài giảng)
+    └── Bài tập chung
+        └── <Tên học viên> - <email>   ← bài tập không gắn với bài giảng nào
+```
+
+Tên tệp: `<tên bài tập hoặc bài giảng> - Bài <số bài> - <Loại> <số thứ tự>` (giữ đuôi tệp), ví dụ
+`Chia sẻ tâm đắc - Bài 1 - Video 1.mp4`. Loại: **Video**, **Ảnh**, **Slide** (PPTX; tệp slide thứ hai
+trở đi là `Slide 2`, …), **File** (các tệp còn lại). Số thứ tự tiếp tục từ số lớn nhất đang có trong
+cùng thư mục và cùng loại. Đổi tên lớp hoặc bài giảng sẽ đổi tên thư mục tương ứng ở lần tải kế tiếp.
+Video của bài giảng mới tạo được xếp vào thư mục bài giảng ngay khi bài được lưu.
+
+## Xóa tệp: thùng rác của Google Drive
+
+Job dọn dẹp (`pruneDrive`, chạy mỗi giờ hoặc bấm tay trong trang Quản trị / `npm run drive:prune`) **chỉ chuyển tệp vào thùng rác của Google Drive**, không xóa vĩnh viễn: tệp của bài giảng, bài tập, lớp đã xóa, tệp mồ côi quá 24 giờ và bản sao dùng để xem PPTX/DOCX. Google tự xóa hẳn tệp trong thùng rác sau 30 ngày; trước đó có thể khôi phục trong Google Drive (mục Thùng rác). Lưu ý dung lượng Drive vẫn tính cho tệp trong thùng rác cho đến khi bị xóa hẳn. Nút "Xóa" thủ công trong thư viện video vẫn xóa vĩnh viễn.

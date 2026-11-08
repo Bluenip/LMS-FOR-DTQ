@@ -182,3 +182,10 @@
     flex-direction: column;
   }
 }
+
+.admin-row-actions .button.admin-delete {
+  color: var(--color-error);
+}
+.admin-row-actions .button.admin-delete:hover {
+  background: var(--color-error-soft);
+}

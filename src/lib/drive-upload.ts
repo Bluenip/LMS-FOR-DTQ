@@ -47,6 +47,8 @@ export interface UploadHandlers {
 export interface UploadOptions extends UploadHandlers {
   classId: string;
   lessonId?: string;
+  /** A learner's assignment: its files are filed in that learner's folder. */
+  assignmentId?: string;
   kind: 'video' | 'document';
   title?: string;
 }
@@ -104,6 +106,7 @@ export async function uploadToDrive(file: File, options: UploadOptions): Promise
     body: JSON.stringify({
       classId: options.classId,
       lessonId: options.lessonId ?? null,
+      assignmentId: options.assignmentId ?? null,
       name: file.name,
       size: file.size,
       mimeType: mimeFor(file),

@@ -7,6 +7,16 @@ function configuredBytes(name: string, fallback: number) {
   if (!Number.isSafeInteger(value) || value <= 0) throw new Error(`Invalid ${name}`);
   return value;
 }
+/** Per-account and per-class storage limits, shared by the S3 and Google Drive upload paths. */
+export function assertUploadQuota(userBytes: number, classBytes: number, size: number) {
+  if (userBytes + size > configuredBytes('LMS_UPLOAD_USER_QUOTA_BYTES', 10 * GiB))
+    throw new HttpError(
+      413,
+      'Đã đạt hạn mức dung lượng tài khoản. Vui lòng liên hệ quản trị viên.',
+    );
+  if (classBytes + size > configuredBytes('LMS_UPLOAD_CLASS_QUOTA_BYTES', 100 * GiB))
+    throw new HttpError(413, 'Đã đạt hạn mức dung lượng lớp học. Vui lòng liên hệ quản trị viên.');
+}
 /** Call inside the same write transaction that reserves the file. Pending bytes count too. */
 export function reserveUpload(db: Database, file: StoredFile, now = Date.now()) {
   const owned = db.files.filter((entry) => entry.ownerId === file.ownerId);
@@ -19,16 +29,11 @@ export function reserveUpload(db: Database, file: StoredFile, now = Date.now()) 
       'Bạn có quá nhiều tệp đang tải lên. Hoàn tất tệp đang tải trước khi tiếp tục.',
     );
   const total = (files: StoredFile[]) => files.reduce((sum, entry) => sum + entry.size, 0);
-  if (total(owned) + file.size > configuredBytes('LMS_UPLOAD_USER_QUOTA_BYTES', 10 * GiB))
-    throw new HttpError(
-      413,
-      'Đã đạt hạn mức dung lượng tài khoản. Vui lòng liên hệ quản trị viên.',
-    );
-  if (
-    total(db.files.filter((entry) => entry.classId === file.classId)) + file.size >
-    configuredBytes('LMS_UPLOAD_CLASS_QUOTA_BYTES', 100 * GiB)
-  )
-    throw new HttpError(413, 'Đã đạt hạn mức dung lượng lớp học. Vui lòng liên hệ quản trị viên.');
+  assertUploadQuota(
+    total(owned),
+    total(db.files.filter((entry) => entry.classId === file.classId)),
+    file.size,
+  );
   db.files.push(file);
 }
 

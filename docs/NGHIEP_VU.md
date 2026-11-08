@@ -16,29 +16,29 @@ Tài liệu liên quan: [README.md](../README.md), [GOOGLE_DRIVE.md](GOOGLE_DRIV
 
 ## 2. Vai trò và quyền
 
-| Vai trò | Cách có | Làm được |
-|---|---|---|
-| **Học viên** (`STUDENT`) | Admin cấp tài khoản | Vào lớp bằng mã, học, ghi chép, thảo luận, nộp bài, đính kèm tệp/video vào bài làm |
-| **Giáo viên** (`TEACHER`) | Admin cấp tài khoản | Tạo lớp, soạn bài giảng, giao/chấm bài, duyệt học viên. Vừa dạy lớp mình vừa có thể học lớp khác |
-| **Quản trị viên** (`isAdmin`) | Cờ cộng thêm trên một tài khoản giáo viên/học viên, cấp bằng lệnh `npm run account:grant-admin` | Quản lý tài khoản, chuyển chủ lớp, kết nối Google Drive, mở mọi tệp đã tải lên |
+| Vai trò                       | Cách có                                                                                         | Làm được                                                                                         |
+| ----------------------------- | ----------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| **Học viên** (`STUDENT`)      | Admin cấp tài khoản                                                                             | Vào lớp bằng mã, học, ghi chép, thảo luận, nộp bài, đính kèm tệp/video vào bài làm               |
+| **Giáo viên** (`TEACHER`)     | Admin cấp tài khoản                                                                             | Tạo lớp, soạn bài giảng, giao/chấm bài, duyệt học viên. Vừa dạy lớp mình vừa có thể học lớp khác |
+| **Quản trị viên** (`isAdmin`) | Cờ cộng thêm trên một tài khoản giáo viên/học viên, cấp bằng lệnh `npm run account:grant-admin` | Quản lý tài khoản, chuyển chủ lớp, kết nối Google Drive, mở mọi tệp đã tải lên                   |
 
 Trong từng lớp có hai cấp quản lý:
 
-| Cấp | Định nghĩa | Quyền riêng |
-|---|---|---|
-| **Chủ lớp** | Người tạo lớp (`teacherId`), hoặc người được admin chuyển giao | Sửa cài đặt lớp, phân công giáo viên, lưu trữ/mở lại lớp, đổi mã lớp, xóa lớp |
-| **Giáo viên phụ trách** | Được chủ lớp phân công (`teacherIds`) | Soạn bài giảng, giao/sửa/xóa/chấm bài tập, duyệt/loại học viên, kiểm duyệt thảo luận |
+| Cấp                     | Định nghĩa                                                     | Quyền riêng                                                                          |
+| ----------------------- | -------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| **Chủ lớp**             | Người tạo lớp (`teacherId`), hoặc người được admin chuyển giao | Sửa cài đặt lớp, phân công giáo viên, lưu trữ/mở lại lớp, đổi mã lớp, xóa lớp        |
+| **Giáo viên phụ trách** | Được chủ lớp phân công (`teacherIds`)                          | Soạn bài giảng, giao/sửa/xóa/chấm bài tập, duyệt/loại học viên, kiểm duyệt thảo luận |
 
 Một giáo viên "quản lý lớp" (`managesClass`) khi là chủ lớp **hoặc** nằm trong danh sách phân công. Học viên chỉ có quyền học khi enrollment ở trạng thái `APPROVED`. Người đang là học viên của lớp không thể đồng thời được phân công dạy lớp đó (và ngược lại: người đang dạy lớp không xin vào lớp đó).
 
 ## 3. Tài khoản và xác thực
 
 - **Không có đăng ký công khai.** `/api/auth/register`, quên mật khẩu, xác minh email, gửi lại xác minh đều trả "Tài khoản do quản trị viên cấp". Chỉ admin tạo tài khoản.
-- **Admin tạo tài khoản** (giáo viên hoặc học viên): hệ thống sinh **mật khẩu tạm** ngẫu nhiên, hiển thị **một lần** cho admin để chuyển riêng cho người dùng. Tài khoản mới có `mustChangePassword = true`.
+- **Admin tạo tài khoản** (giáo viên hoặc học viên): mật khẩu ban đầu là mật khẩu mặc định **`123@123aA`**. Tài khoản mới có `mustChangePassword = true`: đăng nhập xong được chuyển tới `/profile` và phải đổi mật khẩu (không được chọn lại mật khẩu mặc định).
 - **Đăng nhập:** email + mật khẩu → cookie `dtq_session` (HttpOnly, ký HMAC, hạn 7 ngày). Cookie gắn `sessionVersion`; đổi mật khẩu, khóa, đổi vai trò, reset mật khẩu đều tăng `sessionVersion` nên **mọi phiên cũ bị đăng xuất**.
 - **Ép đổi mật khẩu:** nếu `mustChangePassword` hoặc mật khẩu là mật khẩu mặc định cũ (`123@123aA`), người dùng chỉ được vào `/profile`; mọi API nghiệp vụ trả 403 cho đến khi đổi. `GET /api/state` vẫn trả khung tối thiểu (không có lớp/bài).
 - **Hồ sơ** (`/profile`): đổi họ tên; đổi mật khẩu cần mật khẩu hiện tại, mật khẩu mới ≥ 8 ký tự (≤ 128), khác mật khẩu cũ, không dùng mật khẩu mặc định.
-- **Admin quản lý tài khoản** (`/admin`): tạo, sửa tên, đổi vai trò (không đổi được nếu người đó đang dạy lớp), khóa/mở khóa, kích hoạt, đặt lại mật khẩu (sinh mật khẩu tạm mới), chuyển chủ lớp. Không thao tác được trên tài khoản quản trị khác. Giữ nguyên tài khoản demo.
+- **Admin quản lý tài khoản** (`/admin`): tạo, sửa tên, đổi vai trò (không đổi được nếu người đó đang dạy lớp), khóa/mở khóa, kích hoạt, đặt lại mật khẩu (về mặc định `123@123aA`, bắt đổi khi đăng nhập), chuyển chủ lớp, xóa vĩnh viễn tài khoản (gõ lại email; không xóa được chủ lớp, admin hay chính mình; học liệu bài giảng còn dùng được chuyển cho chủ lớp). Không thao tác được trên tài khoản quản trị khác. Giữ nguyên tài khoản demo.
 - **Tài khoản demo** (`teacher@detuquy.vn`, `student@detuquy.vn`…) chỉ đăng nhập được khi chạy localhost/demo hoặc bật `ALLOW_DEMO_ACCOUNTS=true`.
 - **Giới hạn tần suất:** đăng nhập 20 lần/15 phút/(IP+email); thử mã lớp 30/15 phút/người; khởi tạo tải lên Drive 60/15 phút/người; thao tác admin 120/15 phút; đổi hồ sơ 30/15 phút. Ba bộ đếm đầu **lưu trong PostgreSQL** nên không mất khi khởi động lại và dùng chung giữa nhiều bản chạy.
 - **Chống dò tài khoản:** đăng nhập sai luôn trả cùng một thông báo và tốn thời gian như nhau dù email có tồn tại hay không.
@@ -50,15 +50,15 @@ Một giáo viên "quản lý lớp" (`managesClass`) khi là chủ lớp **ho�
 
 Thuộc tính: tiêu đề (2–200 ký tự), mô tả, tác giả nội dung, **mã lớp** `LH-` + 12 ký tự hex, sĩ số (1–500, mặc định 50), lịch học, **mở đăng ký** (mặc định bật), **tự động duyệt** (mặc định tắt), trạng thái `ACTIVE`/`ARCHIVED`, `revision`.
 
-| Thao tác | Ai | Quy tắc |
-|---|---|---|
-| Tạo lớp | Giáo viên | Người tạo là chủ lớp |
-| Sửa cài đặt | Chủ lớp | Cần `expectedRevision`; sĩ số mới không nhỏ hơn số học viên đang học |
-| Phân công giáo viên | Chủ lớp | Chỉ giáo viên đang hoạt động; không trùng; không phải học viên của lớp; cần danh sách hiện tại để chống ghi đè (409 nếu đổi) |
-| Lưu trữ / mở lại | Chủ lớp | Lớp `ARCHIVED` chặn **mọi thay đổi nội dung** (409); vẫn xem được |
-| Đổi mã lớp | Chủ lớp | Mã cũ vô hiệu |
-| Xóa lớp | Chủ lớp | Phải gõ đúng mã lớp để xác nhận; xóa kèm tất cả dữ liệu của lớp |
-| Chuyển chủ lớp | Admin | Người nhận phải là giáo viên hoạt động, không phải học viên của lớp; danh sách phân công giữ nguyên |
+| Thao tác            | Ai        | Quy tắc                                                                                                                      |
+| ------------------- | --------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| Tạo lớp             | Giáo viên | Người tạo là chủ lớp                                                                                                         |
+| Sửa cài đặt         | Chủ lớp   | Cần `expectedRevision`; sĩ số mới không nhỏ hơn số học viên đang học                                                         |
+| Phân công giáo viên | Chủ lớp   | Chỉ giáo viên đang hoạt động; không trùng; không phải học viên của lớp; cần danh sách hiện tại để chống ghi đè (409 nếu đổi) |
+| Lưu trữ / mở lại    | Chủ lớp   | Lớp `ARCHIVED` chặn **mọi thay đổi nội dung** (409); vẫn xem được                                                            |
+| Đổi mã lớp          | Chủ lớp   | Mã cũ vô hiệu                                                                                                                |
+| Xóa lớp             | Chủ lớp   | Phải gõ đúng mã lớp để xác nhận; xóa kèm tất cả dữ liệu của lớp                                                              |
+| Chuyển chủ lớp      | Admin     | Người nhận phải là giáo viên hoạt động, không phải học viên của lớp; danh sách phân công giữ nguyên                          |
 
 ## 5. Ghi danh (enrollment)
 
@@ -146,18 +146,18 @@ Sinh tự động cho: bài tập mới, nhắc nộp bài, học viên nộp b�
 
 **Mọi upload đều lên Google Drive** (một tài khoản dùng chung do admin kết nối).
 
-| Loại | Ai tải | Giới hạn | Ghi chú |
-|---|---|---|---|
-| Video bài giảng | Giáo viên của lớp | MP4, WebM, MOV, ≤ 2 GB | Phát bằng Drive Preview |
-| Học liệu bài giảng | Giáo viên của lớp | PDF, DOCX, PPTX, JPG/PNG/GIF/WebP, ≤ 25 MB | Tối đa 20 tệp/bài |
-| Tệp/video bài nộp | Học viên đã duyệt | Tài liệu ≤ 25 MB, video ≤ 2 GB | Tối đa 10 tệp/bài nộp |
+| Loại               | Ai tải            | Giới hạn                                   | Ghi chú                 |
+| ------------------ | ----------------- | ------------------------------------------ | ----------------------- |
+| Video bài giảng    | Giáo viên của lớp | MP4, WebM, MOV, ≤ 5 GB                     | Phát bằng Drive Preview |
+| Học liệu bài giảng | Giáo viên của lớp | PDF, DOCX, PPTX, JPG/PNG/GIF/WebP, ≤ 1 GB | Tối đa 20 tệp/bài       |
+| Tệp/video bài nộp  | Học viên đã duyệt | Tài liệu ≤ 1 GB, video ≤ 5 GB             | Tối đa 10 tệp/bài nộp   |
 
 - **Chính sách chia sẻ:** mọi tệp tự được đặt **"ai có liên kết đều xem được"** (không hiện khi tìm kiếm). Nghĩa là **ai có link Drive đều xem được, không cần đăng nhập**, kể cả bài làm học viên. Nếu Google từ chối cấp quyền, lượt tải không hoàn tất và có thể thử lại.
 - **Cách tải:** trình duyệt gửi từng đoạn 8 MiB thẳng lên Drive (phiên upload do backend tạo); tự thử lại tối đa 6 lần, **tiếp tục** từ byte Drive đã nhận, có thể hủy; chọn lại đúng tệp đang dở sẽ nối lại phiên cũ.
 - **Kiểm tra sau khi tải:** server đối chiếu dung lượng/tên/mã job với Drive và kiểm **chữ ký nội dung** (4 KiB đầu) so với định dạng khai báo; sai thì xóa khỏi Drive và báo lỗi.
 - **Xem/tải trong app:** `/api/drive/files/{id}/view` (xem ngay video/PDF/ảnh, hỗ trợ tua) và `/download`. Quyền đọc trong app: chủ tệp; thành viên lớp với học liệu của bài đã xuất bản; giáo viên lớp với bài **đã nộp** (không đọc bản nháp); admin mọi tệp. DOCX/PPTX chỉ có nút tải.
 - **Quản lý:** thư viện video lớp (tìm, chọn, xem, đổi tên giữ đuôi tệp, bật/tắt chia sẻ, xóa). Không xóa được tệp đang dùng trong bài giảng hoặc bài nộp (409). **Giáo viên chỉ sửa/xóa/đổi chia sẻ được học liệu của lớp**, không đụng được tệp của học viên (chỉ chủ tệp hoặc admin).
-- **Dọn tệp mồ côi:** tệp của bài tập/bài giảng/lớp bị xóa được đưa vào hàng đợi xóa trên Drive; tệp học viên không đính kèm hoặc học liệu bị gỡ quá 24 giờ, và bản ghi tải lên lỗi/hủy/bỏ dở cũng bị xóa. Video thư viện của giáo viên được **giữ lại** (tái sử dụng). Chạy tự động mỗi giờ (`DRIVE_PRUNE_INTERVAL_MINUTES`), bằng nút "Dọn tệp mồ côi" ở `/admin`, hoặc `npm run drive:prune [số giờ]`. **Không có hạn mức dung lượng tải lên** (theo yêu cầu).
+- **Dọn tệp mồ côi:** tệp của bài tập/bài giảng/lớp bị xóa được đưa vào hàng đợi xóa trên Drive; tệp học viên không đính kèm hoặc học liệu bị gỡ quá 24 giờ, và bản ghi tải lên lỗi/hủy/bỏ dở cũng bị xóa. Video thư viện của giáo viên được **giữ lại** (tái sử dụng). Chạy tự động mỗi giờ (`DRIVE_PRUNE_INTERVAL_MINUTES`), bằng nút "Dọn tệp mồ côi" ở `/admin`, hoặc `npm run drive:prune [số giờ]`. **Hạn mức dung lượng:** 10 GiB/tài khoản và 100 GiB/lớp mặc định (`LMS_UPLOAD_USER_QUOTA_BYTES`, `LMS_UPLOAD_CLASS_QUOTA_BYTES`). Chỉ video bài giảng được chia sẻ bằng liên kết; học liệu và bài làm của học viên luôn riêng tư.
 - **Kiểm tra định dạng sâu:** DOCX/PPTX phải thật sự chứa `word/document.xml` / `ppt/presentation.xml` (đọc phần cuối tệp), nên file ZIP/Excel đổi đuôi bị từ chối.
 - **Ngắt kết nối** giữ lại bản ghi và thư mục Drive; kết nối lại cùng tài khoản dùng lại thư mục cũ (không tạo thư mục trùng). Video bài nộp của học viên không hiện trong thư viện của giáo viên và không thể chọn làm video bài giảng.
 - **Kết nối (admin):** OAuth 2.0 scope `drive.file`, refresh token mã hóa AES-256-GCM, tự làm mới access token; phát hiện bị thu hồi thì đánh dấu `REVOKED`. Không đổi sang tài khoản Google khác khi đang kết nối. Ngắt kết nối thu hồi token và hủy các lượt tải dở.
@@ -168,18 +168,18 @@ Sinh tự động cho: bài tập mới, nhắc nộp bài, học viên nộp b�
 
 `GET /api/state` chỉ trả dữ liệu người dùng **được phép thấy**:
 
-| Dữ liệu | Học viên (đã duyệt) | Học viên chờ duyệt | Giáo viên của lớp |
-|---|---|---|---|
-| Thông tin lớp | ✔ | ✔ (chỉ thông tin lớp) | ✔ |
-| Bài giảng | Chỉ **đã xuất bản** | ✘ | Tất cả (kể cả nháp) |
-| Bài tập | Ẩn nếu gắn bài giảng chưa xuất bản | ✘ | Tất cả |
-| Bài nộp | Của chính mình | ✘ | Của học viên (không nháp) |
-| Điểm/nhận xét | Chỉ khi `GRADED` | ✘ | Tất cả |
-| Tiến độ | Của mình | ✘ | Cả lớp |
-| Ghi chú | Của mình | ✘ | Của mình |
-| Thảo luận | Cả lớp | ✘ | Cả lớp |
-| Email người khác | Ẩn | Ẩn | Hiện cho học viên/đồng giáo viên trong lớp mình quản lý |
-| Thông báo | Của mình | Của mình | Của mình |
+| Dữ liệu          | Học viên (đã duyệt)                | Học viên chờ duyệt    | Giáo viên của lớp                                       |
+| ---------------- | ---------------------------------- | --------------------- | ------------------------------------------------------- |
+| Thông tin lớp    | ✔                                  | ✔ (chỉ thông tin lớp) | ✔                                                       |
+| Bài giảng        | Chỉ **đã xuất bản**                | ✘                     | Tất cả (kể cả nháp)                                     |
+| Bài tập          | Ẩn nếu gắn bài giảng chưa xuất bản | ✘                     | Tất cả                                                  |
+| Bài nộp          | Của chính mình                     | ✘                     | Của học viên (không nháp)                               |
+| Điểm/nhận xét    | Chỉ khi `GRADED`                   | ✘                     | Tất cả                                                  |
+| Tiến độ          | Của mình                           | ✘                     | Cả lớp                                                  |
+| Ghi chú          | Của mình                           | ✘                     | Của mình                                                |
+| Thảo luận        | Cả lớp                             | ✘                     | Cả lớp                                                  |
+| Email người khác | Ẩn                                 | Ẩn                    | Hiện cho học viên/đồng giáo viên trong lớp mình quản lý |
+| Thông báo        | Của mình                           | Của mình              | Của mình                                                |
 
 ## 13. Cơ chế dùng chung
 
@@ -193,37 +193,37 @@ Sinh tự động cho: bài tập mới, nhắc nộp bài, học viên nộp b�
 
 ## 14. Bản đồ màn hình
 
-| Đường dẫn | Dành cho | Chức năng |
-|---|---|---|
-| `/login` | Mọi người | Đăng nhập |
-| `/profile` | Mọi người | Họ tên, đổi mật khẩu (bắt buộc khi có cờ đổi mật khẩu) |
-| `/classes` | Học viên, giáo viên | Lớp của tôi: tìm, nhập mã lớp, hủy yêu cầu chờ duyệt |
-| `/classes/{id}` | Thành viên lớp | Tổng quan, bài giảng, bài tập, thông tin lớp |
-| `/classes/{id}/lessons/{lessonId}` | Thành viên lớp | Video, tài liệu, ghi chú, thảo luận, hoàn thành/lưu bài |
-| `/classes/{id}/assignments/{id}` | Thành viên lớp | Soạn/nộp/thu hồi bài, xem điểm |
-| `/classes/{id}/members` | Thành viên lớp | Danh sách thành viên, lọc nhóm, tìm không dấu |
-| `/assignments` | Học viên, giáo viên | Bài tập của tôi (mọi lớp) |
-| `/teacher/classes` | Giáo viên | Lớp giảng dạy: tạo/sửa, duyệt học viên, phân công, lưu trữ, xóa |
-| `/teacher/lessons` | Giáo viên | Kho bài giảng: soạn, xuất bản, tải video/tài liệu |
-| `/teacher/assignments` | Giáo viên | Giao bài, bài cần chấm, chấm theo rubric, nhắc nộp, xuất CSV |
-| `/admin`, `/admin/users` | Admin | Tài khoản, kết nối Google Drive, chuyển chủ lớp |
+| Đường dẫn                          | Dành cho            | Chức năng                                                       |
+| ---------------------------------- | ------------------- | --------------------------------------------------------------- |
+| `/login`                           | Mọi người           | Đăng nhập                                                       |
+| `/profile`                         | Mọi người           | Họ tên, đổi mật khẩu (bắt buộc khi có cờ đổi mật khẩu)          |
+| `/classes`                         | Học viên, giáo viên | Lớp của tôi: tìm, nhập mã lớp, hủy yêu cầu chờ duyệt            |
+| `/classes/{id}`                    | Thành viên lớp      | Tổng quan, bài giảng, bài tập, thông tin lớp                    |
+| `/classes/{id}/lessons/{lessonId}` | Thành viên lớp      | Video, tài liệu, ghi chú, thảo luận, hoàn thành/lưu bài         |
+| `/classes/{id}/assignments/{id}`   | Thành viên lớp      | Soạn/nộp/thu hồi bài, xem điểm                                  |
+| `/classes/{id}/members`            | Thành viên lớp      | Danh sách thành viên, lọc nhóm, tìm không dấu                   |
+| `/assignments`                     | Học viên, giáo viên | Bài tập của tôi (mọi lớp)                                       |
+| `/teacher/classes`                 | Giáo viên           | Lớp giảng dạy: tạo/sửa, duyệt học viên, phân công, lưu trữ, xóa |
+| `/teacher/lessons`                 | Giáo viên           | Kho bài giảng: soạn, xuất bản, tải video/tài liệu               |
+| `/teacher/assignments`             | Giáo viên           | Giao bài, bài cần chấm, chấm theo rubric, nhắc nộp, xuất CSV    |
+| `/admin`, `/admin/users`           | Admin               | Tài khoản, kết nối Google Drive, chuyển chủ lớp                 |
 
 ## 15. Bảng API
 
-| Nhóm | Endpoint |
-|---|---|
+| Nhóm              | Endpoint                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | Nghiệp vụ lớp học | `POST /api/actions` — `createClass`, `updateClass`, `setClassTeachers`, `archiveClass`, `regenerateCode`, `deleteClass`, `previewClass`, `joinClass`, `cancelEnrollment`, `leaveClass`, `removeEnrollment`, `setEnrollmentGroup`, `approveEnrollment`, `rejectEnrollment`, `saveLesson`, `deleteLesson`, `completeLesson`, `bookmarkLesson`, `saveNote`, `comment`, `updateComment`, `deleteComment`, `createAssignment`, `updateAssignment`, `deleteAssignment`, `saveSubmission`, `submitAssignment`, `withdrawSubmission`, `gradeSubmission`, `remindStudents`, `markNotificationsRead` |
-| Trạng thái | `GET /api/state`, `GET /api/health` |
-| Xác thực/hồ sơ | `POST /api/auth/login`, `/logout`, `GET /api/auth/me`, `/config`, `PATCH /api/profile` |
-| Admin | `/api/admin/users` (tạo/liệt kê), `/api/admin/users/{id}` (sửa), `/api/admin/users/{id}/reset-password`, `/api/admin/classes/{id}/owner`, `/api/classes/{classId}/teachers` |
-| Nhật ký | `GET /api/admin/audit` (admin) |
-| Google Drive | `GET /api/drive/status`, `/connect`, `/callback`; `POST /disconnect`, `POST /api/drive/maintenance` (admin, dọn tệp mồ côi); `POST /api/drive/uploads` (+ `/{id}` GET/DELETE, `/{id}/resume`, `/{id}/complete`); `GET /api/drive/files` (+ `/{id}` GET/PATCH/DELETE, `/{id}/sharing`, `/{id}/view`, `/{id}/download`) |
-| Tệp S3 cũ | `/api/uploads`, `/api/uploads/presign`, `/api/uploads/complete`, `GET /api/files/{id}` |
+| Trạng thái        | `GET /api/state`, `GET /api/health`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| Xác thực/hồ sơ    | `POST /api/auth/login`, `/logout`, `GET /api/auth/me`, `/config`, `PATCH /api/profile`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| Admin             | `/api/admin/users` (tạo/liệt kê), `/api/admin/users/{id}` (sửa), `/api/admin/users/{id}/reset-password`, `/api/admin/classes/{id}/owner`, `/api/classes/{classId}/teachers`                                                                                                                                                                                                                                                                                                                                                                                                                |
+| Nhật ký           | `GET /api/admin/audit` (admin)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| Google Drive      | `GET /api/drive/status`, `/connect`, `/callback`; `POST /disconnect`, `POST /api/drive/maintenance` (admin, dọn tệp mồ côi); `POST /api/drive/uploads` (+ `/{id}` GET/DELETE, `/{id}/resume`, `/{id}/complete`); `GET /api/drive/files` (+ `/{id}` GET/PATCH/DELETE, `/{id}/sharing`, `/{id}/view`, `/{id}/download`)                                                                                                                                                                                                                                                                      |
+| Tệp S3 cũ         | `/api/uploads`, `/api/uploads/presign`, `/api/uploads/complete`, `GET /api/files/{id}`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 
 ## 16. Giới hạn và những điều chưa có
 
 - **Không có** đăng ký tự phục vụ, quên mật khẩu qua email, gửi email thông báo; mọi thứ qua admin và thông báo trong app.
-- Tệp trên Drive **công khai theo liên kết** (xem mục 11); ai có link xem được, kể cả bài nộp của học viên.
+- Chỉ **video bài giảng** trên Drive công khai theo liên kết (xem mục 11); học liệu và bài nộp của học viên riêng tư, chỉ mở qua ứng dụng.
 - Video bài nộp chỉ **tải xuống/xem qua server** (tốn băng thông server); giáo viên chưa có công cụ nhận xét trực tiếp trên video.
 - DOCX/PPTX không xem trực tiếp trong app (chỉ tải); video bài giảng phụ thuộc Google xử lý (có thể vài phút sau khi tải) và cookie bên thứ ba.
 - Tệp trên Drive của lớp/bài đã xóa được dọn theo lịch (mục 11), không xóa ngay lập tức.
@@ -231,3 +231,35 @@ Sinh tự động cho: bài tập mới, nhắc nộp bài, học viên nộp b�
 - Trạng thái được tải theo phạm vi lớp của người dùng và đồng bộ bằng thăm dò 3 giây (có ETag/304); chưa có đẩy thời gian thực (SSE) hay phân trang phía server.
 - Một tài khoản Google Drive dùng chung cho cả hệ thống; dung lượng và hạn mức API là của tài khoản đó.
 - Điểm chỉ theo rubric cố định 40/40/20; chưa có nhiều thang điểm, nhóm bài tập, hay chấm theo nhóm học viên.
+
+## Trưởng nhóm
+
+Mỗi học viên trong lớp thuộc một nhóm (1–4). Giáo viên của lớp có thể đặt **một Trưởng nhóm cho mỗi nhóm** (trang Thành viên của lớp → "Đặt làm trưởng nhóm"; chỉ có hiệu lực trong lớp đó). Trưởng nhóm vẫn là học viên và vẫn nộp bài như bình thường, thêm quyền:
+
+- Thấy email và bài **đã nộp** của các thành viên cùng nhóm (nội dung, liên kết, tệp; xem trực tuyến cả PPTX), ở mục "Nhóm của bạn" trong trang Thành viên.
+- Không thấy điểm hay nhận xét của bạn, không thấy bản nháp, không thấy nhóm khác.
+- Không chấm bài, không tạo/sửa/xóa bài tập, bài giảng hay lớp.
+
+Đổi nhóm của một học viên hoặc cho học viên rời lớp sẽ tự gỡ quyền Trưởng nhóm của họ.
+
+## Thực hành theo bài giảng (bảng phân lịch học tập và thực hành)
+
+Mỗi bài giảng có tab **Thực hành**, gồm 13 mục tick theo bảng phân lịch của lớp: 4 mục *Nhiệm vụ học tập*, 3 mục *Thực hành đạo lý hằng ngày*, 2 mục *Thực hành đạo lý hằng tuần* và 4 mục *Tinh thần thực hành*. Điểm thực hành của một bài là số mục được tick trên 13.
+
+| Người dùng | Thấy | Được tick |
+|---|---|---|
+| Trưởng nhóm | Thành viên trong nhóm mình: đã học bài chưa, tiến độ thực hành | Có, cho các thành viên cùng nhóm (không tự chấm mình) |
+| Học viên | Chỉ phiếu của chính mình (chỉ xem) | Không |
+| Giáo viên của lớp, quản trị viên | Toàn lớp | Chỉ khi nhóm chưa có trưởng nhóm, hoặc cho chính trưởng nhóm (không ai khác chấm được) |
+
+Phiếu được lưu theo từng cặp (bài giảng, học viên) kèm nhận xét và người chấm gần nhất; bị xóa theo bài giảng, lớp hoặc tài khoản.
+
+## Bảng xếp hạng thực hành
+
+Chỉ **giáo viên của lớp** và **quản trị viên** xem được; học viên và trưởng nhóm không thấy (máy chủ trả 403 cho `GET /api/ranking`).
+
+- **Xếp hạng tổng của lớp:** tổng số mục thực hành được tick trên mọi bài giảng đã xuất bản (13 mục mỗi bài) và phần trăm.
+- **Xếp hạng từng bài giảng:** điểm thực hành của bài đó (tối đa 13).
+- Cùng điểm thì cùng hạng (1, 2, 2, 4); nếu bằng điểm thực hành thì người đã học nhiều bài hơn xếp trước.
+- Vị trí: tab **Xếp hạng** của lớp (giáo viên), cuối tab **Thực hành** của mỗi bài giảng (giáo viên), và mục **Bảng xếp hạng thực hành** trong trang Quản trị (chọn bất kỳ lớp nào).
+- Chấm cho từng thành viên: ở tab **Thực hành** của bài, hoặc trong hộp thoại **Chi tiết** của thành viên (trang Thành viên) → "Thực hành theo bài giảng" → **Chấm thực hành**.

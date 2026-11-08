@@ -10,7 +10,6 @@ import {
   HttpError,
   publicUser,
   signSession,
-  hashPassword,
   verifyPassword,
   accountEnabled,
 } from '@/lib/server/auth';

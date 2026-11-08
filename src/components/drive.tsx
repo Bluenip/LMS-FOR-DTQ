@@ -8,7 +8,10 @@ import {
   Eye,
   Globe,
   Lock,
+  Maximize,
+  Minimize,
   Pencil,
+  Presentation,
   RefreshCw,
   Trash2,
   Upload,
@@ -17,8 +20,8 @@ import {
 } from 'lucide-react';
 import type { DriveFile, DriveStatus } from '@/lib/types';
 import { api, ApiError } from '@/lib/client';
-import { cancelDriveUpload, uploadToDrive } from '@/lib/drive-upload';
-import { Badge, Button, Dialog, Empty, Field, Search } from './ui';
+import { cancelUpload, dismissUpload, startUpload, useUploads } from '@/lib/upload-manager';
+import { Badge, Button, Dialog, Empty, Field, IconButton, Search } from './ui';
 import { useLms } from './lms-provider';
 
 const DRIVE_ID = /^[\w-]{10,120}$/;
@@ -142,14 +145,14 @@ export function GoogleDriveConnect() {
       )}
       {status?.connected && (
         <p className="small">
-          Tài khoản: <strong>{status.email}</strong>. Video bài giảng được lưu trong thư mục “LMS Đệ
-          Tử Quy”.
+          Tài khoản: <strong>{status.email}</strong>. Tệp tải lên được lưu trong thư mục “LMS Đệ Tử
+          Quy” trên Drive; thư mục được tạo ở lượt tải lên đầu tiên.
         </p>
       )}
       <p className="small muted">
         Ứng dụng chỉ xin quyền <code>drive.file</code>: chỉ thấy các tệp do chính hệ thống này tạo,
-        không đọc phần Drive còn lại. Video tải lên được đặt ở chế độ “bất kỳ ai có liên kết có thể
-        xem” để phát trong bài giảng.
+        không đọc phần Drive còn lại. Chỉ video bài giảng được đặt chế độ “bất kỳ ai có liên kết có
+        thể xem” để phát trong bài giảng; học liệu và bài làm của học viên luôn riêng tư.
       </p>
       <div className="row">
         {/* Full-page navigation: the OAuth redirect and state cookie need a real request. */}
@@ -296,107 +299,60 @@ export function VideoUploader({
   disabled?: boolean;
   onUploaded: (file: DriveFile) => void;
 }) {
-  const [file, setFile] = useState<File | null>(null);
-  const [phase, setPhase] = useState<Phase>('idle');
-  const [message, setMessage] = useState('');
-  const [loaded, setLoaded] = useState(0);
-  const control = useRef<AbortController | null>(null);
-  const job = useRef<string>('');
-  const lastPaint = useRef(0);
-  useEffect(() => () => control.current?.abort(), []);
-  // Leaving the page mid-upload loses the in-memory file handle; warn but keep the server session.
+  // Uploads belong to the upload manager, so they continue while the lesson is saved or left.
+  const mine = useUploads(
+    (i) => i.classId === classId && i.kind === kind && (i.lessonId || '') === (lessonId || ''),
+  );
+  const notified = useRef(new Set<string>());
   useEffect(() => {
-    if (phase !== 'uploading' && phase !== 'retrying') return;
-    const warn = (event: BeforeUnloadEvent) => event.preventDefault();
-    window.addEventListener('beforeunload', warn);
-    return () => window.removeEventListener('beforeunload', warn);
-  }, [phase]);
-
-  async function start(selected: File) {
-    const abort = new AbortController();
-    control.current = abort;
-    setFile(selected);
-    setLoaded(0);
-    setPhase('uploading');
-    try {
-      const uploaded = await uploadToDrive(selected, {
-        classId,
-        lessonId,
-        kind,
-        signal: abort.signal,
-        onJob: (id) => (job.current = id),
-        onProgress: (n, total) => {
-          // XHR fires progress many times a second; repainting every event makes the page stutter.
-          const nowMs = performance.now();
-          if (n >= total || nowMs - lastPaint.current > 150) {
-            lastPaint.current = nowMs;
-            setLoaded(n);
-          }
-        },
-        onPhase: (next, text) => {
-          setPhase(next);
-          setMessage(text);
-        },
-      });
-      setPhase('done');
-      setLoaded(selected.size);
-      setMessage(
-        kind === 'video'
-          ? 'Đã tải lên. Google có thể cần vài phút để xử lý video trước khi phát được.'
-          : 'Đã tải lên.',
-      );
-      onUploaded(uploaded);
-    } catch (e) {
-      if (e instanceof DOMException && e.name === 'AbortError') {
-        setPhase('cancelled');
-        setMessage('Đã hủy tải lên.');
-      } else {
-        setPhase('error');
-        setMessage(
-          e instanceof ApiError && e.status === 410
-            ? 'Phiên tải lên đã hết hạn. Chọn lại tệp để bắt đầu lại.'
-            : (e as Error).message || 'Tải lên thất bại.',
-        );
+    for (const item of mine)
+      if (item.phase === 'done' && item.result && !notified.current.has(item.id)) {
+        notified.current.add(item.id);
+        onUploaded(item.result);
       }
-    }
-  }
-  async function cancel() {
-    control.current?.abort();
-    if (job.current) await cancelDriveUpload(job.current);
-  }
-  const active = phase === 'uploading' || phase === 'retrying';
+  }, [mine, onUploaded]);
   return (
     <div className="stack">
       <Field
         label={kind === 'video' ? 'Chọn video MP4, WebM hoặc MOV' : 'Chọn tài liệu'}
         hint={
           kind === 'video'
-            ? 'Tối đa 2 GB. Tải trực tiếp lên Google Drive, có thể tiếp tục khi mất kết nối.'
-            : 'Tối đa 25 MB.'
+            ? 'Tối đa 5 GB. Tải lên chạy nền: bạn có thể lưu hoặc xuất bản bài ngay, video sẽ tự gắn vào bài khi tải xong.'
+            : 'Tối đa 1 GB.'
         }
       >
         <input
           type="file"
           accept={accept}
-          disabled={disabled || active}
+          disabled={disabled}
           onChange={(e) => {
             const selected = e.target.files?.[0];
             e.target.value = '';
-            if (selected) void start(selected);
+            if (selected) startUpload({ file: selected, classId, lessonId, kind });
           }}
         />
       </Field>
-      {file && phase !== 'idle' && (
-        <UploadProgress
-          name={file.name}
-          loaded={loaded}
-          total={file.size}
-          phase={phase}
-          message={message}
-          onCancel={() => void cancel()}
-          onRetry={() => void start(file)}
-        />
-      )}
+      {mine.map((item) => (
+        <div key={item.id} className="stack">
+          <UploadProgress
+            name={item.file.name}
+            loaded={item.loaded}
+            total={item.file.size}
+            phase={item.phase}
+            message={item.message}
+            onCancel={() => void cancelUpload(item.id)}
+            onRetry={() => {
+              dismissUpload(item.id);
+              startUpload({ file: item.file, classId, lessonId: item.lessonId, kind });
+            }}
+          />
+          {item.phase !== 'uploading' && item.phase !== 'retrying' && (
+            <Button variant="ghost" onClick={() => dismissUpload(item.id)}>
+              Ẩn
+            </Button>
+          )}
+        </div>
+      ))}
     </div>
   );
 }
@@ -603,6 +559,95 @@ export function VideoManagement({
 }
 
 // ---------------------------------------------------------------------------
+// Administrator library: every class file with in-page viewing (video, PDF, image, PPTX slides)
+// ---------------------------------------------------------------------------
+export function DriveLibrary() {
+  const { state } = useLms();
+  const [classId, setClassId] = useState(state.classes[0]?.id || '');
+  const [files, setFiles] = useState<DriveFile[] | null>(null);
+  const [error, setError] = useState('');
+  const [watch, setWatch] = useState<DriveFile | null>(null);
+  useEffect(() => {
+    if (!classId) return;
+    let live = true;
+    setFiles(null);
+    api<{ files: DriveFile[] }>(`/api/drive/files?${new URLSearchParams({ classId })}`, {
+      cache: 'no-store',
+    })
+      .then((r) => live && (setFiles(r.files), setError('')))
+      .catch((e) => live && setError((e as Error).message));
+    return () => {
+      live = false;
+    };
+  }, [classId]);
+  return (
+    <section className="panel stack">
+      <div className="row">
+        <h2>Thư viện tệp trên Google Drive</h2>
+        <select
+          aria-label="Chọn lớp học"
+          value={classId}
+          onChange={(e) => setClassId(e.target.value)}
+        >
+          {state.classes.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.title}
+            </option>
+          ))}
+        </select>
+      </div>
+      {error && <p className="error">{error}</p>}
+      {!files ? (
+        <div className="skeleton row" role="status" aria-label="Đang tải danh sách tệp" />
+      ) : files.length === 0 ? (
+        <Empty title="Chưa có tệp" description="Lớp này chưa có video hoặc tài liệu trên Drive." />
+      ) : (
+        <ul className="drive-list">
+          {files.map((f) => (
+            <li key={f.id}>
+              <div>
+                <strong>{f.title || f.name}</strong>
+                <small className="muted">
+                  {f.name} · {formatSize(f.size)}
+                </small>
+              </div>
+              <div className="inline-actions">
+                {f.kind === 'video' ? (
+                  <Button variant="ghost" onClick={() => setWatch(f)}>
+                    <Eye size={15} /> Xem
+                  </Button>
+                ) : (
+                  <AttachmentViewer
+                    file={{
+                      id: f.id,
+                      name: f.name,
+                      mimeType: f.mimeType,
+                      url: `/api/drive/files/${f.id}/download`,
+                    }}
+                  />
+                )}
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+      <Dialog
+        open={!!watch}
+        title={watch?.title || 'Xem video'}
+        onClose={() => setWatch(null)}
+        wide
+      >
+        {watch && (
+          <div className="video-frame">
+            <DriveVideoPlayer fileId={watch.driveFileId} title={watch.title || watch.name} />
+          </div>
+        )}
+      </Dialog>
+    </section>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Lesson editor integration
 // ---------------------------------------------------------------------------
 export function CourseLessonVideo({
@@ -621,19 +666,39 @@ export function CourseLessonVideo({
   const { status, error } = useDriveStatus();
   const { state } = useLms();
   const [refreshKey, setRefreshKey] = useState(0);
-  if (error) return <p className="error">{error}</p>;
+  // The video already attached to the lesson is shown whatever the connection state is.
+  const frame = driveFileId ? (
+    <div className="video-frame">
+      <DriveVideoPlayer fileId={driveFileId} title={title || 'Video bài giảng'} />
+    </div>
+  ) : null;
+  if (error)
+    return (
+      <div className="stack">
+        {frame}
+        <p className="error">{error}</p>
+      </div>
+    );
   if (!status)
-    return <div className="skeleton row" role="status" aria-label="Đang kiểm tra Google Drive" />;
+    return (
+      <div className="stack">
+        {frame}
+        <div className="skeleton row" role="status" aria-label="Đang kiểm tra Google Drive" />
+      </div>
+    );
   if (!status.configured || !status.connected)
     return (
-      <p className="notice warning">
-        Google Drive chưa sẵn sàng.{' '}
-        {state.user.isAdmin ? (
-          <a href="/admin">Kết nối trong trang Quản trị</a>
-        ) : (
-          'Hãy nhờ quản trị viên kết nối Google Drive.'
-        )}
-      </p>
+      <div className="stack">
+        {frame}
+        <p className="notice warning">
+          Google Drive chưa sẵn sàng.{' '}
+          {state.user.isAdmin ? (
+            <a href="/admin">Kết nối trong trang Quản trị</a>
+          ) : (
+            'Hãy nhờ quản trị viên kết nối Google Drive.'
+          )}
+        </p>
+      </div>
     );
   return (
     <div className="stack">
@@ -645,11 +710,7 @@ export function CourseLessonVideo({
           setRefreshKey((k) => k + 1);
         }}
       />
-      {driveFileId && (
-        <div className="video-frame">
-          <DriveVideoPlayer fileId={driveFileId} title={title || 'Video bài giảng'} />
-        </div>
-      )}
+      {frame}
       <details>
         <summary>
           <Upload size={14} /> Chọn từ video đã tải lên
@@ -669,7 +730,90 @@ export function CourseLessonVideo({
 // Viewing private files (assignment attachments, lesson materials) in the page
 // ---------------------------------------------------------------------------
 const VIEWABLE = /^(video\/|image\/|application\/pdf$)/;
+const OFFICE = /(presentationml\.presentation|wordprocessingml\.document)$/;
+const isSlides = (mime: string) => /presentationml\.presentation$/.test(mime);
 const isDriveFile = (file: { url?: string }) => !!file.url?.startsWith('/api/drive/files/');
+
+/** PPTX slide show: Google's viewer in a dialog, with a full-screen "present" mode. */
+function SlideViewer({ file }: { file: { id: string; name: string; mimeType: string } }) {
+  const [open, setOpen] = useState(false);
+  const [url, setUrl] = useState('');
+  const [error, setError] = useState('');
+  const frame = useRef<HTMLDivElement>(null);
+  const [full, setFull] = useState(false);
+  useEffect(() => {
+    const sync = () => setFull(document.fullscreenElement === frame.current);
+    document.addEventListener('fullscreenchange', sync);
+    return () => document.removeEventListener('fullscreenchange', sync);
+  }, []);
+  useEffect(() => {
+    if (!open) return;
+    let live = true;
+    setUrl('');
+    setError('');
+    api<{ url: string }>(`/api/drive/files/${file.id}/slides`, { cache: 'no-store' })
+      .then((r) => live && setUrl(r.url))
+      .catch((e) => live && setError((e as Error).message));
+    return () => {
+      live = false;
+    };
+  }, [open, file.id]);
+  return (
+    <>
+      <Button
+        variant="ghost"
+        onClick={() => setOpen(true)}
+        aria-label={`${isSlides(file.mimeType) ? 'Trình chiếu' : 'Xem'} ${file.name}`}
+      >
+        {isSlides(file.mimeType) ? <Presentation size={15} /> : <Eye size={15} />}{' '}
+        {isSlides(file.mimeType) ? 'Trình chiếu' : 'Xem'}
+      </Button>
+      <Dialog open={open} title={file.name} onClose={() => setOpen(false)} wide>
+        {open && (
+          <div className="slide-viewer" ref={frame}>
+            {error ? (
+              <p className="error">{error}</p>
+            ) : !url ? (
+              <p className="muted">Đang tải bản trình chiếu…</p>
+            ) : (
+              <>
+                <iframe
+                  className="attachment-pdf slide-frame"
+                  src={url}
+                  title={file.name}
+                  allow="fullscreen"
+                  allowFullScreen
+                />
+                <div className="slide-controls">
+                  <IconButton
+                    label={full ? 'Thu nhỏ' : 'Toàn màn hình'}
+                    onClick={() =>
+                      full
+                        ? void document.exitFullscreen()
+                        : void frame.current?.requestFullscreen()
+                    }
+                  >
+                    {full ? <Minimize size={17} /> : <Maximize size={17} />}
+                  </IconButton>
+                  <a
+                    className="icon-button"
+                    href={url}
+                    target="_blank"
+                    rel="noreferrer"
+                    aria-label="Mở trong tab mới"
+                    title="Mở trong tab mới"
+                  >
+                    <ExternalLink size={17} />
+                  </a>
+                </div>
+              </>
+            )}
+          </div>
+        )}
+      </Dialog>
+    </>
+  );
+}
 
 /** "Xem" button + dialog for files stored in Drive that a browser can render (video, PDF, image). */
 export function AttachmentViewer({
@@ -678,6 +822,7 @@ export function AttachmentViewer({
   file: { id: string; name: string; mimeType: string; url?: string };
 }) {
   const [open, setOpen] = useState(false);
+  if (isDriveFile(file) && OFFICE.test(file.mimeType)) return <SlideViewer file={file} />;
   if (!isDriveFile(file) || !VIEWABLE.test(file.mimeType)) return null;
   const src = `/api/drive/files/${file.id}/view`;
   return (

@@ -76,7 +76,7 @@ test('admin state projects safe account fields and counts actual records', () =>
       assert.equal(key in user, false);
   assert.equal(publicUser(admin).isAdmin, true);
 });
-test('creating managed accounts uses unique temporary passwords and requires a change', () => {
+test('creating managed accounts uses the default password and requires a change', () => {
   const { db, admin } = fixture();
   const issued = new Set<string>();
   for (const role of ['TEACHER', 'STUDENT'] as const) {
@@ -93,10 +93,10 @@ test('creating managed accounts uses unique temporary passwords and requires a c
     assert.equal(result.user.disabled, false);
     assert.equal(result.user.isDemo, false);
     const stored = db.users.find((u) => u.id === result.user.id)!;
-    assert.equal(verifyPassword(result.temporaryPassword, stored.passwordHash), true);
-    assert.equal(verifyPassword(DEFAULT_ACCOUNT_PASSWORD, stored.passwordHash), false);
+    assert.equal(result.temporaryPassword, DEFAULT_ACCOUNT_PASSWORD);
+    assert.equal(verifyPassword(DEFAULT_ACCOUNT_PASSWORD, stored.passwordHash), true);
     assert.equal(stored.mustChangePassword, true);
-    issued.add(result.temporaryPassword);
+    issued.add(stored.passwordHash);
     assert.equal('passwordHash' in result.user, false);
     assert.equal('password' in result, false);
     assert.equal(accountEnabled(stored), true);
@@ -105,7 +105,7 @@ test('creating managed accounts uses unique temporary passwords and requires a c
       status(409),
     );
   }
-  assert.equal(issued.size, 2);
+  assert.equal(issued.size, 2, 'same password, but each hash has its own salt');
   assert.equal(
     createManagedUser(db, admin.id, { ...input, email: 'default-role@example.com' }).user.role,
     'TEACHER',
@@ -168,7 +168,8 @@ test('administrator resets generate a new temporary password and revoke old sess
     resetManagedPassword(db, admin.id, user.id, { confirmPassword: DEFAULT_ACCOUNT_PASSWORD }),
   );
   const result = resetManagedPassword(db, admin.id, user.id, {});
-  assert.equal(verifyPassword(result.temporaryPassword, stored.passwordHash), true);
+  assert.equal(result.temporaryPassword, DEFAULT_ACCOUNT_PASSWORD);
+  assert.equal(verifyPassword(DEFAULT_ACCOUNT_PASSWORD, stored.passwordHash), true);
   assert.equal(stored.mustChangePassword, true);
   assert.equal(verifyPassword('Personal26', stored.passwordHash), false);
   assert.equal(sessionMatches(stored, { id: stored.id, version: oldVersion }), false);

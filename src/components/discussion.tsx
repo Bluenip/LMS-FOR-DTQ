@@ -41,7 +41,7 @@ export function DiscussionPanel({ lessonId, classId }: { lessonId: string; class
   }
   useEffect(() => {
     const saved = readSessionDraft<string>(draftKey);
-    if (saved !== null) {
+    if (saved !== null && saved.trim() !== '') {
       setDraft(saved);
       setDirty(true);
     }

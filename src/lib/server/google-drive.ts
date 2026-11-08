@@ -319,10 +319,157 @@ export async function renameDriveFile(fileId: string, name: string) {
   );
 }
 /** A file that is already gone counts as deleted so retries stay idempotent. */
-export async function deleteDriveFile(fileId: string) {
+async function removeDriveFile(fileId: string) {
   const res = await driveCall(`${API}/files/${encodeURIComponent(fileId)}`, { method: 'DELETE' });
   if (res.status === 404) return;
   if (!res.ok) throw await googleError(res);
+}
+/**
+ * Moves a file (and its viewer copies) to the Drive trash. Google empties the trash itself after
+ * 30 days, and until then the file can still be restored. Already gone counts as done.
+ */
+export async function trashDriveFile(fileId: string) {
+  // If this search fails the whole call fails and the sweep retries: never orphan a copy.
+  const copies = await findViewerCopies(fileId);
+  for (const id of [fileId, ...copies]) {
+    const res = await driveCall(`${API}/files/${encodeURIComponent(id)}?fields=id`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json; charset=UTF-8' },
+      body: JSON.stringify({ trashed: true }),
+    });
+    if (res.status === 404) continue;
+    if (!res.ok) throw await googleError(res);
+  }
+}
+export async function deleteDriveFile(fileId: string) {
+  await removeDriveFile(fileId);
+  // The Google Slides/Docs copy made for the in-page viewer goes with its original.
+  await findViewerCopies(fileId)
+    .then((ids) => Promise.all(ids.map(removeDriveFile)))
+    .catch(() => undefined);
+}
+
+// --- Folders and file placement ---------------------------------------------
+/** Moves a file into `parentId` and/or renames it (works for folders too). */
+export async function placeDriveFile(fileId: string, change: { name?: string; parentId?: string }) {
+  const id = encodeURIComponent(fileId);
+  const params = new URLSearchParams({ fields: 'id' });
+  if (change.parentId) {
+    const current = await json<{ parents?: string[] }>(
+      await driveCall(`${API}/files/${id}?fields=parents`),
+    );
+    if (!current.parents?.includes(change.parentId)) {
+      params.set('addParents', change.parentId);
+      if (current.parents?.length) params.set('removeParents', current.parents.join(','));
+    }
+  }
+  await json(
+    await driveCall(`${API}/files/${id}?${params}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json; charset=UTF-8' },
+      body: JSON.stringify(change.name ? { name: change.name } : {}),
+    }),
+  );
+}
+const folderLookups = new Map<string, Promise<string>>();
+/**
+ * A folder identified by a stable key (kept in an app property), so renaming a class or lesson
+ * renames its folder instead of creating a second one.
+ */
+export function ensureFolderByKey(key: string, name: string, parentId: string): Promise<string> {
+  const cacheKey = `${parentId}|${key}`;
+  const running = folderLookups.get(cacheKey);
+  if (running) return running;
+  const task = (async () => {
+    const params = new URLSearchParams({
+      q: `appProperties has { key='lmsFolder' and value='${escapeQuery(key)}' } and mimeType = 'application/vnd.google-apps.folder' and trashed = false`,
+      fields: 'files(id,name,parents)',
+      pageSize: '5',
+    });
+    const found = (
+      await json<{ files: { id: string; name: string; parents?: string[] }[] }>(
+        await driveCall(`${API}/files?${params}`),
+      )
+    ).files[0];
+    if (found) {
+      if (found.name !== name || !found.parents?.includes(parentId))
+        await placeDriveFile(found.id, { name, parentId });
+      return found.id;
+    }
+    return (
+      await json<{ id: string }>(
+        await driveCall(`${API}/files?fields=id`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json; charset=UTF-8' },
+          body: JSON.stringify({
+            name,
+            mimeType: 'application/vnd.google-apps.folder',
+            parents: [parentId],
+            appProperties: { lmsFolder: key },
+          }),
+        }),
+      )
+    ).id;
+  })().finally(() => folderLookups.delete(cacheKey));
+  folderLookups.set(cacheKey, task);
+  return task;
+}
+
+// --- Viewer copies ------------------------------------------------------------
+// Office files are rendered in the page as PDF. Drive converts a private Google Slides/Docs copy
+// (cached once per file, never shared) and the app streams its PDF export after its own access
+// checks, so PPTX/DOCX stay private like every other non-video file.
+const VIEWER_TYPES: Record<string, string> = {
+  'application/vnd.openxmlformats-officedocument.presentationml.presentation':
+    'application/vnd.google-apps.presentation',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document':
+    'application/vnd.google-apps.document',
+};
+export const hasViewerCopy = (mimeType: string) => mimeType in VIEWER_TYPES;
+async function findViewerCopies(fileId: string) {
+  const params = new URLSearchParams({
+    q: `appProperties has { key='lmsViewerOf' and value='${escapeQuery(fileId)}' } and trashed = false`,
+    fields: 'files(id)',
+    pageSize: '10',
+  });
+  return (
+    await json<{ files: { id: string }[] }>(await driveCall(`${API}/files?${params}`))
+  ).files.map((f) => f.id);
+}
+const copying = new Map<string, Promise<string>>();
+async function viewerCopy(fileId: string, name: string, mimeType: string): Promise<string> {
+  const target = VIEWER_TYPES[mimeType];
+  if (!target) throw new HttpError(400, 'Định dạng không có bản xem trực tuyến.');
+  const pending =
+    copying.get(fileId) ??
+    (async () => {
+      const existing = (await findViewerCopies(fileId))[0];
+      if (existing) return existing;
+      return (
+        await json<{ id: string }>(
+          await driveCall(`${API}/files/${encodeURIComponent(fileId)}/copy?fields=id`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json; charset=UTF-8' },
+            body: JSON.stringify({
+              name: name.replace(/\.[^.]+$/, ''),
+              mimeType: target,
+              appProperties: { lmsViewerOf: fileId },
+            }),
+          }),
+        )
+      ).id;
+    })().finally(() => copying.delete(fileId));
+  copying.set(fileId, pending);
+  return pending;
+}
+/** PDF rendering of a PPTX/DOCX (Drive limits an export to 10 MB of output). */
+export async function viewerPdf(fileId: string, name: string, mimeType: string) {
+  const copyId = await viewerCopy(fileId, name, mimeType);
+  const res = await driveCall(
+    `${API}/files/${encodeURIComponent(copyId)}/export?mimeType=application%2Fpdf`,
+  );
+  if (!res.ok) throw await googleError(res);
+  return res;
 }
 const escapeQuery = (value: string) => value.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
 export async function listDriveFiles(folderId: string | undefined, search: string) {

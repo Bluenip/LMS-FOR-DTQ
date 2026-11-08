@@ -38,10 +38,12 @@ export async function actionScope(
       return { classIds: await classOf(tx, 'code', input.code) };
     case 'removeEnrollment':
     case 'setEnrollmentGroup':
+    case 'setGroupLeader':
     case 'approveEnrollment':
     case 'rejectEnrollment':
       return { classIds: await classOf(tx, 'enrollment', input.enrollmentId) };
     case 'deleteLesson':
+    case 'savePracticeCheck':
     case 'completeLesson':
     case 'bookmarkLesson':
     case 'saveNote':

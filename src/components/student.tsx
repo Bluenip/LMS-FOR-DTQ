@@ -24,6 +24,10 @@ import {
   Send,
   Info,
   Calendar,
+  ClipboardCheck,
+  ExternalLink,
+  Trophy,
+  Pencil,
   Video,
   MessageSquare,
   NotebookPen,
@@ -45,8 +49,20 @@ import {
   Tabs,
 } from './ui';
 import { dateTime, fold, initials, words, youtubeId } from '@/lib/client';
-import { uploadFile } from '@/lib/drive-upload';
-import { AttachmentViewer, DriveVideoPlayer } from './drive';
+import {
+  cancelUpload,
+  dismissUpload,
+  markUploadUsed,
+  startUpload,
+  uploadActive,
+  useUploads,
+} from '@/lib/upload-manager';
+import { AttachmentViewer, DriveVideoPlayer, UploadProgress } from './drive';
+import { SubmissionDetail } from './submission-detail';
+import { PracticePanel, PracticeSheet } from './practice';
+import { RankingPanel } from './ranking';
+import { practiceScore, PRACTICE_GROUPS } from '@/lib/practice';
+import { submissionStatus } from '@/lib/assignment-grading';
 import { acceptsWordCount, wordRequirement } from '@/lib/assignment-policy';
 import { classTeacherNames, managesClass } from '@/lib/class-teachers';
 import { useUnsavedWarning } from '@/lib/use-unsaved-warning';
@@ -65,15 +81,176 @@ function useQuery() {
     },
   };
 }
+const LECTURER_CHANNEL = 'https://www.youtube.com/@ThichHanhTu.000';
+/** The class lecturer, shown above the duty table of the introduction tab. */
+function LecturerCard() {
+  return (
+    <section className="panel lecturer-card">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        className="lecturer-photo"
+        src="/giang-su-thich-hanh-tu.jpg"
+        alt="Đại đức Thích Hạnh Từ"
+        width={1192}
+        height={658}
+      />
+      <div className="stack">
+        <div>
+          <Badge tone="success">Chủ giảng</Badge>
+          <h2 style={{ marginTop: 8 }}>Đại đức Thích Hạnh Từ</h2>
+          <p className="muted">
+            Giảng sư Phật giáo, trụ trì chùa Kim Long; thường xuyên giảng các đề tài Phật pháp, kinh
+            điển và giáo dục nhân cách.
+          </p>
+        </div>
+        <ul className="lecturer-facts">
+          <li>
+            <strong>Trụ trì:</strong> chùa Kim Long (thôn Thạch An, xã Bình Mỹ, huyện Bình Sơn, tỉnh
+            Quảng Ngãi), được bổ nhiệm ngày 28/04/2011. Bổn sư là Thượng tọa Thích Tâm Vị, trụ trì
+            chùa Linh Phước, Đà Lạt.
+          </li>
+          <li>
+            <strong>Hoằng pháp:</strong> chủ giảng nhiều chuỗi bài giảng Phật pháp trên các phương
+            tiện truyền thông và kênh YouTube chính thức.
+          </li>
+          <li>
+            <strong>Đề tài tiêu biểu:</strong> Liễu Phàm Tứ Huấn (nhiều tập); Nhận Thức Phật Giáo;
+            Thập Thiện Nghiệp Đạo Kinh; các chuyên đề về Cẩm nang hạnh phúc và giáo dục đức hạnh.
+          </li>
+        </ul>
+        <div className="inline-actions">
+          <a className="button primary" href={LECTURER_CHANNEL} target="_blank" rel="noreferrer">
+            <ExternalLink size={16} /> Kênh YouTube Đại đức Thích Hạnh Từ
+          </a>
+        </div>
+      </div>
+    </section>
+  );
+}
+/** The class timetable ("Bảng phân lịch học tập và thực hành"), the same items group leaders tick. */
+function PracticeSchedule() {
+  const columns = [
+    { title: 'Nhiệm vụ học tập', ids: ['study'] },
+    { title: 'Nhiệm vụ thực hành đạo lý', ids: ['daily', 'weekly'] },
+    { title: 'Tinh thần thực hành', ids: ['spirit'] },
+  ];
+  return (
+    <div className="stack">
+      <h3>Bảng phân lịch học tập và thực hành</h3>
+      <div className="duty-grid duty-grid-3">
+        {columns.map((column) => (
+          <article className="duty-card" key={column.title}>
+            <h3>{column.title}</h3>
+            {column.ids.map((id) => {
+              const group = PRACTICE_GROUPS.find((g) => g.id === id)!;
+              return (
+                <div key={id}>
+                  {column.ids.length > 1 && (
+                    <strong className="duty-sub">
+                      {id === 'daily' ? '1. Nhiệm vụ hằng ngày' : '2. Nhiệm vụ hằng tuần'}
+                    </strong>
+                  )}
+                  <ul>
+                    {group.items.map((item) => (
+                      <li key={item.id}>{item.label}</li>
+                    ))}
+                  </ul>
+                </div>
+              );
+            })}
+          </article>
+        ))}
+      </div>
+    </div>
+  );
+}
+const DUTY_COLUMNS: { role: string; duties: string[] }[] = [
+  {
+    role: 'Nhiệm vụ của lớp trưởng',
+    duties: [
+      'Điều phối, bao quát chung các hoạt động của lớp; giữ gìn sự đoàn kết, hòa hợp giữa các thành viên.',
+      'Phối hợp cùng lớp phó và ban cán sự xây dựng, tổ chức các chương trình học tập, sự kiện Phật sự, thiện nguyện (nếu có).',
+      'Theo dõi tình hình học tập, thực hành và tham gia hoạt động của các nhóm.',
+      'Tổng hợp kết quả thực hành cuối tháng của các nhóm, báo cáo với giáo viên phụ trách.',
+      'Nêu gương về tinh thần trách nhiệm, tự giác, khiêm cung và phụng sự.',
+    ],
+  },
+  {
+    role: 'Nhiệm vụ của lớp phó',
+    duties: [
+      'Hỗ trợ lớp trưởng điều phối các hoạt động chung của lớp.',
+      'Phối hợp cùng ban cán sự xây dựng và tổ chức các chương trình học tập, sự kiện Phật sự, thiện nguyện (nếu có).',
+      'Theo dõi, đôn đốc tiến độ thực hiện nhiệm vụ của các nhóm; kịp thời hỗ trợ khi có khó khăn.',
+      'Chủ động đảm nhận nhiệm vụ điều phối lớp khi lớp trưởng vắng mặt.',
+      'Cùng lớp trưởng tổng hợp, đánh giá tình hình hoạt động của lớp định kỳ.',
+    ],
+  },
+  {
+    role: 'Nhiệm vụ của trưởng nhóm',
+    duties: [
+      'Nhắc nhở, hướng dẫn các thành viên hoàn thành bài tập và bài thực hành đúng thời hạn.',
+      'Theo dõi tình hình học tập, thực hành và sự tham gia hoạt động của các thành viên trong nhóm.',
+      'Quan tâm, hỗ trợ, khích lệ các thành viên; xây dựng tinh thần đoàn kết, hòa ái và cùng tiến bộ.',
+      'Tổng hợp kết quả thực hành cuối tháng của nhóm, gửi lớp trưởng đúng thời hạn.',
+      'Làm gương trong tinh thần tự giác, trách nhiệm và thực hành đạo lý làm người.',
+    ],
+  },
+  {
+    role: 'Nhiệm vụ của các thành viên trong mỗi nhóm',
+    duties: [
+      'Chủ động học tập, hoàn thành bài báo cáo và gửi hình ảnh thực hành hằng ngày đúng quy định.',
+      'Tham gia đầy đủ các hoạt động của lớp với tinh thần trách nhiệm, tự giác và nghiêm túc.',
+      'Tích cực thực hành các đạo lý đã học trong đời sống hằng ngày; biết hiếu kính cha mẹ, kính trọng thầy cô, yêu thương và giúp đỡ mọi người.',
+      'Tôn trọng, hòa ái, đoàn kết với các thành viên; cùng xây dựng tập thể lớp tốt đẹp.',
+      'Trung thực trong báo cáo kết quả học tập và thực hành; chủ động trao đổi khi gặp khó khăn.',
+    ],
+  },
+];
+/** Class introduction: who does what (class monitor, deputy, group leaders, members). */
+function ClassIntro({ title }: { title: string }) {
+  return (
+    <div className="stack">
+      <LecturerCard />
+      <section className="panel stack">
+        <div className="section-heading">
+          <h2>Bảng phân công nhiệm vụ — {title}</h2>
+        </div>
+        <div className="duty-grid">
+          {DUTY_COLUMNS.map((column) => (
+            <article className="duty-card" key={column.role}>
+              <h3>{column.role}</h3>
+              <ol>
+                {column.duties.map((duty) => (
+                  <li key={duty}>{duty}</li>
+                ))}
+              </ol>
+            </article>
+          ))}
+        </div>
+        <PracticeSchedule />
+        <p className="duty-quote">
+          Mỗi nhiệm vụ là một cơ hội rèn luyện đạo đức, trưởng dưỡng tâm phụng sự và cùng nhau thực
+          hành văn hóa truyền thống.
+        </p>
+      </section>
+    </div>
+  );
+}
 function ClassNavigation({ classId, active }: { classId: string; active: string }) {
+  const { state } = useLms();
+  const classroom = state.classes.find((c) => c.id === classId);
+  const canRank =
+    !!classroom && (managesClass(classroom, state.user) || state.user.isAdmin === true);
   return (
     <nav className="class-tabs" aria-label="Điều hướng lớp học">
       {[
         { id: 'overview', label: 'Tổng quan', icon: BookOpen },
+        { id: 'intro', label: 'Giới thiệu', icon: GraduationCap },
         { id: 'lessons', label: 'Bài học', icon: Video },
         { id: 'assignments', label: 'Bài tập', icon: ClipboardList },
         { id: 'members', label: 'Thành viên', icon: Users },
         { id: 'info', label: 'Thông tin lớp', icon: Info },
+        ...(canRank ? [{ id: 'ranking', label: 'Xếp hạng', icon: Trophy }] : []),
       ].map(({ id, label, icon: Icon }) => (
         <Link
           key={id}
@@ -578,6 +755,20 @@ export function ClassDetail({ classId }: { classId: string }) {
             />
           )}
         </div>
+      ) : tab === 'intro' ? (
+        <ClassIntro title={c.title} />
+      ) : tab === 'ranking' ? (
+        managesClass(c, state.user) || state.user.isAdmin ? (
+          <section className="panel stack">
+            <h2>Bảng xếp hạng thực hành</h2>
+            <RankingPanel classId={classId} />
+          </section>
+        ) : (
+          <Empty
+            title="Không có quyền xem"
+            description="Chỉ giáo viên và quản trị viên xem được bảng xếp hạng."
+          />
+        )
       ) : tab === 'info' ? (
         <div className="split">
           <section className="panel stack">
@@ -770,6 +961,7 @@ function AssignmentCard({ assignment: a }: { assignment: Assignment }) {
 }
 export function LessonPage({ classId, lessonId }: { classId: string; lessonId: string }) {
   const { state, action } = useLms();
+  const router = useRouter();
   const query = useQuery();
   const tab = query.get('tab', 'materials');
   const c = state.classes.find((c) => c.id === classId);
@@ -828,6 +1020,40 @@ export function LessonPage({ classId, lessonId }: { classId: string; lessonId: s
         title={`Bài ${lesson.order}: ${lesson.title}`}
         description={lesson.chapter}
         breadcrumb={<ClassBreadcrumb classroom={c} tail="Bài học" />}
+        actions={
+          managesClass(c, state.user) ? (
+            <div className="inline-actions">
+              <Link
+                className="button primary"
+                href={`/teacher/lessons?class=${classId}&lesson=${lessonId}`}
+              >
+                <Pencil size={16} /> Sửa bài học
+              </Link>
+              <Link
+                className="button secondary"
+                href={`/teacher/assignments?class=${classId}&new=1&lesson=${lessonId}`}
+              >
+                <ClipboardCheck size={16} /> Thêm bài tập
+              </Link>
+              <Button
+                variant="danger"
+                disabled={busy}
+                onClick={async () => {
+                  if (
+                    !window.confirm(
+                      `Xóa bài “${lesson.title}”? Video và tài liệu của bài cũng bị xóa khỏi Google Drive.`,
+                    )
+                  )
+                    return;
+                  if (await run('deleteLesson', { lessonId, expectedRevision: lesson.revision }))
+                    router.push(`/classes/${classId}?tab=lessons`);
+                }}
+              >
+                <Trash2 size={16} /> Xóa bài học
+              </Button>
+            </div>
+          ) : undefined
+        }
       />
       <div className="lesson-workspace">
         <div className="stack">
@@ -893,11 +1119,14 @@ export function LessonPage({ classId, lessonId }: { classId: string; lessonId: s
               onChange={(v) => query.set('tab', v)}
               items={[
                 { id: 'materials', label: 'Nội dung & tài liệu' },
+                { id: 'practice', label: 'Thực hành' },
                 { id: 'notes', label: 'Ghi chép của tôi' },
                 { id: 'discussion', label: 'Thảo luận' },
               ]}
             />
-            {tab === 'notes' ? (
+            {tab === 'practice' ? (
+              <PracticePanel lesson={lesson} />
+            ) : tab === 'notes' ? (
               <div className="stack">
                 <p className="small muted">
                   Ghi lại điều bạn tâm đắc. Chỉ bạn có thể xem những ghi chép này.
@@ -1074,7 +1303,9 @@ export function AssignmentPage({
   const [files, setFiles] = useState<Attachment[]>(submission?.attachments || []);
   const [pledge, setPledge] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [uploading, setUploading] = useState(false);
+  // Submission files upload in the background: the learner keeps writing and may save a draft.
+  const uploads = useUploads((i) => i.tag === `submission:${assignmentId}`);
+  const uploading = uploads.some(uploadActive);
   const [error, setError] = useState('');
   const [saved, setSaved] = useState(false);
   const [confirm, setConfirm] = useState(false);
@@ -1098,6 +1329,25 @@ export function AssignmentPage({
     setPledge(false);
     setError('');
   }, [assignmentId, state.user.id]);
+  useEffect(() => {
+    const finished = uploads.filter((i) => i.phase === 'done' && i.result && !i.attached);
+    if (!finished.length) return;
+    finished.forEach((i) => markUploadUsed(i.id));
+    setFiles((prev) => [
+      ...prev,
+      ...finished
+        .filter((i) => !prev.some((f) => f.id === i.result!.id))
+        .map((i) => ({
+          id: i.result!.id,
+          name: i.result!.name,
+          size: i.result!.size,
+          mimeType: i.result!.mimeType,
+          url: `/api/drive/files/${i.result!.id}/download`,
+        })),
+    ]);
+    setSaved(false);
+    setDirty(true);
+  }, [uploads]);
   useEffect(() => {
     if (dirty) writeSessionDraft(draftKey, { content, link, files, revision });
   }, [dirty, draftKey, content, link, files, revision]);
@@ -1182,8 +1432,8 @@ export function AssignmentPage({
             <div className="notice">
               <Info size={18} />
               <span>
-                Viết {wordRequirement(a)} hoặc đính kèm PDF, DOCX, PPTX, JPG, PNG (tối đa 25 MB)
-                hoặc video MP4, WebM, MOV (tối đa 2 GB).
+                Viết {wordRequirement(a)} hoặc đính kèm PDF, DOCX, PPTX, JPG, PNG (tối đa 1 GB) hoặc
+                video MP4, WebM, MOV (tối đa 5 GB).
               </span>
             </div>
           </section>
@@ -1289,7 +1539,7 @@ export function AssignmentPage({
                     aria-label="Bài thu hoạch"
                     value={content}
                     maxLength={50000}
-                    disabled={busy || uploading || archived}
+                    disabled={busy || archived}
                     onChange={(e) => {
                       setContent(e.target.value);
                       setSaved(false);
@@ -1301,43 +1551,33 @@ export function AssignmentPage({
                 <div className="stack">
                   <label className="upload-zone">
                     <UploadCloud size={27} />
-                    <strong>{uploading ? 'Đang tải tệp…' : 'Đính kèm bài làm'}</strong>
-                    <span>PDF, DOCX, PPTX, JPG, PNG (25 MB) hoặc video MP4, WebM, MOV (2 GB)</span>
+                    <strong>Đính kèm bài làm</strong>
+                    <span>PDF, DOCX, PPTX, JPG, PNG (1 GB) hoặc video MP4, WebM, MOV (5 GB)</span>
                     <input
                       type="file"
-                      disabled={
-                        uploading ||
-                        busy ||
-                        archived ||
-                        !state.storageConfigured ||
-                        files.length >= 10
-                      }
+                      disabled={busy || archived || !state.storageConfigured || files.length >= 10}
                       accept=".pdf,.docx,.pptx,.jpg,.jpeg,.png,.mp4,.webm,.mov"
-                      onChange={async (e) => {
+                      onChange={(e) => {
                         const f = e.target.files?.[0];
+                        e.target.value = '';
                         if (!f) return;
                         setError('');
                         const isVideo = /\.(mp4|webm|mov)$/i.test(f.name);
-                        if (f.size > (isVideo ? 2 * 1024 ** 3 : 25 * 1024 * 1024)) {
+                        if (f.size > (isVideo ? 5 * 1024 ** 3 : 1024 ** 3)) {
                           setError(
                             isVideo
-                              ? 'Video phải nhỏ hơn hoặc bằng 2 GB.'
-                              : 'Tệp phải nhỏ hơn hoặc bằng 25 MB.',
+                              ? 'Video phải nhỏ hơn hoặc bằng 5 GB.'
+                              : 'Tệp phải nhỏ hơn hoặc bằng 1 GB.',
                           );
                           return;
                         }
-                        setUploading(true);
-                        try {
-                          setFiles((prev) => [...prev]);
-                          const uploaded = await uploadFile(f, classId, 'assignment');
-                          setFiles((prev) => [...prev, uploaded]);
-                          setSaved(false);
-                          setDirty(true);
-                        } catch (e) {
-                          setError((e as Error).message);
-                        } finally {
-                          setUploading(false);
-                        }
+                        startUpload({
+                          file: f,
+                          classId,
+                          assignmentId,
+                          kind: isVideo ? 'video' : 'document',
+                          tag: `submission:${assignmentId}`,
+                        });
                       }}
                     />
                   </label>
@@ -1348,11 +1588,44 @@ export function AssignmentPage({
                     </p>
                   )}
                   <p className="small muted">{files.length}/10 tệp đính kèm</p>
+                  {uploads
+                    .filter((i) => !i.attached)
+                    .map((i) => (
+                      <div key={i.id} className="stack">
+                        <UploadProgress
+                          name={i.file.name}
+                          loaded={i.loaded}
+                          total={i.file.size}
+                          phase={i.phase}
+                          message={
+                            uploadActive(i)
+                              ? 'Đang tải lên nền: bạn có thể tiếp tục viết hoặc lưu nháp; nút Nộp bài mở lại khi tải xong.'
+                              : i.message
+                          }
+                          onCancel={() => void cancelUpload(i.id)}
+                          onRetry={() => {
+                            dismissUpload(i.id);
+                            startUpload({
+                              file: i.file,
+                              classId,
+                              assignmentId,
+                              kind: i.kind,
+                              tag: i.tag,
+                            });
+                          }}
+                        />
+                        {!uploadActive(i) && (
+                          <Button variant="ghost" onClick={() => dismissUpload(i.id)}>
+                            Ẩn
+                          </Button>
+                        )}
+                      </div>
+                    ))}
                   {files.map((f) => (
                     <FileAttachment
                       key={f.id}
                       file={f}
-                      disabled={busy || uploading || archived}
+                      disabled={busy || archived}
                       onRemove={() => {
                         setFiles(files.filter((x) => x.id !== f.id));
                         setSaved(false);
@@ -1365,7 +1638,7 @@ export function AssignmentPage({
                   <input
                     type="url"
                     value={link}
-                    disabled={busy || uploading || archived}
+                    disabled={busy || archived}
                     onChange={(e) => {
                       setLink(e.target.value);
                       setSaved(false);
@@ -1378,7 +1651,7 @@ export function AssignmentPage({
                   <input
                     type="checkbox"
                     checked={pledge}
-                    disabled={busy || uploading || archived}
+                    disabled={busy || archived}
                     onChange={(e) => setPledge(e.target.checked)}
                   />
                   <span>Tôi xác nhận đây là bài làm của mình và các chia sẻ đều trung thực.</span>
@@ -1405,7 +1678,7 @@ export function AssignmentPage({
                   <div className="inline-actions">
                     <Button
                       variant="secondary"
-                      disabled={busy || uploading || archived}
+                      disabled={busy || archived}
                       onClick={() => void save(false)}
                     >
                       Lưu nháp
@@ -1422,8 +1695,10 @@ export function AssignmentPage({
                           setError('Vui lòng nhập bài làm, đính kèm tệp hoặc liên kết minh chứng.');
                           return;
                         }
-                        if (!files.length && !acceptsWordCount(count, a)) {
-                          setError(`Bài viết cần ${wordRequirement(a)} hoặc có tệp đính kèm.`);
+                        if (!files.length && !link.trim() && !acceptsWordCount(count, a)) {
+                          setError(
+                            `Bài viết cần ${wordRequirement(a)}, hoặc có tệp đính kèm/liên kết minh chứng.`,
+                          );
                           return;
                         }
                         setConfirm(true);
@@ -1577,14 +1852,411 @@ export function AssignmentPage({
     </>
   );
 }
+/** Practice score of one member in every lesson, each opening its tick sheet. */
+function MemberPractice({ classId, studentId }: { classId: string; studentId: string }) {
+  const { state } = useLms();
+  const [picked, setPicked] = useState<string | null>(null);
+  const lessons = state.lessons
+    .filter((l) => l.classId === classId && l.published)
+    .sort((a, b) => a.order - b.order);
+  if (!lessons.length)
+    return <p className="muted small">Lớp chưa có bài giảng nào được xuất bản.</p>;
+  // The first lesson is open straight away so a leader can start ticking at once.
+  const open = lessons.some((l) => l.id === picked) ? picked : lessons[0].id;
+  return (
+    <section className="stack">
+      <h3>Chọn bài giảng để chấm</h3>
+      <div className="table-wrap">
+        <table className="table">
+          <thead>
+            <tr>
+              <th>Bài giảng</th>
+              <th>Đã học</th>
+              <th>Thực hành</th>
+              <th />
+            </tr>
+          </thead>
+          <tbody>
+            {lessons.map((l) => {
+              const s = practiceScore(
+                state.practiceChecks.find((p) => p.lessonId === l.id && p.studentId === studentId)
+                  ?.items,
+              );
+              const studied = state.progress.some(
+                (p) => p.lessonId === l.id && p.userId === studentId && p.completed,
+              );
+              return (
+                <tr key={l.id}>
+                  <td data-label="Bài giảng">
+                    Bài {l.order}: {l.title}
+                  </td>
+                  <td data-label="Đã học">
+                    <Badge tone={studied ? 'success' : 'neutral'}>
+                      {studied ? 'Đã học' : 'Chưa học'}
+                    </Badge>
+                  </td>
+                  <td data-label="Thực hành">
+                    {s.done}/{s.total} ({s.percent}%)
+                  </td>
+                  <td>
+                    <Button
+                      variant={open === l.id ? 'primary' : 'secondary'}
+                      onClick={() => setPicked(l.id)}
+                    >
+                      {open === l.id ? 'Đang chấm' : 'Chấm thực hành'}
+                    </Button>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+      {lessons.find((l) => l.id === open) && (
+        <PracticeSheet
+          key={`${open}:${studentId}`}
+          lesson={lessons.find((l) => l.id === open)!}
+          studentId={studentId}
+        />
+      )}
+    </section>
+  );
+}
+/** Join requests waiting for a teacher of the class. */
+function PendingRequests({ classId }: { classId: string }) {
+  const { state, action } = useLms();
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const pending = state.enrollments.filter((e) => e.classId === classId && e.status === 'PENDING');
+  if (!pending.length) return null;
+  async function run(name: string, enrollmentId: string) {
+    setBusy(true);
+    setError('');
+    try {
+      await action(name, { enrollmentId });
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <section className="panel stack" style={{ marginBottom: 28 }}>
+      <div className="section-heading">
+        <h2>Yêu cầu chờ duyệt</h2>
+        <Badge tone="warning">{pending.length}</Badge>
+      </div>
+      {pending.map((e) => {
+        const user = state.users.find((u) => u.id === e.userId);
+        return (
+          <div className="row" key={e.id}>
+            <span className="avatar">{initials(user?.name || '?')}</span>
+            <span>
+              <strong>{user?.name || 'Học viên'}</strong>
+              <small className="muted"> {user?.email}</small>
+            </span>
+            <span className="inline-actions" style={{ marginLeft: 'auto' }}>
+              <Button disabled={busy} onClick={() => run('approveEnrollment', e.id)}>
+                Duyệt
+              </Button>
+              <Button variant="ghost" disabled={busy} onClick={() => run('rejectEnrollment', e.id)}>
+                Từ chối
+              </Button>
+            </span>
+          </div>
+        );
+      })}
+      {error && (
+        <p className="error" role="alert">
+          {error}
+        </p>
+      )}
+    </section>
+  );
+}
+/** Everything a teacher (or a group leader, for their group) may see and do for one member. */
+function MemberDetail({
+  classId,
+  enrollmentId,
+  canManage,
+  onClose,
+}: {
+  classId: string;
+  enrollmentId: string;
+  canManage: boolean;
+  onClose: () => void;
+}) {
+  const { state, action } = useLms();
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  // Opens on the tick sheets: grading is what a leader or teacher comes here for.
+  const [tab, setTab] = useState('practice');
+  const e = state.enrollments.find((x) => x.id === enrollmentId);
+  const c = state.classes.find((x) => x.id === classId);
+  const user = e && state.users.find((u) => u.id === e.userId);
+  if (!e || !c || e.status !== 'APPROVED') {
+    return (
+      <Dialog open title="Thành viên" onClose={onClose} wide>
+        <p className="muted">Học viên không còn trong lớp.</p>
+      </Dialog>
+    );
+  }
+  const archived = c.status === 'ARCHIVED';
+  const assignments = state.assignments
+    .filter((a) => a.classId === classId)
+    .sort((a, b) => a.dueAt.localeCompare(b.dueAt));
+  const lessons = state.lessons.filter((l) => l.classId === classId && l.published);
+  const done = state.progress.filter(
+    (p) => p.userId === e.userId && p.completed && lessons.some((l) => l.id === p.lessonId),
+  ).length;
+  async function run(name: string, payload: Record<string, unknown>) {
+    setBusy(true);
+    setError('');
+    try {
+      await action(name, payload);
+      return true;
+    } catch (err) {
+      setError((err as Error).message);
+      return false;
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <Dialog open title={user?.name || 'Thành viên'} onClose={onClose} wide>
+      <div className="stack">
+        <div className="member-profile">
+          <span className="avatar">{initials(user?.name || '?')}</span>
+          <div>
+            <strong>
+              {user?.name} {e.leader && <Badge tone="success">Trưởng nhóm</Badge>}
+            </strong>
+            <p className="small muted">
+              {user?.email || 'Email chỉ hiển thị cho giáo viên và trưởng nhóm'} · Nhóm {e.group} ·
+              Tham gia {dateTime(e.joinedAt)}
+            </p>
+          </div>
+        </div>
+        <Tabs
+          value={tab}
+          onChange={setTab}
+          items={[
+            { id: 'practice', label: 'Thực hành' },
+            { id: 'info', label: 'Thông tin' },
+          ]}
+        />
+        {tab === 'practice' ? (
+          <MemberPractice classId={classId} studentId={e.userId} />
+        ) : (
+          <>
+            {canManage && (
+              <p className="small muted">
+                Đã hoàn thành {done}/{lessons.length} bài học.
+              </p>
+            )}
+            <section className="stack">
+              <h3>Bài tập</h3>
+              {assignments.length === 0 ? (
+                <p className="muted small">Lớp chưa có bài tập.</p>
+              ) : (
+                <div className="table-wrap">
+                  <table className="table">
+                    <thead>
+                      <tr>
+                        <th>Bài tập</th>
+                        <th>Trạng thái</th>
+                        <th>Bài làm</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {assignments.map((a) => {
+                        const submission = state.submissions.find(
+                          (s) => s.assignmentId === a.id && s.studentId === e.userId,
+                        );
+                        return (
+                          <tr key={a.id}>
+                            <td data-label="Bài tập">{a.title}</td>
+                            <td data-label="Trạng thái">
+                              <Badge tone={submission ? 'success' : 'neutral'}>
+                                {submission ? submissionStatus(submission) : 'Chưa nộp'}
+                              </Badge>
+                            </td>
+                            <td data-label="Bài làm">
+                              {submission ? (
+                                <SubmissionDetail
+                                  submission={submission}
+                                  studentName={user?.name || 'Học viên'}
+                                  dueAt={a.dueAt}
+                                />
+                              ) : (
+                                '—'
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </section>
+            {canManage && (
+              <section className="stack">
+                <h3>Quản lý thành viên</h3>
+                <div className="inline-actions">
+                  <select
+                    aria-label="Nhóm học tập"
+                    value={e.group}
+                    disabled={busy || archived}
+                    onChange={(event) =>
+                      void run('setEnrollmentGroup', {
+                        enrollmentId: e.id,
+                        group: Number(event.target.value),
+                      })
+                    }
+                  >
+                    {[1, 2, 3, 4].map((n) => (
+                      <option key={n} value={n}>
+                        Nhóm {n}
+                      </option>
+                    ))}
+                  </select>
+                  <Button
+                    variant={e.leader ? 'secondary' : 'primary'}
+                    disabled={busy || archived}
+                    onClick={() => run('setGroupLeader', { enrollmentId: e.id, leader: !e.leader })}
+                  >
+                    {e.leader ? 'Bỏ trưởng nhóm' : 'Đặt làm trưởng nhóm'}
+                  </Button>
+                  <Button
+                    variant="danger"
+                    disabled={busy || archived}
+                    onClick={async () => {
+                      if (
+                        window.confirm(
+                          `Đưa ${user?.name || 'học viên'} ra khỏi lớp? Bài làm và lịch sử vẫn được giữ lại.`,
+                        ) &&
+                        (await run('removeEnrollment', {
+                          enrollmentId: e.id,
+                          expectedJoinedAt: e.joinedAt,
+                        }))
+                      )
+                        onClose();
+                    }}
+                  >
+                    Đưa ra khỏi lớp
+                  </Button>
+                </div>
+                <p className="small muted">Thay đổi được lưu ngay khi bạn chọn.</p>
+              </section>
+            )}
+          </>
+        )}
+        {error && (
+          <p className="error" role="alert">
+            {error}
+          </p>
+        )}
+      </div>
+    </Dialog>
+  );
+}
+/** Shown to the leader of a group: who is in the group and what each of them has handed in. */
+function GroupLeaderPanel({ classId }: { classId: string }) {
+  const { state } = useLms();
+  const mine = state.enrollments.find(
+    (e) => e.classId === classId && e.userId === state.user.id && e.status === 'APPROVED',
+  );
+  if (!mine?.leader) return null;
+  const mates = state.enrollments.filter(
+    (e) =>
+      e.classId === classId &&
+      e.status === 'APPROVED' &&
+      e.group === mine.group &&
+      e.userId !== state.user.id,
+  );
+  const assignments = state.assignments
+    .filter((a) => a.classId === classId)
+    .sort((a, b) => a.dueAt.localeCompare(b.dueAt));
+  return (
+    <section className="panel stack" style={{ marginBottom: 28 }}>
+      <div className="section-heading">
+        <h2>Nhóm {mine.group} của bạn (Trưởng nhóm)</h2>
+        <span className="small muted">{mates.length} thành viên</span>
+      </div>
+      {mates.length === 0 ? (
+        <p className="muted small">Nhóm chưa có thành viên nào khác.</p>
+      ) : (
+        <div className="table-wrap">
+          <table className="table">
+            <thead>
+              <tr>
+                <th>Thành viên</th>
+                <th>Bài tập</th>
+                <th>Trạng thái</th>
+                <th>Bài làm</th>
+              </tr>
+            </thead>
+            <tbody>
+              {mates.flatMap((m) => {
+                const user = state.users.find((u) => u.id === m.userId);
+                return assignments.map((a, index) => {
+                  const submission = state.submissions.find(
+                    (s) => s.assignmentId === a.id && s.studentId === m.userId,
+                  );
+                  return (
+                    <tr key={`${m.id}-${a.id}`}>
+                      <td data-label="Thành viên">
+                        {index === 0 ? <strong>{user?.name || 'Học viên'}</strong> : ''}
+                      </td>
+                      <td data-label="Bài tập">{a.title}</td>
+                      <td data-label="Trạng thái">
+                        <Badge tone={submission ? 'success' : 'neutral'}>
+                          {submission ? submissionStatus(submission) : 'Chưa nộp'}
+                        </Badge>
+                      </td>
+                      <td data-label="Bài làm">
+                        {submission ? (
+                          <SubmissionDetail
+                            submission={submission}
+                            studentName={user?.name || 'Học viên'}
+                            dueAt={a.dueAt}
+                          />
+                        ) : (
+                          '—'
+                        )}
+                      </td>
+                    </tr>
+                  );
+                });
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+      <p className="small muted">
+        Bạn chỉ xem được bài đã nộp của nhóm mình, không thấy điểm hay nhận xét của bạn.
+      </p>
+    </section>
+  );
+}
 export function MembersPage({ classId }: { classId: string }) {
   const { state } = useLms();
   const query = useQuery();
   const search = query.get('q');
   const group = query.get('group', 'all');
   const page = Math.max(1, Number(query.get('page', '1')) || 1);
+  const [detail, setDetail] = useState<string | null>(null);
   const c = state.classes.find((c) => c.id === classId);
   if (!c) return <NotFound />;
+  const canManage = managesClass(c, state.user);
+  const myEnrollment = state.enrollments.find(
+    (e) => e.classId === classId && e.userId === state.user.id && e.status === 'APPROVED',
+  );
+  // Teachers open anyone; a group leader opens the members of their own group.
+  const canOpen = (e: { userId: string; group: number }) =>
+    canManage ||
+    (!!myEnrollment?.leader && e.group === myEnrollment.group && e.userId !== state.user.id);
   const teachers = classTeacherNames(c, state.users);
   const members = state.enrollments
     .filter((e) => e.classId === classId && e.status === 'APPROVED')
@@ -1605,6 +2277,16 @@ export function MembersPage({ classId }: { classId: string }) {
         breadcrumb={<ClassBreadcrumb classroom={c} tail="Thành viên" />}
       />
       <ClassNavigation classId={classId} active="members" />
+      <GroupLeaderPanel classId={classId} />
+      {canManage && <PendingRequests classId={classId} />}
+      {detail && (
+        <MemberDetail
+          classId={classId}
+          enrollmentId={detail}
+          canManage={canManage}
+          onClose={() => setDetail(null)}
+        />
+      )}
       <div className="two-col" style={{ marginBottom: 28 }}>
         <section className="panel">
           <div className="section-heading">
@@ -1672,6 +2354,7 @@ export function MembersPage({ classId }: { classId: string }) {
                     <th>Học viên</th>
                     <th>Nhóm học tập</th>
                     <th>Ngày gửi yêu cầu</th>
+                    {members.some(canOpen) && <th>Thao tác</th>}
                   </tr>
                 </thead>
                 <tbody>
@@ -1684,10 +2367,20 @@ export function MembersPage({ classId }: { classId: string }) {
                             {e.user!.name}
                             {e.userId === state.user.id ? ' (Bạn)' : ''}
                           </strong>
+                          {e.leader && <Badge tone="success">Trưởng nhóm</Badge>}
                         </div>
                       </td>
                       <td>Nhóm {e.group}</td>
                       <td>{dateTime(e.joinedAt).split(' ')[1] || dateTime(e.joinedAt)}</td>
+                      {members.some(canOpen) && (
+                        <td>
+                          {canOpen(e) && (
+                            <Button variant="secondary" onClick={() => setDetail(e.id)}>
+                              {canManage ? 'Chi tiết / Quản lý' : 'Chi tiết'}
+                            </Button>
+                          )}
+                        </td>
+                      )}
                     </tr>
                   ))}
                 </tbody>
