@@ -241,15 +241,13 @@ export function LmsProvider({ children }: { children: ReactNode }) {
         ['/teacher/classes', 'Lớp giảng dạy'],
         ['/teacher/lessons', 'Kho bài giảng'],
         ['/teacher/assignments', 'Bài cần chấm'],
-        ['/classes', 'Lớp của tôi'],
-        ['/assignments', 'Bài tập của tôi'],
       ]
     : [
         ['/classes', 'Lớp của tôi'],
         ['/assignments', 'Bài tập của tôi'],
       ];
   if (admin) nav.push(['/admin', 'Quản trị']);
-  nav.push(['/profile', 'Thông tin cá nhân']);
+  nav.push(['/introduction', 'Giới thiệu'], ['/profile', 'Thông tin cá nhân']);
   return (
     <Context.Provider key={state.user.id} value={{ state, action, refresh, updateProfile }}>
       <div className="app-shell">

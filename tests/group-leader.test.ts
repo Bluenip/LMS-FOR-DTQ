@@ -204,7 +204,7 @@ test('practice ranking: only teachers and administrators, ties share a place, pe
   if (lessons[1]) tick(other.userId, lessons[1].id, ['study-listen', 'study-reflect']);
 
   db.progress = []; // equal 'studied' counts, so only the practice score decides
-  const ranking = rankingFor(db, teacher, 'dtq-2026');
+  const ranking = rankingFor(db, teacher, 'dtq-2026', 0);
   const first = ranking.byLesson[lessons[0].id];
   assert.equal(first[0].userId, mateEnrollment.userId);
   assert.equal(first[0].rank, 1);
@@ -219,7 +219,10 @@ test('practice ranking: only teachers and administrators, ties share a place, pe
   );
 
   const admin = { ...user(leaderEnrollment.userId), isAdmin: true };
-  assert.ok(rankingFor(db, admin, 'dtq-2026').overall.length > 0, 'an administrator may read it');
+  assert.ok(
+    rankingFor(db, admin, 'dtq-2026', 0).overall.length > 0,
+    'an administrator may read it',
+  );
   assert.throws(() => rankingFor(db, user(mateEnrollment.userId), 'dtq-2026'), /quản trị viên/);
   runAction(db, teacher, {
     action: 'setGroupLeader',
@@ -227,4 +230,40 @@ test('practice ranking: only teachers and administrators, ties share a place, pe
     leader: true,
   });
   assert.throws(() => rankingFor(db, user(leaderEnrollment.userId), 'dtq-2026'), /quản trị viên/);
+});
+
+test('ranking counts graded assignments with the practice score, equally weighted', () => {
+  const { db, teacher, mateEnrollment, other, assignment, submit } = fixture();
+  const lessonId = db.lessons.find((l) => l.classId === 'dtq-2026' && l.published)!.id;
+  assignment.lessonId = lessonId;
+  const dbAssignment = db.assignments.find((a) => a.id === assignment.id)!;
+  dbAssignment.lessonId = lessonId;
+  db.progress = [];
+  const mateWork = submit(mateEnrollment);
+  submit(other);
+  runAction(db, teacher, {
+    action: 'gradeSubmission',
+    submissionId: mateWork.id,
+    rubric: { understanding: 40, application: 30, presentation: 10 },
+    feedback: 'Tốt',
+    returnGrade: true,
+    expectedAttempt: mateWork.attempt,
+    expectedSubmittedAt: mateWork.submittedAt,
+    expectedGradeRevision: mateWork.gradeRevision || '',
+  });
+  // The practice sheets are equal (all empty): only the assignment grade can separate them.
+  const dayAfter = Date.parse(dbAssignment.dueAt) + 86400000;
+  const before = rankingFor(db, teacher, 'dtq-2026', dayAfter - 2 * 86400000);
+  assert.equal(before.byLesson[lessonId][0].assignmentPercent, null, 'not due yet: not counted');
+
+  const ranking = rankingFor(db, teacher, 'dtq-2026', dayAfter);
+  const rows = ranking.byLesson[lessonId];
+  assert.equal(rows[0].userId, mateEnrollment.userId, 'the graded learner leads');
+  assert.equal(rows[0].assignmentPercent, 80);
+  assert.equal(rows[0].total, 40, '50% x 0 practice + 50% x 80');
+  const ungraded = rows.find((r) => r.userId === other.userId)!;
+  assert.equal(ungraded.assignmentPercent, 0, 'submitted but not graded yet counts as 0');
+  assert.equal(ungraded.total, 0);
+  const overall = ranking.overall.find((r) => r.userId === mateEnrollment.userId)!;
+  assert.ok(overall.total > 0 && overall.assignmentsCounted >= 1);
 });
