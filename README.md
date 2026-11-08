@@ -56,21 +56,21 @@ Google Drive (cấu hình Google Cloud, API, giới hạn, checklist): [docs/GOO
 
 ## Chức năng và đường dẫn
 
-| Đường dẫn                                  | Chức năng hiện có                                                                                                                 |
-| ------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------- |
-| `/`, `/privacy`, `/terms`                  | Trang giới thiệu, chính sách quyền riêng tư và điều khoản (công khai, không cần đăng nhập)                                        |
-| `/login`                                   | Đăng nhập bằng email và mật khẩu được cấp                                                                                         |
-| `/profile`                                 | Sửa họ tên, đổi mật khẩu bằng mật khẩu hiện tại                                                                                   |
-| `/admin`, `/admin/users`                   | Quản trị tài khoản: tạo, sửa tên, kích hoạt, khóa/mở khóa, reset mật khẩu; kết nối Google Drive, dọn tệp mồ côi, nhật ký quản trị |
-| `/classes`                                 | Lớp đang học/chờ duyệt/lưu trữ; tìm kiếm, kiểm tra mã lớp, xin tham gia và hủy yêu cầu chờ duyệt                                  |
-| `/classes/[id]`                            | Tổng quan, bài giảng, bài tập, thành viên và thông tin lớp                                                                        |
-| `/classes/[id]/lessons/[lessonId]`         | Video YouTube hoặc Google Drive, tài liệu (xem ngay trong trang), ghi chép cá nhân, thảo luận, lưu bài, đánh dấu hoàn thành       |
-| `/classes/[id]/assignments/[assignmentId]` | Lưu nháp, nộp bài viết/tệp/video/liên kết, xác nhận trung thực, thu hồi/nộp lại theo chính sách, xem điểm đã trả                  |
-| `/classes/[id]/members`                    | Danh sách thành viên, tìm tên không dấu, lọc nhóm, phân trang                                                                     |
-| `/assignments`                             | Tổng hợp bài cần làm, đã nộp và đã chấm                                                                                           |
-| `/teacher/classes`                         | Tạo/sửa/lưu trữ/khôi phục/xóa lớp, phân công giáo viên, đổi mã, giới hạn sĩ số, duyệt học viên và cấu hình người giảng nội dung   |
-| `/teacher/lessons`                         | Soạn chương/bài, YouTube/video Google Drive, thư viện video, tài liệu, mốc nội dung, bản nháp và xuất bản                         |
-| `/teacher/assignments`                     | Tạo/sửa/xóa bài tập, đặt số từ từng bài, chấm theo tiêu chí 40/40/20, lưu điểm nháp, trả điểm, nhắc nộp trong ứng dụng, xuất CSV  |
+| Đường dẫn                                  | Chức năng hiện có                                                                                                                                |
+| ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `/`, `/privacy`, `/terms`                  | Trang giới thiệu, chính sách quyền riêng tư và điều khoản (công khai, không cần đăng nhập)                                                       |
+| `/login`                                   | Đăng nhập bằng email và mật khẩu được cấp                                                                                                        |
+| `/profile`                                 | Sửa họ tên, đổi mật khẩu bằng mật khẩu hiện tại                                                                                                  |
+| `/admin`, `/admin/users`                   | Quản trị tài khoản: tạo, sửa tên, kích hoạt, khóa/mở khóa, reset mật khẩu, xóa vĩnh viễn; kết nối Google Drive, dọn tệp mồ côi, nhật ký quản trị |
+| `/classes`                                 | Lớp đang học/chờ duyệt/lưu trữ; tìm kiếm, kiểm tra mã lớp, xin tham gia và hủy yêu cầu chờ duyệt                                                 |
+| `/classes/[id]`                            | Tổng quan, bài giảng, bài tập, thành viên và thông tin lớp                                                                                       |
+| `/classes/[id]/lessons/[lessonId]`         | Video YouTube hoặc Google Drive, tài liệu (xem ngay trong trang), ghi chép cá nhân, thảo luận, lưu bài, đánh dấu hoàn thành                      |
+| `/classes/[id]/assignments/[assignmentId]` | Lưu nháp, nộp bài viết/tệp/video/liên kết, xác nhận trung thực, thu hồi/nộp lại theo chính sách, xem điểm đã trả                                 |
+| `/classes/[id]/members`                    | Danh sách thành viên, tìm tên không dấu, lọc nhóm, phân trang                                                                                    |
+| `/assignments`                             | Tổng hợp bài cần làm, đã nộp và đã chấm                                                                                                          |
+| `/teacher/classes`                         | Tạo/sửa/lưu trữ/khôi phục/xóa lớp, phân công giáo viên, đổi mã, giới hạn sĩ số, duyệt học viên và cấu hình người giảng nội dung                  |
+| `/teacher/lessons`                         | Soạn chương/bài, YouTube/video Google Drive, thư viện video, tài liệu, mốc nội dung, bản nháp và xuất bản                                        |
+| `/teacher/assignments`                     | Tạo/sửa/xóa bài tập, đặt số từ từng bài, chấm theo tiêu chí 40/40/20, lưu điểm nháp, trả điểm, nhắc nộp trong ứng dụng, xuất CSV                 |
 
 Trang đang mở lấy cập nhật khoảng mỗi 3 giây; khi quay lại tab hoặc có mạng trở lại sẽ kiểm tra ngay. Các tab cùng trình duyệt có thêm tín hiệu qua `BroadcastChannel`. Đây là cơ chế polling, chưa dùng WebSocket hoặc SSE. Với PostgreSQL, máy chủ so bộ đếm thay đổi của các lớp liên quan và trả `304` khi không có gì mới, nên lượt poll không đổi không phải tải lại dữ liệu.
 
@@ -102,7 +102,11 @@ Tài khoản do quản trị viên cấp. Các trang `/register`, `/verify-email
 
 Tài khoản mới hoặc được reset nhận mật khẩu tạm ngẫu nhiên riêng, chỉ hiển thị một lần cho quản trị viên. Người dùng phải đổi mật khẩu tại `/profile` trước khi dùng chức năng khác. Tài khoản cũ vẫn dùng mật khẩu chung trước đây cũng được yêu cầu đổi; tài khoản có mật khẩu riêng được giữ nguyên. Mật khẩu mới phải khác mật khẩu hiện tại, dài 8–128 ký tự và xác nhận trùng khớp.
 
-Quyền quản trị (`isAdmin`) tách biệt với vai trò `TEACHER` / `STUDENT`. Giáo viên thông thường không được quản trị tài khoản. Không có tài khoản quản trị demo được cấp sẵn. Bảng quản trị không cho khóa hoặc reset tài khoản có quyền quản trị. Mọi thao tác quản trị (tạo/sửa/khóa tài khoản, reset mật khẩu, chuyển chủ lớp, cấp/thu hồi quyền quản trị, kết nối/ngắt Drive, dọn tệp) được ghi vào nhật ký chỉ-thêm, xem ở `/admin`.
+Quyền quản trị (`isAdmin`) tách biệt với vai trò `TEACHER` / `STUDENT`. Giáo viên thông thường không được quản trị tài khoản. Không có tài khoản quản trị demo được cấp sẵn. Bảng quản trị không cho khóa, reset hoặc xóa tài khoản có quyền quản trị.
+
+**Xóa tài khoản** là vĩnh viễn: quản trị viên gõ lại email để xác nhận; phiên đăng nhập, ghi danh, bài nộp và điểm, tiến độ, ghi chép, thảo luận, thông báo và tệp riêng của người đó bị xóa (tệp Drive vào hàng đợi xóa). Học liệu người đó tải lên mà bài giảng còn dùng được chuyển cho chủ lớp; phân công đồng giảng dạy được gỡ; kết nối Drive do người đó tạo được chuyển cho quản trị viên đang thao tác. Không xóa được chính mình, tài khoản quản trị (thu hồi quyền trước) hoặc chủ lớp (chuyển quyền quản lý lớp trước). Muốn chỉ chặn đăng nhập thì dùng Khóa tài khoản.
+
+Mọi thao tác quản trị (tạo/sửa/khóa/xóa tài khoản, reset mật khẩu, chuyển chủ lớp, cấp/thu hồi quyền quản trị, kết nối/ngắt Drive, dọn tệp) được ghi vào nhật ký chỉ-thêm, xem ở `/admin`.
 
 Khóa, reset hoặc đổi mật khẩu làm mất hiệu lực các phiên cũ. Khi tự đổi mật khẩu, trình duyệt hiện tại nhận phiên mới. Đăng xuất thu hồi mọi bản sao cookie và các thiết bị khác của cùng tài khoản; thiết bị khác cần đăng nhập lại. Cookie phiên có thời hạn 7 ngày, HttpOnly, SameSite=Lax và Secure trong production; mật khẩu được băm bằng scrypt với salt riêng.
 

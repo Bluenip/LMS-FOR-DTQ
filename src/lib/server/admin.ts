@@ -17,7 +17,7 @@ import {
   sessionMatches,
   sessionUserId,
 } from './auth';
-import { findSessionUser, recordAudit, withAdminDatabase } from './repository';
+import { findSessionUser, recordAudit, withAdminDatabase, withDatabase } from './repository';
 import { consumeSharedRateLimit } from './rate-limit';
 
 const nameSchema = z.string().trim().min(2).max(100);
@@ -223,6 +223,81 @@ export function resetManagedPassword(
     temporaryPassword: prepared.password,
   };
 }
+/**
+ * Permanently deletes a teacher or student account and everything that only belongs to it:
+ * sessions, enrollments, submissions, progress, notes, discussions, notifications and the
+ * person's own files. Class material the person uploaded and a lesson still uses is handed to
+ * the class owner instead, so lessons keep working. Drive files are queued for removal.
+ * Administrators, the caller and class owners are refused; the email must be typed to confirm.
+ */
+export function deleteManagedUser(
+  db: Database,
+  actorId: string | null,
+  id: string,
+  input: unknown,
+) {
+  const actor = requireAdmin(db, actorId);
+  const v = z
+    .object({ confirmEmail: z.string().trim().max(320) })
+    .strict()
+    .parse(input);
+  const user = managedUser(db, id);
+  if (user.id === actor.id) throw new HttpError(403, 'Không thể tự xóa tài khoản của mình.');
+  if (user.isAdmin)
+    throw new HttpError(403, 'Không thể xóa tài khoản quản trị. Hãy thu hồi quyền quản trị trước.');
+  if (v.confirmEmail.toLowerCase() !== user.email.toLowerCase())
+    throw new HttpError(409, 'Email xác nhận không khớp. Kiểm tra lại trước khi xóa.');
+  const owned = db.classes.filter((c) => c.teacherId === user.id);
+  if (owned.length)
+    throw new HttpError(
+      409,
+      `Tài khoản đang quản lý ${owned.length} lớp. Hãy chuyển quyền quản lý lớp trước khi xóa.`,
+    );
+  const now = new Date().toISOString();
+  // Co-teaching assignments are a plain id list, not a foreign key.
+  for (const classroom of db.classes)
+    if (classroom.teacherIds?.includes(user.id)) {
+      classroom.teacherIds = classroom.teacherIds.filter((teacherId) => teacherId !== user.id);
+      classroom.revision = randomUUID();
+    }
+  const lessonUses = (fileId: string, driveFileId?: string) =>
+    db.lessons.find(
+      (l) =>
+        l.videoFileId === fileId ||
+        (!!driveFileId && l.driveFileId === driveFileId) ||
+        l.documents.some((d) => d.id === fileId),
+    );
+  const ownerOf = (classId: string) => db.classes.find((c) => c.id === classId)?.teacherId;
+  // Files: lesson material is kept and handed to the class owner; everything else goes.
+  for (const file of db.files.filter((f) => f.ownerId === user.id)) {
+    const owner = lessonUses(file.id) && ownerOf(file.classId);
+    if (owner) file.ownerId = owner;
+  }
+  db.files = db.files.filter((f) => f.ownerId !== user.id);
+  for (const upload of db.driveUploads.filter((u) => u.ownerId === user.id)) {
+    const owner = lessonUses(upload.id, upload.driveFileId) && ownerOf(upload.classId);
+    if (owner) upload.ownerId = owner;
+    else if (upload.driveFileId && !db.driveTrash.some((t) => t.id === upload.driveFileId))
+      db.driveTrash.push({ id: upload.driveFileId, createdAt: now });
+  }
+  db.driveUploads = db.driveUploads.filter((u) => u.ownerId !== user.id);
+  // The shared Drive connection must survive the person who happened to connect it.
+  for (const connection of db.driveConnections)
+    if (connection.connectedById === user.id) connection.connectedById = actor.id;
+  const removedSubmissions = db.submissions.filter((s) => s.studentId === user.id).length;
+  db.authTokens = db.authTokens.filter((t) => t.userId !== user.id);
+  db.enrollments = db.enrollments.filter((e) => e.userId !== user.id);
+  db.submissions = db.submissions.filter((s) => s.studentId !== user.id);
+  db.progress = db.progress.filter((p) => p.userId !== user.id);
+  db.notes = db.notes.filter((n) => n.userId !== user.id);
+  db.discussions = db.discussions.filter((d) => d.userId !== user.id);
+  db.notifications = db.notifications.filter((n) => n.userId !== user.id);
+  db.users = db.users.filter((u) => u.id !== user.id);
+  return {
+    deleted: { id: user.id, email: user.email, role: user.role, submissions: removedSubmissions },
+    message: `Đã xóa vĩnh viễn tài khoản ${user.email}.`,
+  };
+}
 export async function adminRequest(
   request: Request,
   options: {
@@ -232,6 +307,8 @@ export async function adminRequest(
     exclusive?: boolean;
     credential?: boolean;
     create?: boolean;
+    /** Rare, wide changes (deleting an account) read and lock the whole database. */
+    fullSnapshot?: boolean;
   },
   fn: (
     db: Database,
@@ -264,32 +341,35 @@ export async function adminRequest(
       const actor = id && (await findSessionUser(id));
       if (actor && accountEnabled(actor) && actor.isAdmin) credential = temporaryCredential();
     }
-    const result = await withAdminDatabase(
-      id,
-      {
-        ...options,
-        exclusive:
-          options.exclusive === true ||
-          (!!options.targetId &&
-            ['name', 'role', 'disabled', 'emailVerified'].some((key) => key in input)),
-        renameOnly:
-          options.exclusive !== true &&
-          !!options.targetId &&
-          'name' in input &&
-          !['role', 'disabled', 'emailVerified'].some((key) => key in input),
-        candidateId: typeof input.teacherId === 'string' ? input.teacherId : undefined,
-        email:
-          options.create && typeof input.email === 'string'
-            ? input.email.trim().toLowerCase()
-            : undefined,
-      },
-      (db) => {
-        const actor = requireAdmin(db, id);
-        if (!session || !sessionMatches(actor, session))
-          throw new HttpError(401, 'Vui lòng đăng nhập để tiếp tục.');
-        return fn(db, actor.id, input, credential);
-      },
-    );
+    const guarded = (db: Database) => {
+      const actor = requireAdmin(db, id);
+      if (!session || !sessionMatches(actor, session))
+        throw new HttpError(401, 'Vui lòng đăng nhập để tiếp tục.');
+      return fn(db, actor.id, input, credential);
+    };
+    const result = options.fullSnapshot
+      ? await withDatabase(guarded, write)
+      : await withAdminDatabase(
+          id,
+          {
+            ...options,
+            exclusive:
+              options.exclusive === true ||
+              (!!options.targetId &&
+                ['name', 'role', 'disabled', 'emailVerified'].some((key) => key in input)),
+            renameOnly:
+              options.exclusive !== true &&
+              !!options.targetId &&
+              'name' in input &&
+              !['role', 'disabled', 'emailVerified'].some((key) => key in input),
+            candidateId: typeof input.teacherId === 'string' ? input.teacherId : undefined,
+            email:
+              options.create && typeof input.email === 'string'
+                ? input.email.trim().toLowerCase()
+                : undefined,
+          },
+          guarded,
+        );
     if (write && audit && id)
       await recordAudit(id, audit.action, audit.target, audit.detail?.(result, input) ?? '');
     return Response.json(result, { headers: { 'Cache-Control': 'private, no-store' } });
