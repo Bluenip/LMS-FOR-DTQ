@@ -13,6 +13,7 @@ import {
   Copy,
   Download,
   Edit3,
+  Eye,
   FileText,
   FolderOpen,
   Plus,
@@ -40,7 +41,8 @@ import {
 } from '@/components/ui';
 import { api, fold } from '@/lib/client';
 import { uploadFile } from '@/lib/drive-upload';
-import { AttachmentViewer, CourseLessonVideo, DriveVideoPlayer } from './drive';
+import { AttachmentViewer, CourseLessonVideo, DriveVideoPlayer, VideoUploader } from './drive';
+import { bindUploads, uploadActive, useUploads } from '@/lib/upload-manager';
 import { useUnsavedWarning } from '@/lib/use-unsaved-warning';
 import { readSessionDraft, removeSessionDraft, writeSessionDraft } from '@/lib/session-draft';
 import { wordRequirement } from '@/lib/assignment-policy';
@@ -906,6 +908,92 @@ function ClassForm({
   );
 }
 
+/** Read-only view of one submission: text, link, files (with in-page viewer) and the grade. */
+function SubmissionDetail({
+  submission,
+  studentName,
+  dueAt,
+}: {
+  submission: Submission;
+  studentName: string;
+  dueAt: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const late = !!submission.submittedAt && new Date(submission.submittedAt) > new Date(dueAt);
+  return (
+    <>
+      <Button variant="ghost" onClick={() => setOpen(true)}>
+        <Eye size={15} /> Chi tiết
+      </Button>
+      <Dialog open={open} title={`Bài nộp của ${studentName}`} onClose={() => setOpen(false)} wide>
+        {open && (
+          <div className="stack">
+            <div className="inline-actions">
+              <Badge
+                tone={
+                  submission.status === 'GRADED'
+                    ? 'success'
+                    : submission.status === 'SUBMITTED'
+                      ? 'warning'
+                      : 'neutral'
+                }
+              >
+                {submissionStatus(submission)}
+              </Badge>
+              <span className="small muted">
+                Lần nộp {submission.attempt} · {date(submission.submittedAt)} (GMT+7){' '}
+                {submission.submittedAt && (late ? '· Nộp muộn' : '· Đúng hạn')}
+              </span>
+            </div>
+            <section className="stack">
+              <h3>Nội dung bài viết</h3>
+              {submission.content.trim() ? (
+                <p className="reading-copy" style={{ whiteSpace: 'pre-wrap' }}>
+                  {submission.content}
+                </p>
+              ) : (
+                <p className="muted small">Học viên không viết nội dung trực tiếp.</p>
+              )}
+            </section>
+            {submission.link && (
+              <section className="stack">
+                <h3>Liên kết minh chứng</h3>
+                <a className="text-link" href={submission.link} target="_blank" rel="noreferrer">
+                  {submission.link}
+                </a>
+              </section>
+            )}
+            <section className="stack">
+              <h3>Tệp đính kèm ({submission.attachments.length})</h3>
+              {submission.attachments.length === 0 && <p className="muted small">Không có tệp.</p>}
+              {submission.attachments.map((a) => (
+                <div className="attachment" key={a.id}>
+                  <FileText size={17} />
+                  <a href={a.url || `/api/files/${a.id}`} target="_blank" rel="noreferrer">
+                    {a.name}
+                  </a>
+                  <small>{(a.size / 1024 / 1024).toFixed(1)} MB</small>
+                  <AttachmentViewer file={a} />
+                </div>
+              ))}
+            </section>
+            {submission.status === 'GRADED' && (
+              <section className="stack">
+                <h3>Kết quả</h3>
+                <p>
+                  <strong>{submission.score}</strong> điểm
+                  {submission.feedback ? ` — ${submission.feedback}` : ''}
+                </p>
+              </section>
+            )}
+          </div>
+        )}
+      </Dialog>
+    </>
+  );
+}
+
+const noop = () => undefined;
 export function TeacherLessons() {
   const { state, action } = useLms();
   const { params, set } = useQuery();
@@ -952,6 +1040,7 @@ export function TeacherLessons() {
         classId,
         ...(creating ? {} : { lessonId: selected?.id }),
       })) as { id?: string } | undefined;
+      if (creating && result?.id) bindUploads(classId, result.id);
       setCreating(false);
       if (result?.id) set('lesson', result.id);
       return result ?? null;
@@ -1056,6 +1145,9 @@ export function TeacherLessons() {
                           </Badge>
                         </div>
                         <strong>{l.title.replace(/^Bài\s*\d+\s*:\s*/i, '')}</strong>
+                        <span className="inline-actions small">
+                          <Edit3 size={14} /> Sửa
+                        </span>
                         <span className="muted small">
                           {l.videoUrl ? `${l.duration || 'Đã gắn video'}` : 'Chưa gắn video'}
                         </span>
@@ -1150,11 +1242,18 @@ function LessonEditor({
   const [order, setOrder] = useState(lesson?.order || nextOrder);
   const [description, setDescription] = useState(lesson?.description || '');
   const [videoType, setVideoType] = useState<'YOUTUBE' | 'UPLOAD' | 'DRIVE'>(
-    lesson?.videoType || 'YOUTUBE',
+    // New lessons, and lessons without a video yet, open on the Google Drive tab.
+    lesson?.videoUrl ? lesson.videoType : 'DRIVE',
   );
   const [videoUrl, setVideoUrl] = useState(lesson?.videoUrl || '');
   // For DRIVE lessons this holds the Google Drive file id (sent as driveFileId).
-  const [videoFileId, setVideoFileId] = useState(lesson?.videoFileId || lesson?.driveFileId || '');
+  const [videoFileId, setVideoFileId] = useState(
+    lesson?.videoFileId ||
+      lesson?.driveFileId ||
+      (lesson?.videoType === 'DRIVE'
+        ? lesson.videoUrl.match(/\/file\/d\/([\w-]+)/)?.[1] || ''
+        : ''),
+  );
   const [duration, setDuration] = useState(lesson?.duration || '');
   const [timestamps, setTimestamps] = useState(lesson?.timestamps || []);
   const [documents, setDocuments] = useState<Attachment[]>(lesson?.documents || []);
@@ -1179,14 +1278,18 @@ function LessonEditor({
       documents: Attachment[];
       revision: string;
     }>(draftKey);
-    if (!saved) return;
+    // A draft saved against an older version of the lesson must not hide what is stored now.
+    if (!saved || (lesson && saved.revision !== (lesson.revision || ''))) {
+      if (saved) removeSessionDraft(draftKey);
+      return;
+    }
     setTitle(saved.title);
     setChapter(saved.chapter);
     setOrder(saved.order);
     setDescription(saved.description);
     setVideoType(saved.videoType);
     setVideoUrl(saved.videoUrl);
-    setVideoFileId(saved.videoFileId);
+    setVideoFileId(saved.videoFileId || lesson?.driveFileId || lesson?.videoFileId || '');
     setDuration(saved.duration);
     setTimestamps(saved.timestamps);
     setDocuments(saved.documents);
@@ -1223,8 +1326,43 @@ function LessonEditor({
     documents,
     revision,
   ]);
-  useEffect(() => onDirty(dirty), [dirty, onDirty]);
-  useUnsavedWarning(dirty);
+  // `dirty` only records that a field was touched; a form matching what was opened is not unsaved.
+  const fieldsJson = JSON.stringify([
+    title,
+    chapter,
+    order,
+    description,
+    videoType,
+    videoUrl,
+    videoFileId,
+    duration,
+    timestamps,
+    documents,
+  ]);
+  const videoUploading =
+    useUploads(
+      (i) =>
+        i.classId === classId &&
+        i.kind === 'video' &&
+        (i.lessonId || '') === (lesson?.id || '') &&
+        uploadActive(i),
+    ).length > 0;
+  // When a background upload attaches itself, show it without discarding what is being typed.
+  useEffect(() => {
+    if (!lesson) return;
+    const stored = lesson.videoFileId || lesson.driveFileId || '';
+    if (stored && !videoFileId) setVideoFileId(stored);
+    if (lesson.documents.length > documents.length) {
+      const known = new Set(documents.map((d) => d.id));
+      setDocuments((d) => [...d, ...lesson.documents.filter((x) => !known.has(x.id))]);
+    }
+    if (lesson.revision && lesson.revision !== revision) setRevision(lesson.revision);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lesson?.revision, lesson?.driveFileId, lesson?.documents.length]);
+  const openedJson = useRef(fieldsJson);
+  const unsaved = dirty && fieldsJson !== openedJson.current;
+  useEffect(() => onDirty(unsaved), [unsaved, onDirty]);
+  useUnsavedWarning(unsaved);
   async function upload(file: File | undefined, kind: 'video' | 'document') {
     if (!file) return;
     setUploading(true);
@@ -1254,6 +1392,8 @@ function LessonEditor({
     duration,
     timestamps,
     documents,
+    // A Drive video still uploading in the background attaches itself when it finishes.
+    videoPending: videoType === 'DRIVE' && !videoFileId && videoUploading,
     expectedRevision: revision,
   };
   const related = state.assignments.filter((a) => a.lessonId === lesson?.id);
@@ -1261,7 +1401,7 @@ function LessonEditor({
     <section className="panel editor">
       <div className="editor-heading">
         <div>
-          <h2>{lesson ? 'Biên tập bài giảng' : 'Bài giảng mới'}</h2>
+          <h2>{lesson ? 'Chỉnh sửa bài giảng' : 'Bài giảng mới'}</h2>
           <p className="small">{lesson?.title || 'Xây dựng một bài học ý nghĩa cho học viên.'}</p>
         </div>
         <Badge tone={lesson?.published ? 'success' : 'warning'}>
@@ -1322,6 +1462,16 @@ function LessonEditor({
                     placeholder="https://www.youtube.com/watch?v=…"
                   />
                 </Field>
+                {youtubeId(videoUrl) && (
+                  <div className="video-frame">
+                    <iframe
+                      src={`https://www.youtube-nocookie.com/embed/${youtubeId(videoUrl)}`}
+                      title={title || 'Video bài giảng'}
+                      allow="encrypted-media; picture-in-picture; fullscreen"
+                      allowFullScreen
+                    />
+                  </div>
+                )}
                 {videoUrl && (
                   <p className={youtubeId(videoUrl) ? 'small success-text' : 'error small'}>
                     {youtubeId(videoUrl)
@@ -1344,7 +1494,7 @@ function LessonEditor({
             ) : (
               <Field
                 label="Chọn video MP4 hoặc WebM"
-                hint="Tối đa 2 GB. Tệp được tải trực tiếp lên S3/R2."
+                hint="Tối đa 5 GB. Tệp được tải trực tiếp lên kho cũ."
               >
                 <input
                   type="file"
@@ -1500,17 +1650,18 @@ function LessonEditor({
             ) : (
               <p className="small muted">Chưa có tài liệu đính kèm.</p>
             )}
-            <Field
-              label="Tải học liệu lên Google Drive"
-              hint="PDF, DOCX, PPTX, JPG, PNG; tối đa 25 MB. Tệp ở chế độ riêng tư, chỉ thành viên lớp mở được."
-            >
-              <input
-                type="file"
-                accept=".pdf,.docx,.pptx,.jpg,.jpeg,.png"
-                disabled={uploading || !state.storageConfigured || documents.length >= 20}
-                onChange={(e) => upload(e.target.files?.[0], 'document')}
-              />
-            </Field>
+            <VideoUploader
+              classId={classId}
+              lessonId={lesson?.id}
+              kind="document"
+              accept=".pdf,.docx,.pptx,.jpg,.jpeg,.png"
+              disabled={!state.storageConfigured || documents.length >= 20}
+              onUploaded={noop}
+            />
+            <p className="small muted">
+              PDF, DOCX, PPTX, JPG, PNG; tối đa 1 GB. Tải lên chạy nền, tài liệu tự gắn vào bài khi
+              xong; bạn có thể lưu hoặc xuất bản bài ngay.
+            </p>
             {!state.storageConfigured && (
               <p className="small muted">
                 Google Drive chưa được kết nối. Quản trị viên cần kết nối trước khi tải tệp.
@@ -2165,11 +2316,19 @@ export function TeacherAssignments() {
                                   </td>
                                   <td data-label="Bài làm">
                                     {submission ? (
-                                      <span className="small">
-                                        {submission.attachments.length
-                                          ? `${submission.attachments.length} tệp đính kèm`
-                                          : 'Bài viết trực tiếp'}
-                                      </span>
+                                      <div className="stack">
+                                        <span className="small">
+                                          {submission.attachments.length
+                                            ? `${submission.attachments.length} tệp đính kèm`
+                                            : 'Bài viết trực tiếp'}
+                                        </span>
+                                        {submission.attachments.map((a) => (
+                                          <span key={a.id} className="inline-actions small">
+                                            <span>{a.name}</span>
+                                            <AttachmentViewer file={a} />
+                                          </span>
+                                        ))}
+                                      </div>
                                     ) : (
                                       '—'
                                     )}
@@ -2196,16 +2355,23 @@ export function TeacherAssignments() {
                                   </td>
                                   <td data-label="Thao tác">
                                     {submission ? (
-                                      <Button
-                                        variant="secondary"
-                                        onClick={() => {
-                                          setOpenedSubmission(submission);
-                                          setGradingId(submission.id);
-                                          setGradingDirty(false);
-                                        }}
-                                      >
-                                        {submission.status === 'GRADED' ? 'Xem lại' : 'Chấm bài'}
-                                      </Button>
+                                      <div className="inline-actions">
+                                        <SubmissionDetail
+                                          submission={submission}
+                                          studentName={user?.name || 'Học viên'}
+                                          dueAt={assignment.dueAt}
+                                        />
+                                        <Button
+                                          variant="secondary"
+                                          onClick={() => {
+                                            setOpenedSubmission(submission);
+                                            setGradingId(submission.id);
+                                            setGradingDirty(false);
+                                          }}
+                                        >
+                                          {submission.status === 'GRADED' ? 'Xem lại' : 'Chấm bài'}
+                                        </Button>
+                                      </div>
                                     ) : (
                                       <Button
                                         variant="secondary"
@@ -2457,17 +2623,20 @@ function GradeForm({
   const [dirty, setDirty] = useState(false);
   const [leaving, setLeaving] = useState(false);
   const score = rubric.understanding + rubric.application + rubric.presentation;
-  useEffect(() => onDirty(dirty), [dirty, onDirty]);
+  const gradeJson = JSON.stringify([rubric, feedback]);
+  const openedGrade = useRef(gradeJson);
+  const gradeUnsaved = dirty && gradeJson !== openedGrade.current;
+  useEffect(() => onDirty(gradeUnsaved), [gradeUnsaved, onDirty]);
   useEffect(() => {
     const fn = (e: BeforeUnloadEvent) => {
-      if (dirty) {
+      if (gradeUnsaved) {
         e.preventDefault();
         e.returnValue = '';
       }
     };
     window.addEventListener('beforeunload', fn);
     return () => window.removeEventListener('beforeunload', fn);
-  }, [dirty]);
+  }, [gradeUnsaved]);
   async function save(publish: boolean) {
     if (gradingBlocked) {
       setError(staleMessage);
@@ -2607,7 +2776,7 @@ function GradeForm({
         </form>
       </div>
       <div className="dialog-footer">
-        <Button variant="ghost" onClick={() => (dirty ? setLeaving(true) : onClose())}>
+        <Button variant="ghost" onClick={() => (gradeUnsaved ? setLeaving(true) : onClose())}>
           Đóng bài chấm
         </Button>
       </div>

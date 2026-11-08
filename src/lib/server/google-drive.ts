@@ -319,10 +319,139 @@ export async function renameDriveFile(fileId: string, name: string) {
   );
 }
 /** A file that is already gone counts as deleted so retries stay idempotent. */
-export async function deleteDriveFile(fileId: string) {
+async function removeDriveFile(fileId: string) {
   const res = await driveCall(`${API}/files/${encodeURIComponent(fileId)}`, { method: 'DELETE' });
   if (res.status === 404) return;
   if (!res.ok) throw await googleError(res);
+}
+export async function deleteDriveFile(fileId: string) {
+  await removeDriveFile(fileId);
+  // The Google Slides/Docs copy made for the in-page viewer goes with its original.
+  await findViewerCopies(fileId)
+    .then((ids) => Promise.all(ids.map(removeDriveFile)))
+    .catch(() => undefined);
+}
+
+// --- Folders and file placement ---------------------------------------------
+/** Moves a file into `parentId` and/or renames it (works for folders too). */
+export async function placeDriveFile(fileId: string, change: { name?: string; parentId?: string }) {
+  const id = encodeURIComponent(fileId);
+  const params = new URLSearchParams({ fields: 'id' });
+  if (change.parentId) {
+    const current = await json<{ parents?: string[] }>(
+      await driveCall(`${API}/files/${id}?fields=parents`),
+    );
+    if (!current.parents?.includes(change.parentId)) {
+      params.set('addParents', change.parentId);
+      if (current.parents?.length) params.set('removeParents', current.parents.join(','));
+    }
+  }
+  await json(
+    await driveCall(`${API}/files/${id}?${params}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json; charset=UTF-8' },
+      body: JSON.stringify(change.name ? { name: change.name } : {}),
+    }),
+  );
+}
+const folderLookups = new Map<string, Promise<string>>();
+/**
+ * A folder identified by a stable key (kept in an app property), so renaming a class or lesson
+ * renames its folder instead of creating a second one.
+ */
+export function ensureFolderByKey(key: string, name: string, parentId: string): Promise<string> {
+  const cacheKey = `${parentId}|${key}`;
+  const running = folderLookups.get(cacheKey);
+  if (running) return running;
+  const task = (async () => {
+    const params = new URLSearchParams({
+      q: `appProperties has { key='lmsFolder' and value='${escapeQuery(key)}' } and mimeType = 'application/vnd.google-apps.folder' and trashed = false`,
+      fields: 'files(id,name,parents)',
+      pageSize: '5',
+    });
+    const found = (
+      await json<{ files: { id: string; name: string; parents?: string[] }[] }>(
+        await driveCall(`${API}/files?${params}`),
+      )
+    ).files[0];
+    if (found) {
+      if (found.name !== name || !found.parents?.includes(parentId))
+        await placeDriveFile(found.id, { name, parentId });
+      return found.id;
+    }
+    return (
+      await json<{ id: string }>(
+        await driveCall(`${API}/files?fields=id`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json; charset=UTF-8' },
+          body: JSON.stringify({
+            name,
+            mimeType: 'application/vnd.google-apps.folder',
+            parents: [parentId],
+            appProperties: { lmsFolder: key },
+          }),
+        }),
+      )
+    ).id;
+  })().finally(() => folderLookups.delete(cacheKey));
+  folderLookups.set(cacheKey, task);
+  return task;
+}
+
+// --- Native viewer copies ---------------------------------------------------
+// Google renders its own formats with the real Slides/Docs players (animations, full screen,
+// slide navigation). A PPTX/DOCX is converted once into a Google copy that is cached by an app
+// property on the copy, shared like every other file, and removed with the original.
+const VIEWER_TYPES: Record<string, { mime: string; url: (id: string) => string }> = {
+  'application/vnd.openxmlformats-officedocument.presentationml.presentation': {
+    mime: 'application/vnd.google-apps.presentation',
+    url: (id) =>
+      `https://docs.google.com/presentation/d/${encodeURIComponent(id)}/embed?start=false&loop=false&delayms=3000&rm=minimal`,
+  },
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document': {
+    mime: 'application/vnd.google-apps.document',
+    url: (id) => `https://docs.google.com/document/d/${encodeURIComponent(id)}/preview`,
+  },
+};
+export const hasViewerCopy = (mimeType: string) => mimeType in VIEWER_TYPES;
+async function findViewerCopies(fileId: string) {
+  const params = new URLSearchParams({
+    q: `appProperties has { key='lmsViewerOf' and value='${escapeQuery(fileId)}' } and trashed = false`,
+    fields: 'files(id)',
+    pageSize: '10',
+  });
+  return (
+    await json<{ files: { id: string }[] }>(await driveCall(`${API}/files?${params}`))
+  ).files.map((f) => f.id);
+}
+const copying = new Map<string, Promise<string>>();
+/** Embeddable URL of the native Google copy of an Office file (created on first use). */
+export function viewerUrl(fileId: string, name: string, mimeType: string): Promise<string> {
+  const type = VIEWER_TYPES[mimeType];
+  if (!type) return Promise.reject(new Error('Định dạng không có bản xem gốc.'));
+  const pending =
+    copying.get(fileId) ??
+    (async () => {
+      let copyId = (await findViewerCopies(fileId))[0];
+      if (!copyId) {
+        const copy = await json<{ id: string }>(
+          await driveCall(`${API}/files/${encodeURIComponent(fileId)}/copy?fields=id`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json; charset=UTF-8' },
+            body: JSON.stringify({
+              name: name.replace(/\.[^.]+$/, ''),
+              mimeType: type.mime,
+              appProperties: { lmsViewerOf: fileId },
+            }),
+          }),
+        );
+        copyId = copy.id;
+      }
+      await ensurePublicReader(copyId);
+      return type.url(copyId);
+    })().finally(() => copying.delete(fileId));
+  copying.set(fileId, pending);
+  return pending;
 }
 const escapeQuery = (value: string) => value.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
 export async function listDriveFiles(folderId: string | undefined, search: string) {

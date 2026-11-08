@@ -24,6 +24,7 @@ import {
   Send,
   Info,
   Calendar,
+  Pencil,
   Video,
   MessageSquare,
   NotebookPen,
@@ -45,8 +46,15 @@ import {
   Tabs,
 } from './ui';
 import { dateTime, fold, initials, words, youtubeId } from '@/lib/client';
-import { uploadFile } from '@/lib/drive-upload';
-import { AttachmentViewer, DriveVideoPlayer } from './drive';
+import {
+  cancelUpload,
+  dismissUpload,
+  markUploadUsed,
+  startUpload,
+  uploadActive,
+  useUploads,
+} from '@/lib/upload-manager';
+import { AttachmentViewer, DriveVideoPlayer, UploadProgress } from './drive';
 import { acceptsWordCount, wordRequirement } from '@/lib/assignment-policy';
 import { classTeacherNames, managesClass } from '@/lib/class-teachers';
 import { useUnsavedWarning } from '@/lib/use-unsaved-warning';
@@ -770,6 +778,7 @@ function AssignmentCard({ assignment: a }: { assignment: Assignment }) {
 }
 export function LessonPage({ classId, lessonId }: { classId: string; lessonId: string }) {
   const { state, action } = useLms();
+  const router = useRouter();
   const query = useQuery();
   const tab = query.get('tab', 'materials');
   const c = state.classes.find((c) => c.id === classId);
@@ -828,6 +837,34 @@ export function LessonPage({ classId, lessonId }: { classId: string; lessonId: s
         title={`Bài ${lesson.order}: ${lesson.title}`}
         description={lesson.chapter}
         breadcrumb={<ClassBreadcrumb classroom={c} tail="Bài học" />}
+        actions={
+          managesClass(c, state.user) ? (
+            <div className="inline-actions">
+              <Link
+                className="button primary"
+                href={`/teacher/lessons?class=${classId}&lesson=${lessonId}`}
+              >
+                <Pencil size={16} /> Sửa bài học
+              </Link>
+              <Button
+                variant="danger"
+                disabled={busy}
+                onClick={async () => {
+                  if (
+                    !window.confirm(
+                      `Xóa bài “${lesson.title}”? Video và tài liệu của bài cũng bị xóa khỏi Google Drive.`,
+                    )
+                  )
+                    return;
+                  if (await run('deleteLesson', { lessonId, expectedRevision: lesson.revision }))
+                    router.push(`/classes/${classId}?tab=lessons`);
+                }}
+              >
+                <Trash2 size={16} /> Xóa bài học
+              </Button>
+            </div>
+          ) : undefined
+        }
       />
       <div className="lesson-workspace">
         <div className="stack">
@@ -1074,7 +1111,9 @@ export function AssignmentPage({
   const [files, setFiles] = useState<Attachment[]>(submission?.attachments || []);
   const [pledge, setPledge] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [uploading, setUploading] = useState(false);
+  // Submission files upload in the background: the learner keeps writing and may save a draft.
+  const uploads = useUploads((i) => i.tag === `submission:${assignmentId}`);
+  const uploading = uploads.some(uploadActive);
   const [error, setError] = useState('');
   const [saved, setSaved] = useState(false);
   const [confirm, setConfirm] = useState(false);
@@ -1098,6 +1137,25 @@ export function AssignmentPage({
     setPledge(false);
     setError('');
   }, [assignmentId, state.user.id]);
+  useEffect(() => {
+    const finished = uploads.filter((i) => i.phase === 'done' && i.result && !i.attached);
+    if (!finished.length) return;
+    finished.forEach((i) => markUploadUsed(i.id));
+    setFiles((prev) => [
+      ...prev,
+      ...finished
+        .filter((i) => !prev.some((f) => f.id === i.result!.id))
+        .map((i) => ({
+          id: i.result!.id,
+          name: i.result!.name,
+          size: i.result!.size,
+          mimeType: i.result!.mimeType,
+          url: `/api/drive/files/${i.result!.id}/download`,
+        })),
+    ]);
+    setSaved(false);
+    setDirty(true);
+  }, [uploads]);
   useEffect(() => {
     if (dirty) writeSessionDraft(draftKey, { content, link, files, revision });
   }, [dirty, draftKey, content, link, files, revision]);
@@ -1182,8 +1240,8 @@ export function AssignmentPage({
             <div className="notice">
               <Info size={18} />
               <span>
-                Viết {wordRequirement(a)} hoặc đính kèm PDF, DOCX, PPTX, JPG, PNG (tối đa 25 MB)
-                hoặc video MP4, WebM, MOV (tối đa 2 GB).
+                Viết {wordRequirement(a)} hoặc đính kèm PDF, DOCX, PPTX, JPG, PNG (tối đa 1 GB) hoặc
+                video MP4, WebM, MOV (tối đa 5 GB).
               </span>
             </div>
           </section>
@@ -1289,7 +1347,7 @@ export function AssignmentPage({
                     aria-label="Bài thu hoạch"
                     value={content}
                     maxLength={50000}
-                    disabled={busy || uploading || archived}
+                    disabled={busy || archived}
                     onChange={(e) => {
                       setContent(e.target.value);
                       setSaved(false);
@@ -1301,43 +1359,33 @@ export function AssignmentPage({
                 <div className="stack">
                   <label className="upload-zone">
                     <UploadCloud size={27} />
-                    <strong>{uploading ? 'Đang tải tệp…' : 'Đính kèm bài làm'}</strong>
-                    <span>PDF, DOCX, PPTX, JPG, PNG (25 MB) hoặc video MP4, WebM, MOV (2 GB)</span>
+                    <strong>Đính kèm bài làm</strong>
+                    <span>PDF, DOCX, PPTX, JPG, PNG (1 GB) hoặc video MP4, WebM, MOV (5 GB)</span>
                     <input
                       type="file"
-                      disabled={
-                        uploading ||
-                        busy ||
-                        archived ||
-                        !state.storageConfigured ||
-                        files.length >= 10
-                      }
+                      disabled={busy || archived || !state.storageConfigured || files.length >= 10}
                       accept=".pdf,.docx,.pptx,.jpg,.jpeg,.png,.mp4,.webm,.mov"
-                      onChange={async (e) => {
+                      onChange={(e) => {
                         const f = e.target.files?.[0];
+                        e.target.value = '';
                         if (!f) return;
                         setError('');
                         const isVideo = /\.(mp4|webm|mov)$/i.test(f.name);
-                        if (f.size > (isVideo ? 2 * 1024 ** 3 : 25 * 1024 * 1024)) {
+                        if (f.size > (isVideo ? 5 * 1024 ** 3 : 1024 ** 3)) {
                           setError(
                             isVideo
-                              ? 'Video phải nhỏ hơn hoặc bằng 2 GB.'
-                              : 'Tệp phải nhỏ hơn hoặc bằng 25 MB.',
+                              ? 'Video phải nhỏ hơn hoặc bằng 5 GB.'
+                              : 'Tệp phải nhỏ hơn hoặc bằng 1 GB.',
                           );
                           return;
                         }
-                        setUploading(true);
-                        try {
-                          setFiles((prev) => [...prev]);
-                          const uploaded = await uploadFile(f, classId, 'assignment');
-                          setFiles((prev) => [...prev, uploaded]);
-                          setSaved(false);
-                          setDirty(true);
-                        } catch (e) {
-                          setError((e as Error).message);
-                        } finally {
-                          setUploading(false);
-                        }
+                        startUpload({
+                          file: f,
+                          classId,
+                          assignmentId,
+                          kind: isVideo ? 'video' : 'document',
+                          tag: `submission:${assignmentId}`,
+                        });
                       }}
                     />
                   </label>
@@ -1348,11 +1396,44 @@ export function AssignmentPage({
                     </p>
                   )}
                   <p className="small muted">{files.length}/10 tệp đính kèm</p>
+                  {uploads
+                    .filter((i) => !i.attached)
+                    .map((i) => (
+                      <div key={i.id} className="stack">
+                        <UploadProgress
+                          name={i.file.name}
+                          loaded={i.loaded}
+                          total={i.file.size}
+                          phase={i.phase}
+                          message={
+                            uploadActive(i)
+                              ? 'Đang tải lên nền: bạn có thể tiếp tục viết hoặc lưu nháp; nút Nộp bài mở lại khi tải xong.'
+                              : i.message
+                          }
+                          onCancel={() => void cancelUpload(i.id)}
+                          onRetry={() => {
+                            dismissUpload(i.id);
+                            startUpload({
+                              file: i.file,
+                              classId,
+                              assignmentId,
+                              kind: i.kind,
+                              tag: i.tag,
+                            });
+                          }}
+                        />
+                        {!uploadActive(i) && (
+                          <Button variant="ghost" onClick={() => dismissUpload(i.id)}>
+                            Ẩn
+                          </Button>
+                        )}
+                      </div>
+                    ))}
                   {files.map((f) => (
                     <FileAttachment
                       key={f.id}
                       file={f}
-                      disabled={busy || uploading || archived}
+                      disabled={busy || archived}
                       onRemove={() => {
                         setFiles(files.filter((x) => x.id !== f.id));
                         setSaved(false);
@@ -1365,7 +1446,7 @@ export function AssignmentPage({
                   <input
                     type="url"
                     value={link}
-                    disabled={busy || uploading || archived}
+                    disabled={busy || archived}
                     onChange={(e) => {
                       setLink(e.target.value);
                       setSaved(false);
@@ -1378,7 +1459,7 @@ export function AssignmentPage({
                   <input
                     type="checkbox"
                     checked={pledge}
-                    disabled={busy || uploading || archived}
+                    disabled={busy || archived}
                     onChange={(e) => setPledge(e.target.checked)}
                   />
                   <span>Tôi xác nhận đây là bài làm của mình và các chia sẻ đều trung thực.</span>
@@ -1405,7 +1486,7 @@ export function AssignmentPage({
                   <div className="inline-actions">
                     <Button
                       variant="secondary"
-                      disabled={busy || uploading || archived}
+                      disabled={busy || archived}
                       onClick={() => void save(false)}
                     >
                       Lưu nháp

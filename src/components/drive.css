@@ -134,3 +134,65 @@
     grid-column: 1;
   }
 }
+.slide-viewer {
+  display: grid;
+  gap: 12px;
+  background: var(--color-paper, #fff);
+}
+.slide-viewer:fullscreen {
+  padding: 8px;
+  height: 100vh;
+}
+.slide-viewer:fullscreen .slide-frame {
+  height: calc(100vh - 64px);
+}
+/* Google Slides player is 16:9: size the frame to the slide, not to the window height */
+.slide-frame.slide-wide {
+  height: auto;
+  aspect-ratio: 16 / 9;
+  max-height: 78vh;
+}
+.slide-viewer:fullscreen .slide-frame.slide-wide {
+  max-height: none;
+  height: calc(100vh - 64px);
+  aspect-ratio: auto;
+}
+/* Controls float over the frame like a video player; the Google bar is cropped away */
+.slide-viewer {
+  position: relative;
+  overflow: hidden;
+  border-radius: 8px;
+}
+.slide-controls {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: flex;
+  gap: 6px;
+  opacity: 0;
+  transition: opacity 160ms;
+}
+.slide-viewer:hover .slide-controls,
+.slide-viewer:focus-within .slide-controls,
+.slide-viewer:fullscreen .slide-controls {
+  opacity: 1;
+}
+.slide-controls .icon-button {
+  background: rgb(0 0 0 / 60%);
+  color: #fff;
+  border: 0;
+}
+.slide-controls .icon-button:hover {
+  background: rgb(0 0 0 / 80%);
+}
+.slide-viewer:fullscreen {
+  background: #000;
+  padding: 0;
+}
+.slide-viewer:fullscreen .slide-frame,
+.slide-viewer:fullscreen .slide-frame.slide-wide {
+  height: 100vh;
+  max-height: none;
+  aspect-ratio: auto;
+  border-radius: 0;
+}

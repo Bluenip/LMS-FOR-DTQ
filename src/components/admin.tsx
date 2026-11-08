@@ -14,7 +14,7 @@ import {
 } from 'lucide-react';
 import { useLms } from '@/components/lms-provider';
 import { Badge, Button, Dialog, Empty, Field, PageHeading, Search, Tabs } from '@/components/ui';
-import { GoogleDriveConnect } from '@/components/drive';
+import { DriveLibrary, GoogleDriveConnect } from '@/components/drive';
 import { AuditLogPanel } from '@/components/audit';
 import { api, ApiError, fold, initials } from '@/lib/client';
 import type { AdminState, AdminUser, Role } from '@/lib/types';
@@ -234,6 +234,7 @@ export function AdminAccounts() {
         </div>
       )}
       {state.user.isAdmin && <GoogleDriveConnect />}
+      {state.user.isAdmin && <DriveLibrary />}
       {state.user.isAdmin && <AuditLogPanel />}
       {notice && (
         <p className="notice admin-notice" role="status">

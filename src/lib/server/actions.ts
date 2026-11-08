@@ -728,6 +728,7 @@ export function runAction(db: Database, user: StoredUser, input: Record<string, 
             .regex(/^[\w-]{10,120}$/)
             .optional(),
           duration: z.string().max(30).default(''),
+          videoPending: z.boolean().default(false),
           published: z.boolean().default(false),
           expectedRevision: z.string().max(120).optional(),
           timestamps: z
@@ -811,12 +812,18 @@ export function runAction(db: Database, user: StoredUser, input: Record<string, 
         v.documents,
         existing?.documents.map((d) => d.id),
       );
-      if (v.published && !videoUrl && !v.description.trim() && !docs.length)
+      if (v.published && !videoUrl && !v.videoPending && !v.description.trim() && !docs.length)
         throw new HttpError(
           400,
           'Vui lòng thêm video, nội dung hoặc tài liệu trước khi xuất bản bài giảng.',
         );
-      const { lessonId: _lessonId, id: _id, expectedRevision: _expectedRevision, ...fields } = v;
+      const {
+        lessonId: _lessonId,
+        id: _id,
+        expectedRevision: _expectedRevision,
+        videoPending: _pending,
+        ...fields
+      } = v;
       const l: Lesson = {
         id: existing?.id || uid(),
         ...fields,

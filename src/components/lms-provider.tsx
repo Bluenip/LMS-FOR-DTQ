@@ -133,6 +133,7 @@ export function LmsProvider({ children }: { children: ReactNode }) {
     document.addEventListener('visibilitychange', wake);
     window.addEventListener('focus', wake);
     window.addEventListener('online', wake);
+    window.addEventListener('lms:refresh', wake);
     if ('BroadcastChannel' in window) {
       channel.current = new BroadcastChannel('dtq-state');
       channel.current.onmessage = wake;
@@ -144,6 +145,7 @@ export function LmsProvider({ children }: { children: ReactNode }) {
       document.removeEventListener('visibilitychange', wake);
       window.removeEventListener('focus', wake);
       window.removeEventListener('online', wake);
+      window.removeEventListener('lms:refresh', wake);
       channel.current?.close();
       channel.current = null;
       cancelRefresh();

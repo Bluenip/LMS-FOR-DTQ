@@ -36,13 +36,18 @@ import {
   revokePublicReader,
   revokeToken,
   startResumable,
+  viewerUrl,
+  ensureFolderByKey,
+  placeDriveFile,
   statesMatch,
   type DriveRemoteFile,
 } from './google-drive';
 import { consumeSharedRateLimit, RateLimit } from './rate-limit';
 import { readJsonObject } from './request';
 import { recordAudit, withDatabase } from './repository';
-import { MAX_DOCUMENT, MAX_VIDEO } from './storage';
+// Drive streams straight from the browser, so the server never holds the bytes.
+const MAX_VIDEO = 5 * 1024 ** 3;
+const MAX_DOCUMENT = 1024 ** 3;
 
 const FOLDER_NAME = 'LMS Đệ Tử Quy';
 const SESSION_LIFETIME_MS = 6 * 86400000; // Drive keeps resumable sessions for one week.
@@ -88,6 +93,7 @@ const fileName = z
 const initSchema = z.object({
   classId: z.string().min(1).max(120),
   lessonId: z.string().min(1).max(120).nullable().optional(),
+  assignmentId: z.string().min(1).max(120).nullable().optional(),
   name: fileName,
   size: z.number().int().positive(),
   mimeType: z.string().max(200),
@@ -104,7 +110,7 @@ export function validateDriveUpload(raw: unknown) {
       'Định dạng tệp không hợp lệ. Video: MP4, WebM, MOV. Tài liệu: PDF, DOCX, PPTX, JPG, PNG, GIF, WebP.',
     );
   if (v.size > (v.kind === 'video' ? MAX_VIDEO : MAX_DOCUMENT))
-    throw new HttpError(413, v.kind === 'video' ? 'Video tối đa 2 GB.' : 'Tài liệu tối đa 25 MB.');
+    throw new HttpError(413, v.kind === 'video' ? 'Video tối đa 5 GB.' : 'Tài liệu tối đa 1 GB.');
   return v;
 }
 
@@ -355,6 +361,11 @@ export async function initUpload(userId: string, origin: string, raw: unknown) {
     if (classroom.status === 'ARCHIVED') throw new HttpError(409, 'Lớp học đã lưu trữ.');
     if (v.lessonId && !db.lessons.some((l) => l.id === v.lessonId && l.classId === classroom.id))
       throw new HttpError(400, 'Bài giảng không thuộc lớp.');
+    if (
+      v.assignmentId &&
+      !db.assignments.some((a) => a.id === v.assignmentId && a.classId === classroom.id)
+    )
+      throw new HttpError(400, 'Bài tập không thuộc lớp.');
     const connection = db.driveConnections.find((c) => c.id === CONNECTION_ID);
     if (!connection || connection.status !== 'ACTIVE')
       throw new HttpError(409, 'Google Drive chưa được kết nối. Quản trị viên cần kết nối trước.');
@@ -396,6 +407,7 @@ export async function initUpload(userId: string, origin: string, raw: unknown) {
     ownerId: userId,
     classId: v.classId,
     ...(v.lessonId ? { lessonId: v.lessonId } : {}),
+    ...(v.assignmentId ? { assignmentId: v.assignmentId } : {}),
     kind: v.kind,
     name: v.name,
     mimeType: v.mimeType,
@@ -484,6 +496,111 @@ export async function completeUpload(userId: string, jobId: string, input: unkno
   }
   return { job: await finalize(userId, jobId, await getDriveFile(driveFileId)) };
 }
+// ---------------------------------------------------------------------------
+// Folder layout and file naming
+//   <root> / <Lớp> / <Bài N - tên bài> / <Học viên>   (learner files of that lesson's assignments)
+//   <root> / <Lớp> / <Bài N - tên bài>                (lesson video and materials)
+//   <root> / <Lớp> / Bài tập chung / <Học viên>       (assignments not tied to a lesson)
+// File name: "<tên bài tập hoặc bài giảng> - Bài <N> - <Video|Ảnh|Slide|File> <số thứ tự>".
+// ---------------------------------------------------------------------------
+const cleanName = (value: string, max = 80) =>
+  value
+    .replace(/[\\/:*?"<>|\u0000-\u001f]/gu, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, max);
+const lessonTitle = (title: string) => cleanName(title.replace(/^Bài\s*\d+\s*[:\-–]\s*/iu, ''));
+function categoryOf(job: { kind: string; mimeType: string }) {
+  if (job.kind === 'video') return 'Video';
+  if (job.mimeType.startsWith('image/')) return 'Ảnh';
+  if (/presentationml\.presentation$/.test(job.mimeType)) return 'Slide';
+  return 'File';
+}
+interface Placement {
+  driveFileId: string;
+  rootId: string | undefined;
+  path: { key: string; name: string }[];
+  name: string;
+}
+export function planPlacement(db: Database, jobId: string): Placement | null {
+  const job = db.driveUploads.find((u) => u.id === jobId);
+  const classroom = job && db.classes.find((c) => c.id === job.classId);
+  if (!job || !classroom || job.status !== 'COMPLETED' || !job.driveFileId) return null;
+  const assignment = job.assignmentId
+    ? db.assignments.find((a) => a.id === job.assignmentId)
+    : undefined;
+  const lesson = db.lessons.find((l) => l.id === (assignment?.lessonId ?? job.lessonId));
+  // Nothing says where it belongs yet (a lesson still being created): leave it where it is.
+  if (!lesson && !assignment) return null;
+  const path = [
+    { key: `class:${classroom.id}`, name: cleanName(classroom.title, 100) || 'Lớp học' },
+  ];
+  path.push(
+    lesson
+      ? {
+          key: `lesson:${lesson.id}`,
+          name: `Bài ${lesson.order} - ${lessonTitle(lesson.title) || 'Bài giảng'}`,
+        }
+      : { key: `common:${classroom.id}`, name: 'Bài tập chung' },
+  );
+  const sameContext = (u: DriveUpload) =>
+    u.id !== job.id &&
+    u.status === 'COMPLETED' &&
+    u.classId === job.classId &&
+    (assignment
+      ? u.assignmentId === job.assignmentId && u.ownerId === job.ownerId
+      : !u.assignmentId && u.lessonId === job.lessonId);
+  if (assignment) {
+    const owner = db.users.find((u) => u.id === job.ownerId);
+    path.push({
+      key: `student:${path[1].key}:${job.ownerId}`,
+      name: cleanName(`${owner?.name || 'Học viên'} - ${owner?.email || job.ownerId}`, 120),
+    });
+  }
+  const label = categoryOf(job);
+  let highest = 0;
+  for (const other of db.driveUploads.filter(sameContext)) {
+    if (categoryOf(other) !== label) continue;
+    const m = new RegExp(` - ${label}(?: (\\d+))?(?:\\.[^.]+)?$`, 'u').exec(other.name);
+    if (m) highest = Math.max(highest, m[1] ? Number(m[1]) : 1);
+  }
+  const n = highest + 1;
+  const base = cleanName(assignment ? assignment.title : lesson!.title);
+  const extension = job.name.includes('.') ? job.name.slice(job.name.lastIndexOf('.')) : '';
+  const numbered = label === 'Slide' && n === 1 ? 'Slide' : `${label} ${n}`;
+  const name = [
+    lesson
+      ? `${lessonTitle(assignment ? assignment.title : lesson.title)} - Bài ${lesson.order}`
+      : base,
+    numbered,
+  ].join(' - ');
+  return {
+    driveFileId: job.driveFileId,
+    rootId: db.driveConnections.find((c) => c.id === CONNECTION_ID)?.folderId,
+    path,
+    name: `${name}${extension}`.slice(0, 200),
+  };
+}
+/** Files the upload into its folder and gives it the standard name; failures keep the old place. */
+async function organizeJob(jobId: string) {
+  try {
+    const plan = await withDatabase((db) => planPlacement(db, jobId), false);
+    if (!plan?.rootId) return;
+    let parent = plan.rootId;
+    for (const step of plan.path) parent = await ensureFolderByKey(step.key, step.name, parent);
+    await placeDriveFile(plan.driveFileId, { name: plan.name, parentId: parent });
+    await withDatabase((db) => {
+      const job = db.driveUploads.find((u) => u.id === jobId);
+      if (!job) return;
+      job.name = plan.name;
+      job.updatedAt = now();
+      for (const lesson of db.lessons)
+        for (const d of lesson.documents) if (d.id === job.id) d.name = plan.name;
+    }, true);
+  } catch {
+    // The upload itself succeeded; filing it can be retried by the next attach/upload.
+  }
+}
 /** Verifies the Drive file really belongs to the job, applies the sharing policy and persists it. */
 async function finalize(userId: string, jobId: string, file: DriveRemoteFile): Promise<DriveFile> {
   const job = await withDatabase((db) => ({ ...jobFor(db, readUser(db, userId), jobId) }));
@@ -508,7 +625,7 @@ async function finalize(userId: string, jobId: string, file: DriveRemoteFile): P
   // refuses (e.g. a Workspace that blocks external sharing) the upload stays unfinished and can be
   // retried, instead of silently ending up private.
   await ensurePublicReader(file.id);
-  return withDatabase((db) => {
+  await withDatabase((db) => {
     const current = jobFor(db, readUser(db, userId), jobId);
     if (current.status === 'COMPLETED') return driveFileDto(current);
     if (db.driveUploads.some((u) => u.id !== current.id && u.driveFileId === file.id))
@@ -525,6 +642,8 @@ async function finalize(userId: string, jobId: string, file: DriveRemoteFile): P
     delete current.errorMessage;
     return driveFileDto(current);
   }, true);
+  await organizeJob(job.id);
+  return withDatabase((db) => driveFileDto(jobFor(db, readUser(db, userId), jobId)));
 }
 export async function cancelUpload(userId: string, jobId: string) {
   const job = await withDatabase((db) => ({ ...mutableJob(db, readUser(db, userId), jobId) }));
@@ -673,6 +792,60 @@ export async function setSharing(userId: string, jobId: string, input: unknown) 
 }
 function lessonUses(driveFileId: string) {
   return withDatabase((db) => db.lessons.some((l) => l.driveFileId === driveFileId));
+}
+
+/** Binds a finished upload to a lesson (video, or reference document) once the upload completes. */
+export async function attachToLesson(userId: string, jobId: string, input: unknown) {
+  const { lessonId } = z.object({ lessonId: z.string().min(1).max(120) }).parse(input);
+  const attached = await withDatabase((db) => {
+    const user = readUser(db, userId);
+    const job = mutableJob(db, user, jobId);
+    if (job.status !== 'COMPLETED' || !job.driveFileId)
+      throw new HttpError(409, 'Tệp chưa tải lên xong.');
+    const classroom = db.classes.find((c) => c.id === job.classId);
+    if (!classroom || (!user.isAdmin && !managesClass(classroom, user)))
+      throw new HttpError(403, 'Bạn không có quyền với lớp này.');
+    const lesson = db.lessons.find((l) => l.id === lessonId && l.classId === job.classId);
+    if (!lesson) throw new HttpError(404, 'Bài giảng không còn tồn tại.');
+    if (job.kind === 'video') {
+      lesson.videoType = 'DRIVE';
+      lesson.driveFileId = job.driveFileId;
+      lesson.videoFileId = undefined;
+      lesson.videoUrl = previewUrl(job.driveFileId);
+    } else if (!lesson.documents.some((d) => d.id === job.id)) {
+      if (lesson.documents.length >= 20) throw new HttpError(400, 'Tối đa 20 tài liệu mỗi bài.');
+      lesson.documents.push({
+        id: job.id,
+        name: job.name,
+        size: job.size,
+        mimeType: job.mimeType,
+        url: `/api/drive/files/${job.id}/download`,
+      });
+    }
+    job.lessonId = lesson.id;
+    job.updatedAt = now();
+    lesson.revision = randomUUID();
+    return { lessonId: lesson.id, revision: lesson.revision };
+  }, true);
+  // Now that the lesson exists, file the upload in its folder under the standard name.
+  await organizeJob(jobId);
+  return attached;
+}
+
+/** Google's viewer renders PPTX (slides) and DOCX; files are link-shared by policy. */
+export async function slideUrl(userId: string, jobId: string) {
+  const job = await withDatabase(
+    (db) => ({ ...accessDriveDocument(db, readUser(db, userId), jobId) }),
+    false,
+  );
+  if (
+    !/(presentationml\.presentation|wordprocessingml\.document)$/.test(job.mimeType) ||
+    !job.driveFileId
+  )
+    throw new HttpError(400, 'Tệp này không xem trực tuyến được.');
+  // Prefer the native Google Slides/Docs player; the plain Drive preview is the fallback.
+  const native = await viewerUrl(job.driveFileId, job.name, job.mimeType).catch(() => null);
+  return { url: native ?? previewUrl(job.driveFileId), name: job.name, native: !!native };
 }
 
 /** Streams a private Drive document to a reader after the same access checks as the app's files. */

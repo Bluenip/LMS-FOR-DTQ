@@ -352,6 +352,7 @@ async function writePostgres(tx: unknown, db: Database, previous: Database) {
         submission: ['submittedAt', 'score', 'gradedAt'],
         driveUpload: [
           'lessonId',
+          'assignmentId',
           'encryptedSessionUri',
           'driveFileId',
           'webViewLink',

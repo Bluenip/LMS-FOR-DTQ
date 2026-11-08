@@ -148,9 +148,9 @@ Sinh tự động cho: bài tập mới, nhắc nộp bài, học viên nộp b�
 
 | Loại | Ai tải | Giới hạn | Ghi chú |
 |---|---|---|---|
-| Video bài giảng | Giáo viên của lớp | MP4, WebM, MOV, ≤ 2 GB | Phát bằng Drive Preview |
-| Học liệu bài giảng | Giáo viên của lớp | PDF, DOCX, PPTX, JPG/PNG/GIF/WebP, ≤ 25 MB | Tối đa 20 tệp/bài |
-| Tệp/video bài nộp | Học viên đã duyệt | Tài liệu ≤ 25 MB, video ≤ 2 GB | Tối đa 10 tệp/bài nộp |
+| Video bài giảng | Giáo viên của lớp | MP4, WebM, MOV, ≤ 5 GB | Phát bằng Drive Preview |
+| Học liệu bài giảng | Giáo viên của lớp | PDF, DOCX, PPTX, JPG/PNG/GIF/WebP, ≤ 1 GB | Tối đa 20 tệp/bài |
+| Tệp/video bài nộp | Học viên đã duyệt | Tài liệu ≤ 1 GB, video ≤ 5 GB | Tối đa 10 tệp/bài nộp |
 
 - **Chính sách chia sẻ:** mọi tệp tự được đặt **"ai có liên kết đều xem được"** (không hiện khi tìm kiếm). Nghĩa là **ai có link Drive đều xem được, không cần đăng nhập**, kể cả bài làm học viên. Nếu Google từ chối cấp quyền, lượt tải không hoàn tất và có thể thử lại.
 - **Cách tải:** trình duyệt gửi từng đoạn 8 MiB thẳng lên Drive (phiên upload do backend tạo); tự thử lại tối đa 6 lần, **tiếp tục** từ byte Drive đã nhận, có thể hủy; chọn lại đúng tệp đang dở sẽ nối lại phiên cũ.

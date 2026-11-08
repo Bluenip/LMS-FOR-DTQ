@@ -18,7 +18,7 @@ Học viên ─► <iframe https://drive.google.com/file/d/{id}/preview>
 
 | | A: qua backend | B: trực tiếp (đang dùng) |
 |---|---|---|
-| Băng thông/RAM server | Mọi byte video đi qua server (tới 2 GB/video) | Gần như không |
+| Băng thông/RAM server | Mọi byte video đi qua server (tới 5 GB/video) | Gần như không |
 | Bảo mật | Session URI không lộ ra client | Session URI (bearer credential) nằm trong tay người tải lên; chỉ trả cho chính chủ, lưu DB dạng mã hóa, không log |
 | CORS | Không cần | Backend gửi `Origin` khi tạo session để Drive cho phép đọc phản hồi |
 | Retry/resume | Server phải tự giữ trạng thái | Hỏi Drive offset (`Content-Range: bytes */size` → 308) rồi gửi tiếp |
@@ -66,7 +66,7 @@ Phản hồi lỗi theo mẫu hiện có: `{ "error": "..." }`. Mọi `POST/PATC
 ## Chính sách chia sẻ & giới hạn cần biết
 
 - **Chính sách hiện tại: MỌI tệp tải lên Drive (video bài giảng, học liệu, tệp/video bài nộp của học viên) được tự đặt `anyone/reader`** (anyone with the link; `allowFileDiscovery=false`, không xuất hiện khi tìm kiếm). Nếu Google từ chối đặt quyền (ví dụ Workspace chặn chia sẻ ra ngoài) lượt tải không hoàn tất và có thể thử lại. **Ai có link Drive đều xem được, không cần đăng nhập website** — kể cả bài làm của học viên. Kiểm soát trong ứng dụng (chỉ thành viên lớp mở được qua `/view`, `/download`) chỉ che *đường dẫn trong app*, không che link Drive. Muốn nội dung kín thật sự phải bỏ chính sách này (chia sẻ theo email, hoặc kho S3/R2 có signed URL).
-- **Mọi luồng upload của ứng dụng đều đi qua Drive**: video bài giảng, học liệu bài giảng (giáo viên) và tệp đính kèm bài làm (học viên). Học viên đã được duyệt được đính kèm vào bài làm *tài liệu* (PDF, DOCX, PPTX, JPG, PNG, GIF, WebP; tối đa 25 MB) hoặc *video* (MP4, WebM, MOV; tối đa 2 GB), nhưng không được tải học liệu cho bài giảng.
+- **Mọi luồng upload của ứng dụng đều đi qua Drive**: video bài giảng, học liệu bài giảng (giáo viên) và tệp đính kèm bài làm (học viên). Học viên đã được duyệt được đính kèm vào bài làm *tài liệu* (PDF, DOCX, PPTX, JPG, PNG, GIF, WebP; tối đa 1 GB) hoặc *video* (MP4, WebM, MOV; tối đa 5 GB), nhưng không được tải học liệu cho bài giảng.
 - Video bài nộp của học viên không hiện trong thư viện video của giáo viên và không thể chọn làm video bài giảng (dù cũng công khai theo chính sách trên).
 - Truy cập qua app: `GET /api/drive/files/{id}/download` và `/view` kiểm quyền rồi stream từ Drive. Quyền đọc trong app: chủ tệp; thành viên lớp với học liệu của bài đã xuất bản; giáo viên của lớp với bài đã nộp (không đọc được bản nháp); quản trị viên mọi tệp.
 - **Xem trực tiếp**: nút "Xem" cạnh mỗi tệp đính kèm mở video/PDF/ảnh ngay trong trang (học viên, giáo viên, quản trị viên đều dùng được theo đúng quyền). Quản trị viên mở được mọi tệp. Video/ảnh được trả kèm `Content-Security-Policy: sandbox` và `nosniff`. Video bài giảng vẫn phát bằng Drive Preview.
@@ -145,3 +145,22 @@ Kiểm thử thủ công với Google thật:
 - **DOCX/PPTX**: ngoài chữ ký "PK" đầu tệp, server đọc 256 KiB cuối để kiểm tra danh mục ZIP có `word/document.xml` / `ppt/presentation.xml`; Excel hay ZIP đổi đuôi bị từ chối và bị xóa khỏi Drive.
 - **Ngắt kết nối** chỉ xóa bí mật (refresh token) và đánh dấu `DISCONNECTED`; email và thư mục được giữ để kết nối lại cùng tài khoản dùng lại thư mục cũ. Đổi sang tài khoản khác tạo thư mục mới.
 - **Tiến trình upload**: trình duyệt không đọc được header `Range` của Drive (CORS không công khai header này), nên coi mỗi đoạn 8 MiB là đã nhận khi Drive trả 308; offset chính xác luôn được lấy lại từ Drive qua `/resume` khi có lỗi.
+
+## Cấu trúc thư mục và quy ước đặt tên tệp
+
+Mỗi tệp tải lên được tự xếp vào thư mục và đổi tên khi tải xong:
+
+```
+<Thư mục gốc>
+└── <Tên lớp>
+    ├── Bài 1 - <Tên bài giảng>        ← video và học liệu của bài giảng
+    │   └── <Tên học viên> - <email>   ← tệp bài tập của từng học viên (bài tập gắn với bài giảng)
+    └── Bài tập chung
+        └── <Tên học viên> - <email>   ← bài tập không gắn với bài giảng nào
+```
+
+Tên tệp: `<tên bài tập hoặc bài giảng> - Bài <số bài> - <Loại> <số thứ tự>` (giữ đuôi tệp), ví dụ
+`Chia sẻ tâm đắc - Bài 1 - Video 1.mp4`. Loại: **Video**, **Ảnh**, **Slide** (PPTX; tệp slide thứ hai
+trở đi là `Slide 2`, …), **File** (các tệp còn lại). Số thứ tự tiếp tục từ số lớn nhất đang có trong
+cùng thư mục và cùng loại. Đổi tên lớp hoặc bài giảng sẽ đổi tên thư mục tương ứng ở lần tải kế tiếp.
+Video của bài giảng mới tạo được xếp vào thư mục bài giảng ngay khi bài được lưu.

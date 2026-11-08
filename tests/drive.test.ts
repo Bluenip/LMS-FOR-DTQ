@@ -65,7 +65,7 @@ test('upload validation rejects spoofed types, oversize files and odd names', ()
   assert.throws(() => validateDriveUpload({ ...ok, mimeType: 'application/pdf' }));
   assert.throws(() => validateDriveUpload({ ...ok, name: 'bai.exe' }));
   assert.throws(() => validateDriveUpload({ ...ok, kind: 'document' }));
-  assert.throws(() => validateDriveUpload({ ...ok, size: 3 * 1024 * 1024 * 1024 }), /2 GB/);
+  assert.throws(() => validateDriveUpload({ ...ok, size: 6 * 1024 * 1024 * 1024 }), /5 GB/);
   assert.throws(() => validateDriveUpload({ ...ok, name: '../bai.mp4' }));
   assert.equal(
     validateDriveUpload({

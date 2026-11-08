@@ -218,6 +218,7 @@ export interface DriveUpload {
   ownerId: string;
   classId: string;
   lessonId?: string;
+  assignmentId?: string;
   kind: 'video' | 'document';
   name: string;
   mimeType: string;
