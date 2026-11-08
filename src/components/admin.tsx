@@ -914,10 +914,12 @@ function DeleteAccountForm({
         Xóa vĩnh viễn tài khoản <strong>{user.name}</strong> ({user.email})?
       </p>
       <p className="notice">
-        {user.role === 'STUDENT'
-          ? 'Bài nộp, điểm, tiến độ, ghi chép, thảo luận và tệp của học viên sẽ bị xóa và không khôi phục được.'
-          : 'Ghi chép, thảo luận và tệp riêng của giáo viên sẽ bị xóa; học liệu đang dùng trong bài giảng được chuyển cho chủ lớp. Giáo viên đang quản lý lớp phải chuyển quyền quản lý trước.'}{' '}
-        Nếu chỉ muốn chặn đăng nhập, hãy dùng <strong>Khóa tài khoản</strong>.
+        <span>
+          {user.role === 'STUDENT'
+            ? 'Bài nộp, điểm, tiến độ, ghi chép, thảo luận và tệp của học viên sẽ bị xóa và không khôi phục được.'
+            : 'Ghi chép, thảo luận và tệp riêng của giáo viên sẽ bị xóa; học liệu đang dùng trong bài giảng được chuyển cho chủ lớp. Giáo viên đang quản lý lớp phải chuyển quyền quản lý trước.'}{' '}
+          Nếu chỉ muốn chặn đăng nhập, hãy dùng <strong>Khóa tài khoản</strong>.
+        </span>
       </p>
       <Field label={`Nhập email ${user.email} để xác nhận`}>
         <input
