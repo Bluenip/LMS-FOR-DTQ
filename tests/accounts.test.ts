@@ -18,6 +18,14 @@ test('signed session versions are preserved and tampering is rejected', async ()
   assert.equal(await readSession(signed + 'x'), null);
 });
 
+test('sessions last 30 days so active users are not logged out weekly', async () => {
+  process.env.SESSION_SECRET = 'test-session-secret-with-more-than-32-characters';
+  const [payload] = (await signSession('learner', 0)).split('.');
+  const { exp } = JSON.parse(Buffer.from(payload, 'base64url').toString());
+  const days = (exp - Date.now()) / 86400000;
+  assert.ok(days > 29.9 && days <= 30, `expected ~30 days, got ${days}`);
+});
+
 test('legacy accounts remain readable while production sample accounts require explicit opt-in', () => {
   const user = fixture().users[0];
   delete user.emailVerified;

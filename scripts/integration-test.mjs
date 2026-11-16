@@ -781,10 +781,19 @@ if (process.env.INTEGRATION_PRUNE_TEST === 'true') {
   console.log(
     'Prune integration checks skipped: set INTEGRATION_PRUNE_TEST=true and disposable database/S3 credentials.',
   );
+const otherDevice = { cookie: student.cookie };
 const loggedOut = await request('/api/auth/logout', { who: student, method: 'POST', body: {} });
 assert.equal(loggedOut.status, 200);
-const replay = await request('/api/state', { who: student });
-assert.equal(replay.status, 401, 'a copied cookie must be invalid after logout');
+const stillIn = await request('/api/state', { who: otherDevice });
+assert.equal(stillIn.status, 200, 'logging out one browser must not log out other devices');
+const everywhere = await request('/api/auth/logout', {
+  who: otherDevice,
+  method: 'POST',
+  body: { everywhere: true },
+});
+assert.equal(everywhere.status, 200);
+const replay = await request('/api/state', { who: { cookie: otherDevice.cookie } });
+assert.equal(replay.status, 401, 'a copied cookie must be invalid after logging out everywhere');
 checks++;
 await action(teacher, 'deleteClass', { classId: c.id, code: c.code });
 st = await state(teacher);

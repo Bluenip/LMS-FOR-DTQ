@@ -5,11 +5,10 @@ import { readJsonObject } from '@/lib/server/request';
 import { clientIp, consumeSharedRateLimit, releaseSharedRateLimit } from '@/lib/server/rate-limit';
 import {
   assertOrigin,
-  COOKIE,
   errorResponse,
   HttpError,
   publicUser,
-  signSession,
+  setSessionCookie,
   verifyPassword,
   accountEnabled,
 } from '@/lib/server/auth';
@@ -55,13 +54,7 @@ export async function POST(request: Request) {
         403,
         'Tài khoản mẫu đã tắt trên hệ thống chính thức. Vui lòng dùng tài khoản được quản trị viên cấp.',
       );
-    (await cookies()).set(COOKIE, await signSession(user.id, user.sessionVersion ?? 0), {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      path: '/',
-      maxAge: 7 * 86400,
-    });
+    await setSessionCookie(await cookies(), user.id, user.sessionVersion ?? 0);
     return Response.json({ user: publicUser(user) });
   } catch (e) {
     return errorResponse(e);

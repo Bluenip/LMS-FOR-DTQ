@@ -5,6 +5,10 @@ import type { Database, StoredUser, User } from '@/lib/types';
 import { DEFAULT_ACCOUNT_PASSWORD } from '@/lib/account-policy';
 const dataDir = () => process.env.LMS_DATA_DIR || '.data';
 export const COOKIE = 'dtq_session';
+/** How long a session lasts without activity; each active visit extends it. */
+export const SESSION_MAX_AGE_SECONDS = 30 * 86400;
+/** Re-issue the cookie once less than this much of its lifetime remains. */
+const SESSION_RENEW_BELOW_MS = (SESSION_MAX_AGE_SECONDS * 1000) / 2;
 export function hashPassword(password: string) {
   const salt = randomBytes(16).toString('hex');
   return `${salt}:${scryptSync(password, salt, 64).toString('hex')}`;
@@ -39,13 +43,13 @@ function sessionSecret() {
 }
 export async function signSession(id: string, version = 0) {
   const value = Buffer.from(
-    JSON.stringify({ id, version, exp: Date.now() + 7 * 86400000 }),
+    JSON.stringify({ id, version, exp: Date.now() + SESSION_MAX_AGE_SECONDS * 1000 }),
   ).toString('base64url');
   return `${value}.${createHmac('sha256', await sessionSecret())
     .update(value)
     .digest('base64url')}`;
 }
-export async function readSession(token: string | undefined) {
+async function verifySession(token: string | undefined) {
   if (!token) return null;
   if (token.split('.').length !== 2) return null;
   const [payload, signature] = token.split('.');
@@ -60,13 +64,33 @@ export async function readSession(token: string | undefined) {
   try {
     const value = JSON.parse(Buffer.from(payload, 'base64url').toString());
     return typeof value.id === 'string' &&
+      typeof value.exp === 'number' &&
       value.exp > Date.now() &&
       Number.isInteger(value.version ?? 0)
-      ? { id: value.id as string, version: (value.version ?? 0) as number }
+      ? {
+          id: value.id as string,
+          version: (value.version ?? 0) as number,
+          exp: value.exp as number,
+        }
       : null;
   } catch {
     return null;
   }
+}
+export async function readSession(token: string | undefined) {
+  const session = await verifySession(token);
+  return session ? { id: session.id, version: session.version } : null;
+}
+type CookieJar = Awaited<ReturnType<typeof cookies>>;
+/** Writes a fresh session cookie valid for SESSION_MAX_AGE_SECONDS. */
+export async function setSessionCookie(jar: CookieJar, id: string, version: number) {
+  jar.set(COOKIE, await signSession(id, version), {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    path: '/',
+    maxAge: SESSION_MAX_AGE_SECONDS,
+  });
 }
 export function isDemoAccount(user: StoredUser) {
   const fixtures: Record<string, string> = {
@@ -113,10 +137,20 @@ export function sessionMatches(
   );
 }
 export async function sessionUserId() {
-  const session = await readSession((await cookies()).get(COOKIE)?.value);
+  const jar = await cookies();
+  const session = await verifySession(jar.get(COOKIE)?.value);
   if (!session) return null;
   const { findSessionUser } = await import('./repository');
-  return sessionMatches(await findSessionUser(session.id), session) ? session.id : null;
+  if (!sessionMatches(await findSessionUser(session.id), session)) return null;
+  // Sliding expiry: active users are never logged out by the fixed lifetime.
+  if (session.exp - Date.now() < SESSION_RENEW_BELOW_MS) {
+    try {
+      await setSessionCookie(jar, session.id, session.version);
+    } catch {
+      // Server Components cannot set cookies; the next API request renews it.
+    }
+  }
+  return session.id;
 }
 const legacyPasswordCache = new Map<string, boolean>();
 export function needsPasswordChange(user: StoredUser) {
