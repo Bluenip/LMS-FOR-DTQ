@@ -2,11 +2,15 @@
 
 Ứng dụng quản lý lớp học trực tuyến bằng tiếng Việt: giáo viên tổ chức bài giảng và bài tập, học viên học và nộp bài, quản trị viên cấp tài khoản. Frontend và API cùng chạy trong một ứng dụng Next.js; PostgreSQL lưu dữ liệu vận hành, Google Drive (một tài khoản dùng chung do quản trị viên kết nối) lưu tệp và video tải lên.
 
+**Cập nhật 16/11/2026:** đăng xuất chỉ áp dụng cho trình duyệt đang dùng; phiên đăng nhập 30 ngày và tự gia hạn khi người dùng còn hoạt động. Server tự deploy `main` bằng cron (mỗi phút và ngay sau khi bật máy). Xem [Chính sách tài khoản](#chính-sách-tài-khoản) và [Triển khai qua tên miền](#triển-khai-qua-tên-miền).
+
+**Cập nhật 08/11/2026 (sau):** vai trò nhóm trưởng, phiếu thực hành theo từng bài, bảng xếp hạng, trang `/introduction`, xem PPTX/DOCX ngay trong trang (PPTX dùng trình chiếu Google Slides), tải tệp chạy nền, giới hạn tệp lớn hơn. Xem [Nhóm, thực hành và xếp hạng](#nhóm-thực-hành-và-xếp-hạng).
+
 **Cập nhật 08/11/2026:** mọi tệp tải lên chuyển sang Google Drive; chỉ video bài giảng được chia sẻ bằng liên kết, học liệu và bài làm của học viên luôn riêng tư; có hạn mức dung lượng, nhật ký quản trị, trang công khai `/`, `/privacy`, `/terms`, cột thời gian `TIMESTAMPTZ`. Xem [Tệp và video](#tệp-và-video-google-drive).
 
 **Cập nhật kiểm thử 03/11/2026:** xem [kết quả xử lý báo cáo](docs/REPORT_FIXES_2026-11-03.md) cho các sửa lỗi về bản nháp, công bố, xung đột giữa phiên, tải tệp, phiên đăng nhập và sao lưu.
 
-**Lượt rà soát trước:** đã sửa các lỗi về quyền riêng tư, video, thu hồi/chấm bài, JSON đầu vào và giới hạn đăng nhập. Có Docker/Compose, healthcheck PostgreSQL và Bash tự cập nhật GitHub bằng systemd timer khi server bật/reboot. Kết quả kiểm thử mới nhất ở mục [Kiểm thử](#kiểm-thử). Xem [báo cáo kiểm tra](docs/CODE_REVIEW.md) và [hướng dẫn triển khai](docs/DEPLOYMENT.md) để biết giới hạn còn lại.
+**Lượt rà soát trước:** đã sửa các lỗi về quyền riêng tư, video, thu hồi/chấm bài, JSON đầu vào và giới hạn đăng nhập. Có Docker/Compose, healthcheck PostgreSQL và Bash tự cập nhật từ GitHub bằng cron khi server bật và mỗi phút. Kết quả kiểm thử ở mục [Kiểm thử](#kiểm-thử). Xem [báo cáo kiểm tra](docs/CODE_REVIEW.md) và [hướng dẫn triển khai](docs/DEPLOYMENT.md) để biết giới hạn còn lại.
 
 **Địa chỉ triển khai:** https://zimaos.click — Cloudflare Tunnel nối tới app ở `127.0.0.1:3000`. Tải tệp chỉ hoạt động sau khi đặt `GOOGLE_*`, `DRIVE_ENCRYPTION_KEY` trong `.env.production` và quản trị viên kết nối Google Drive tại `/admin`; trước đó YouTube và bài viết trực tiếp vẫn dùng được.
 
@@ -24,7 +28,7 @@
 | Kiểm thử               | Node test runner qua `tsx`, Playwright                                                                           |
 | Giao diện              | CSS riêng, Lucide, font Newsreader và Be Vietnam Pro lưu cục bộ                                                  |
 
-Dùng `npm ci` để cài đúng lockfile. Một số dependency trong `package.json` khai báo `latest`; `npm install` hoặc cập nhật dependency có thể làm thay đổi phiên bản khi lockfile thay đổi.
+Dùng `npm ci` để cài đúng lockfile. Dependency chạy app được ghim phiên bản chính xác; riêng `@types/node` (`^22`) và `prettier` (`^3.9.10`) khai báo khoảng phiên bản, nên `npm install` có thể nâng chúng và làm đổi lockfile.
 
 ## Chạy thử trên máy cá nhân
 
@@ -59,18 +63,21 @@ Google Drive (cấu hình Google Cloud, API, giới hạn, checklist): [docs/GOO
 | Đường dẫn                                  | Chức năng hiện có                                                                                                                                |
 | ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `/`, `/privacy`, `/terms`                  | Trang giới thiệu, chính sách quyền riêng tư và điều khoản (công khai, không cần đăng nhập)                                                       |
+| `/introduction`                            | Thẻ giới thiệu chủ giảng, có liên kết tới danh sách phát của kênh; dùng chung với tab Giới thiệu của lớp                                         |
 | `/login`                                   | Đăng nhập bằng email và mật khẩu được cấp                                                                                                        |
 | `/profile`                                 | Sửa họ tên, đổi mật khẩu bằng mật khẩu hiện tại                                                                                                  |
 | `/admin`, `/admin/users`                   | Quản trị tài khoản: tạo, sửa tên, kích hoạt, khóa/mở khóa, reset mật khẩu, xóa vĩnh viễn; kết nối Google Drive, dọn tệp mồ côi, nhật ký quản trị |
 | `/classes`                                 | Lớp đang học/chờ duyệt/lưu trữ; tìm kiếm, kiểm tra mã lớp, xin tham gia và hủy yêu cầu chờ duyệt                                                 |
 | `/classes/[id]`                            | Tổng quan, bài giảng, bài tập, thành viên và thông tin lớp                                                                                       |
-| `/classes/[id]/lessons/[lessonId]`         | Video YouTube hoặc Google Drive, tài liệu (xem ngay trong trang), ghi chép cá nhân, thảo luận, lưu bài, đánh dấu hoàn thành                      |
+| `/classes/[id]/lessons/[lessonId]`         | Video YouTube hoặc Google Drive, tài liệu (PDF/ảnh/DOCX/PPTX xem ngay trong trang), ghi chép, thảo luận, tab Thực hành, đánh dấu hoàn thành      |
 | `/classes/[id]/assignments/[assignmentId]` | Lưu nháp, nộp bài viết/tệp/video/liên kết, xác nhận trung thực, thu hồi/nộp lại theo chính sách, xem điểm đã trả                                 |
-| `/classes/[id]/members`                    | Danh sách thành viên, tìm tên không dấu, lọc nhóm, phân trang                                                                                    |
+| `/classes/[id]/members`                    | Danh sách thành viên, tìm tên không dấu, lọc nhóm, phân trang; chi tiết thành viên với tab Thực hành / Thông tin, duyệt, nhóm và nhóm trưởng     |
 | `/assignments`                             | Tổng hợp bài cần làm, đã nộp và đã chấm                                                                                                          |
 | `/teacher/classes`                         | Tạo/sửa/lưu trữ/khôi phục/xóa lớp, phân công giáo viên, đổi mã, giới hạn sĩ số, duyệt học viên và cấu hình người giảng nội dung                  |
 | `/teacher/lessons`                         | Soạn chương/bài, YouTube/video Google Drive, thư viện video, tài liệu, mốc nội dung, bản nháp và xuất bản                                        |
 | `/teacher/assignments`                     | Tạo/sửa/xóa bài tập, đặt số từ từng bài, chấm theo tiêu chí 40/40/20, lưu điểm nháp, trả điểm, nhắc nộp trong ứng dụng, xuất CSV                 |
+
+`/classes` và `/assignments` là trang của học viên; tài khoản giáo viên và quản trị viên không thấy mục **Lớp của tôi** / **Bài tập của tôi** trong menu.
 
 Trang đang mở lấy cập nhật khoảng mỗi 3 giây; khi quay lại tab hoặc có mạng trở lại sẽ kiểm tra ngay. Các tab cùng trình duyệt có thêm tín hiệu qua `BroadcastChannel`. Đây là cơ chế polling, chưa dùng WebSocket hoặc SSE. Với PostgreSQL, máy chủ so bộ đếm thay đổi của các lớp liên quan và trả `304` khi không có gì mới, nên lượt poll không đổi không phải tải lại dữ liệu.
 
@@ -90,6 +97,14 @@ Người quản lý lớp chọn **Lớp giảng dạy → Giáo viên phụ tr�
 
 Ở **Lớp giảng dạy → Cài đặt → Người giảng nội dung**, nhập tên riêng cho từng lớp hoặc để trống để ẩn dòng này trên thẻ lớp. Chương mục của bài giảng mới để trống và chỉ gợi ý những chương đã có trong chính lớp đang chọn; không gán tên người giảng hoặc chương mẫu cho lớp thật.
 
+## Nhóm, thực hành và xếp hạng
+
+Trong trang thành viên, người quản lý lớp chia học viên vào nhóm và chọn **nhóm trưởng** cho từng nhóm. Nhóm trưởng xem được bài đã nộp của bạn cùng nhóm và tích phiếu thực hành cho họ.
+
+Mỗi bài giảng có tab **Thực hành**: phiếu 13 mục theo _Bảng phân lịch học tập và thực hành_ ([src/lib/practice.ts](src/lib/practice.ts)), tích cho từng thành viên và từng bài. Điểm thực hành là tỉ lệ mục đã tích; phần tích chưa lưu được giữ khi trang nhận cập nhật.
+
+**Bảng xếp hạng** (`/api/ranking`) chỉ giáo viên của lớp và quản trị viên xem được, theo cả lớp hoặc từng bài. Điểm = 50% thực hành + 50% bài tập. Một bài tập chỉ được tính khi đã công bố và đã quá hạn nộp: lấy điểm đã trả (0–100), hoặc 0 nếu học viên chưa có điểm trả.
+
 ## Thảo luận trong bài học
 
 Người viết sửa hoặc xóa thảo luận của mình bằng nút **Sửa** / **Xóa** cạnh nội dung. Giáo viên phụ trách lớp có quyền xóa thảo luận trong lớp; không được sửa lời của học viên. Xóa có hộp xác nhận. Bài đã sửa giữ ngày đăng và có nhãn **Đã chỉnh sửa**.
@@ -108,7 +123,7 @@ Quyền quản trị (`isAdmin`) tách biệt với vai trò `TEACHER` / `STUDEN
 
 Mọi thao tác quản trị (tạo/sửa/khóa/xóa tài khoản, reset mật khẩu, chuyển chủ lớp, cấp/thu hồi quyền quản trị, kết nối/ngắt Drive, dọn tệp) được ghi vào nhật ký chỉ-thêm, xem ở `/admin`.
 
-Khóa, reset hoặc đổi mật khẩu làm mất hiệu lực các phiên cũ. Khi tự đổi mật khẩu, trình duyệt hiện tại nhận phiên mới. Đăng xuất thu hồi mọi bản sao cookie và các thiết bị khác của cùng tài khoản; thiết bị khác cần đăng nhập lại. Cookie phiên có thời hạn 7 ngày, HttpOnly, SameSite=Lax và Secure trong production; mật khẩu được băm bằng scrypt với salt riêng.
+Khóa, reset hoặc đổi mật khẩu, cấp hoặc thu hồi quyền quản trị làm mất hiệu lực mọi phiên cũ của tài khoản đó. Khi tự đổi mật khẩu, trình duyệt hiện tại nhận phiên mới. **Đăng xuất chỉ áp dụng cho trình duyệt đang dùng**; các thiết bị khác vẫn đăng nhập. API vẫn hỗ trợ đăng xuất khỏi mọi thiết bị bằng `POST /api/auth/logout` với `{ "everywhere": true }`, nhưng giao diện chưa có nút này. Phiên có thời hạn 30 ngày và tự gia hạn: khi còn dưới 15 ngày, mọi yêu cầu API đã đăng nhập cấp lại cookie đủ 30 ngày, nên chỉ người bỏ không quá 30 ngày mới phải đăng nhập lại. Cookie HttpOnly, SameSite=Lax và Secure trong production; mật khẩu được băm bằng scrypt với salt riêng.
 
 Chi tiết thao tác: [docs/ACCOUNTS.md](docs/ACCOUNTS.md).
 
@@ -118,7 +133,7 @@ Sao chép từ [.env.example](.env.example); không commit `.env` hoặc dữ li
 
 | Biến                           | Ý nghĩa                                                                                                                                          |
 | ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `DATABASE_URL`                 | Trống: JSON demo; có giá trị: kết nối PostgreSQL                                                                                                 |
+| `DATABASE_URL`                 | Trống: JSON demo; có giá trị: kết nối PostgreSQL (production Compose tự tạo từ `POSTGRES_PASSWORD`)                                              |
 | `SESSION_SECRET`               | Khóa ký phiên; tối thiểu 32 ký tự khi dùng PostgreSQL; đặt riêng cho môi trường vận hành                                                         |
 | `APP_URL`                      | Origin chính xác của ứng dụng, ví dụ `http://localhost:3000` hoặc `https://lms.example.com`; không thêm đường dẫn hoặc dấu `/` cuối              |
 | `TRUST_PROXY_HEADERS`          | Mặc định `false`; chỉ bật khi app nhận kết nối qua proxy đáng tin cậy: dùng IP do Cloudflare cung cấp và `X-Forwarded-Proto` khi kiểm tra Origin |
@@ -130,12 +145,15 @@ Sao chép từ [.env.example](.env.example); không commit `.env` hoặc dữ li
 | `DRIVE_PRUNE_INTERVAL_MINUTES` | Chu kỳ dọn tệp Drive mồ côi, mặc định `60`; `0` để tắt                                                                                           |
 | `LMS_DATA_DIR`                 | Thư mục dữ liệu JSON demo và khóa phiên cục bộ, mặc định `.data`; dùng cho test                                                                  |
 | `S3_ENDPOINT`                  | Kho S3 cũ (chỉ để mở tệp/video S3 đã có); với AWS S3 có thể để trống                                                                             |
+| `CSP_STORAGE_ORIGIN`           | Tùy chọn; origin HTTPS được phép trong CSP cho URL ký của kho S3 khi khác `S3_ENDPOINT` (ví dụ AWS dùng endpoint riêng)                          |
 | `S3_REGION`                    | Region của kho; R2 thường dùng `auto`, kho S3 cục bộ dùng `us-east-1`                                                                            |
 | `S3_BUCKET`                    | Tên bucket riêng tư                                                                                                                              |
 | `S3_ACCESS_KEY_ID`             | Khóa truy cập bucket                                                                                                                             |
 | `S3_SECRET_ACCESS_KEY`         | Bí mật truy cập bucket                                                                                                                           |
 | `LMS_UPLOAD_USER_QUOTA_BYTES`  | Tổng dung lượng tệp tối đa của mỗi người dùng (Drive và S3), tính cả lượt tải đang chờ; mặc định 10 GiB (`10737418240`)                          |
 | `LMS_UPLOAD_CLASS_QUOTA_BYTES` | Tổng dung lượng tệp tối đa của mỗi lớp (Drive và S3), tính cả lượt tải đang chờ; mặc định 100 GiB (`107374182400`)                               |
+
+Chỉ có trong `.env.production` (xem [.env.production.example](.env.production.example)): `POSTGRES_PASSWORD` (mật khẩu PostgreSQL, nên dùng chuỗi hex), `LMS_PORT` (cổng loopback trên host, mặc định `3000`) và `LMS_IMAGE` (tên image; script deploy tự đặt `lms-dtq:<commit>`).
 
 `APP_URL` được dùng để kiểm tra nguồn các yêu cầu ghi dữ liệu. Nếu đổi cổng phát triển, cần đổi `APP_URL` theo cổng mới; khi triển khai phải dùng origin HTTPS của tên miền thật.
 
@@ -191,18 +209,19 @@ Mọi tệp tải lên đi vào **một tài khoản Google Drive dùng chung**.
 
 | Nội dung                   | Ai tải lên             | Định dạng                            | Giới hạn mỗi tệp |
 | -------------------------- | ---------------------- | ------------------------------------ | ---------------- |
-| Video bài giảng            | Giáo viên của lớp      | MP4, WebM, MOV                       | 2 GiB            |
-| Học liệu bài giảng         | Giáo viên của lớp      | PDF, DOCX, PPTX, JPG, PNG, GIF, WebP | 25 MiB           |
-| Tệp/video đính kèm bài làm | Học viên đã được duyệt | Như trên (tài liệu hoặc video)       | 25 MiB / 2 GiB   |
+| Video bài giảng            | Giáo viên của lớp      | MP4, WebM, MOV                       | 5 GiB            |
+| Học liệu bài giảng         | Giáo viên của lớp      | PDF, DOCX, PPTX, JPG, PNG, GIF, WebP | 1 GiB            |
+| Tệp/video đính kèm bài làm | Học viên đã được duyệt | Như trên (tài liệu hoặc video)       | 1 GiB / 5 GiB    |
 
 Trình duyệt tải thẳng lên Drive theo từng đoạn 8 MiB (server không nhận byte video), tự thử lại và tiếp tục từ vị trí đã gửi khi mất mạng. Khi hoàn tất, server kiểm tra tệp thuộc đúng lượt tải, đúng dung lượng và đúng chữ ký định dạng (DOCX/PPTX kiểm tra cả danh mục ZIP); sai thì xóa khỏi Drive.
 
 **Chính sách chia sẻ:**
 
 - Chỉ **video bài giảng của giáo viên** được đặt "bất kỳ ai có liên kết đều xem được", vì trình phát Google Drive Preview cần quyền này.
-- **Học liệu, tệp và video bài làm của học viên luôn riêng tư** trên Drive. Chúng được mở qua `/api/drive/files/{id}/view` (xem trong trang, hỗ trợ tua video) và `/download`; server kiểm tra quyền trong lớp mỗi lần rồi stream từ Drive.
+- **Học liệu, tệp và video bài làm của học viên luôn riêng tư** trên Drive (trừ bản sao Slides của PPTX, xem dưới). Chúng được mở qua `/api/drive/files/{id}/view` (xem trong trang, hỗ trợ tua video) và `/download`; server kiểm tra quyền trong lớp mỗi lần rồi stream từ Drive.
 - Tệp học viên không bật chia sẻ được, kể cả chính chủ. Video bị thu hồi chia sẻ thì không gắn được vào bài giảng.
 - Job dọn dẹp tự thu hồi liên kết của mọi tệp học viên còn công khai.
+- **Ngoại lệ PPTX:** để phát bằng trình chiếu Google Slides thật (từng slide, hiệu ứng, toàn màn hình), app tạo một bản sao Google Slides và chia sẻ **bản sao đó** là "bất kỳ ai có liên kết đều xem được" (không cho tìm kiếm). Áp dụng cho mọi PPTX người xem có quyền mở, kể cả bài nộp của học viên; tệp gốc vẫn riêng tư và job dọn dẹp không thu hồi liên kết của bản sao. Nếu chuyển đổi lỗi, app dùng bản PDF riêng tư qua `/api/drive/files/{id}/pdf`. DOCX luôn xem qua bản PDF riêng tư (Drive giới hạn bản xuất PDF 10 MB).
 
 **Hạn mức dung lượng:** 10 GiB mỗi tài khoản, 100 GiB mỗi lớp mặc định (`LMS_UPLOAD_USER_QUOTA_BYTES`, `LMS_UPLOAD_CLASS_QUOTA_BYTES`), tính cả tệp đang tải; tệp lỗi/hủy không tính. Dung lượng thật vẫn là của tài khoản Google đã kết nối (15 GB miễn phí), cần tự theo dõi.
 
@@ -226,11 +245,11 @@ src/
   components/          Giao diện học viên, giáo viên, quản trị và provider đồng bộ
   lib/                 Kiểu dữ liệu, chính sách tài khoản, tiện ích trình duyệt
     server/            Xác thực, nghiệp vụ, repository, hồ sơ, Google Drive và kho S3 cũ
-prisma/                Schema, 16 migration và mẫu CORS bucket
+prisma/                Schema, 19 migration và mẫu CORS bucket
 docker/s3rver/         Kho S3 giả lập chỉ dành cho phát triển/kiểm thử
 scripts/               Seed, cấp/thu hồi giáo viên/quản trị, kiểm thử tích hợp/chịu tải, dọn Drive/kho tệp,
                        tự triển khai, sao lưu database và hỗ trợ chụp giao diện
-tests/                 25 file kiểm thử backend (*.test.ts/.mjs), 9 file Playwright (*.spec.ts)
+tests/                 28 file kiểm thử backend (*.test.ts/.mjs), 9 file Playwright (*.spec.ts)
 docs/                  Tài khoản, tích hợp, bản đồ thiết kế, rà soát và triển khai
 public/                Font cục bộ, giấy phép font và ảnh chờ video
 stitch_custom_video_learning_platform/
@@ -282,7 +301,9 @@ Playwright mặc định dùng `http://localhost:3000`, tái sử dụng server 
 
 Hai ca quản trị/hồ sơ cần `ADMIN_E2E_EMAIL` và `ADMIN_E2E_PASSWORD` của tài khoản quản trị thử nghiệm riêng; thiếu thông tin thì bị bỏ qua. Các ca dùng tài khoản mẫu cần môi trường cho phép các tài khoản đó. Không trỏ bộ test này vào dữ liệu thật.
 
-Kết quả lượt kiểm thử ngày **08/11/2026** (bản có Google Drive):
+Lượt chạy gần nhất ngày **16/11/2026**: TypeScript đạt; backend 171 test, 163 đạt, 8 bỏ qua (1 test cần `TEST_DATABASE_URL`, 7 test route cần bản build production). Chưa chạy lại Playwright và kiểm thử tích hợp trong lượt này.
+
+Kết quả lượt kiểm thử ngày **08/11/2026** (bản có Google Drive, trước các tính năng nhóm/thực hành/xếp hạng):
 
 | Kiểm tra                                            | Kết quả                                                                                        |
 | --------------------------------------------------- | ---------------------------------------------------------------------------------------------- |

@@ -1,6 +1,6 @@
 # Triển khai LMS qua tên miền công khai
 
-Dùng [Dockerfile](../Dockerfile), [Compose production](../compose.production.yml) và [script cập nhật](../scripts/auto-deploy.sh) trên Linux có Git, Bash, Docker, Compose v2, `flock`, `timeout` và systemd. Host không cần cài Node.js/npm.
+Dùng [Dockerfile](../Dockerfile), [Compose production](../compose.production.yml) và [script cập nhật](../scripts/auto-deploy.sh) trên Linux có Git, Bash, Docker, Compose v2, `flock`, `timeout` và cron. Host không cần cài Node.js/npm.
 
 ## Kiến trúc và cổng
 
@@ -59,12 +59,22 @@ Lệnh thứ hai cài một cron job cho chính user đang chạy: mỗi phút (
 
 Cách cũ `--install-systemd` vẫn còn: lệnh đó cài user service/timer `lms-dtq-update` và bật user lingering. Timer chạy sau khi user manager khởi động khoảng 45 giây và khoảng 60–70 giây sau lần kiểm tra trước. Lingering giúp timer khởi động khi server bật/reboot mà không cần đăng nhập SSH. Nếu hệ thống từ chối bật lingering, quản trị server cần cấp quyền cho thao tác đó; kiểm tra kết quả trước khi coi việc tự khởi động là hoàn tất.
 
+Kiểm tra cron job và log:
+
+```bash
+crontab -l | grep lms-dtq-auto-deploy
+tail -n 80 .deploy/cron.log
+```
+
+Nếu dùng timer systemd cũ, kiểm tra bằng:
+
 ```bash
 loginctl show-user "$USER" -p Linger
 systemctl --user is-enabled lms-dtq-update.timer
-systemctl --user list-timers lms-dtq-update.timer
 journalctl --user -u lms-dtq-update.service -n 80 --no-pager
 ```
+
+Lưu ý: user manager của systemd chỉ nhận nhóm `docker` nếu tài khoản đã thuộc nhóm đó lúc nó khởi động. Nếu thêm tài khoản vào nhóm `docker` sau đó, mọi user timer gọi Docker sẽ lỗi `permission denied ... docker.sock` cho tới khi khởi động lại user manager hoặc cả máy. Cron không gặp vấn đề này.
 
 Script dùng khóa `flock` để tránh hai lần deploy chồng nhau và bản sao riêng của script để tự cập nhật an toàn. Không có commit mới thì không build lại. Repo có chỉnh sửa cục bộ hoặc lịch sử phân nhánh thì dừng, không reset dữ liệu. Sau lỗi, script chờ khoảng 5 phút trước khi thử lại cùng commit. Chỉ thay các file đã được Git theo dõi; cấu hình thật, database, backup và credential không bị checkout ghi đè.
 
@@ -75,8 +85,8 @@ Lệnh vận hành:
 bash scripts/auto-deploy.sh --once
 bash scripts/auto-deploy.sh --force
 
-# Dừng kiểm tra GitHub, ứng dụng vẫn chạy.
-systemctl --user disable --now lms-dtq-update.timer
+# Dừng kiểm tra GitHub, ứng dụng vẫn chạy (xóa dòng cron có nhãn lms-dtq-auto-deploy).
+crontab -l | grep -v lms-dtq-auto-deploy | crontab -
 ```
 
 Commit/image triển khai thành công được ghi tại `.deploy/active`. Script giữ ba bản backup trước deploy gần nhất, giữ image đang chạy và image trước đó. Nếu rollout lỗi, script thử khôi phục image app trước; **không tự hạ migration hay khôi phục database**. Migration cần tương thích với phiên bản trước; thay đổi schema không tương thích cần kế hoạch bảo trì/khôi phục riêng. GitHub mất kết nối hoặc build lỗi không chủ động dừng app đang chạy.
@@ -160,7 +170,9 @@ LMS dùng máy mới `100.71.200.54`, tunnel riêng `lms-orlab` (user service `l
 
 Bản production nằm ở `/home/bluenip/apps/lms-dtq`, URL https://zimaos.click, cổng `127.0.0.1:3000`. App/PostgreSQL healthy; migration hoàn tất. Tunnel đã đổi riêng route tên miền gốc theo phép chủ server; các route khác được giữ nguyên.
 
-Timer `lms-dtq-update.timer` enabled và user lingering đã bật. Docker/cloudflared enabled cùng hệ thống, app/PostgreSQL có restart policy. Chưa reboot toàn server trong lượt này vì còn các dịch vụ khác đang chạy.
+Lúc đó timer `lms-dtq-update.timer` được bật và user lingering đã bật. Docker/cloudflared enabled cùng hệ thống, app/PostgreSQL có restart policy. Chưa reboot toàn server trong lượt này vì còn các dịch vụ khác đang chạy.
+
+Từ 16/11/2026, việc tự deploy và dọn thông báo chạy bằng cron; hai timer systemd `lms-dtq-update.timer` và `lms-dtq-notification-prune.timer` đã tắt vì user manager khởi động trước khi tài khoản được thêm vào nhóm `docker`.
 
 Quản trị đầu tiên là `admin@zimaos.click`. Mật khẩu ngẫu nhiên ban đầu chỉ nằm tại `/home/bluenip/apps/lms-dtq/.deploy/admin-credentials.json` trên server (quyền 600); đọc qua SSH rồi đổi tại `/profile`. File này không tự cập nhật khi đổi mật khẩu, có thể xóa sau khi bàn giao an toàn. Không đưa file lên GitHub.
 
@@ -172,7 +184,7 @@ Chỉ đưa migration tương thích ngược vào luồng auto-deploy. Thêm c�
 
 Backup chạy với thời hạn tổng mặc định 600 giây (`LMS_BACKUP_TIMEOUT_SECONDS`), SSH keepalive và timeout lệnh từ xa. User service có `TimeoutStartSec=11min`; xem lỗi bằng `journalctl --user -u lms-dtq-backup.service` và `systemctl --user --failed`. Khi đổi máy, sửa `~/.config/lms-dtq-backup/host`, chạy service không tương tác và xác minh archive. Khi có object storage, cần backup/versioning riêng bucket và kiểm tra khôi phục kèm database trước khi bật dọn tệp.
 
-Trên máy production, chạy `bash scripts/install-notification-prune-timer.sh` để cài timer hằng ngày xóa thông báo đã đọc sau 90 ngày. Timer chạy trong container `lms-dtq-app-1`; kiểm tra bằng `systemctl --user list-timers lms-dtq-notification-prune.timer` và xem lỗi bằng `journalctl --user -u lms-dtq-notification-prune.service`. Nếu đổi tên project hoặc tăng số replica, điều chỉnh container trong service. Chạy `npm run notifications:prune` để khảo sát trước, và thêm `-- --apply` để thực sự xóa.
+Trên máy production, chạy `bash scripts/install-notification-prune-cron.sh` để cài cron job xóa thông báo đã đọc sau 90 ngày, chạy lúc 00:07 hằng ngày và 5 phút sau khi máy khởi động. Lệnh chạy trong container `lms-dtq-app-1` và tự tắt timer systemd cũ `lms-dtq-notification-prune.timer` nếu còn bật. Kiểm tra bằng `crontab -l | grep lms-dtq-notification-prune` và xem kết quả ở `.deploy/notification-prune.log`. Nếu đổi tên project hoặc tăng số replica, điều chỉnh tên container trong script. Chạy `npm run notifications:prune` để khảo sát trước, và thêm `-- --apply` để thực sự xóa.
 
 # Chính sách nội dung cho kho tệp
 
