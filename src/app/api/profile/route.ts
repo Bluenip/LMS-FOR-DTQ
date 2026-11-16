@@ -8,7 +8,7 @@ import {
   requireUser,
   sessionMatches,
   sessionUserId,
-  signSession,
+  setSessionCookie,
 } from '@/lib/server/auth';
 import { getProfile, updateProfile } from '@/lib/server/profile';
 import { consumeSharedRateLimit } from '@/lib/server/rate-limit';
@@ -86,13 +86,7 @@ export async function PATCH(request: Request) {
           return updateProfile(db, user.id, input);
         }, true);
     if (result.passwordChanged)
-      (await cookies()).set(COOKIE, await signSession(result.user.id, result.sessionVersion), {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
-        path: '/',
-        maxAge: 7 * 86400,
-      });
+      await setSessionCookie(await cookies(), result.user.id, result.sessionVersion);
     return Response.json(
       { user: result.user, message: result.message },
       { headers: { 'Cache-Control': 'private, no-store' } },
