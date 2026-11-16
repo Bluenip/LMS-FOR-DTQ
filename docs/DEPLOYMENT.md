@@ -50,12 +50,14 @@ Chỉ bật `TRUST_PROXY_HEADERS=true` khi app chỉ nhận kết nối từ pro
 ```bash
 cd ~/apps/lms-dtq
 bash scripts/auto-deploy.sh --once
-bash scripts/auto-deploy.sh --install-systemd
+bash scripts/auto-deploy.sh --install-cron
 ```
 
 Lệnh thứ nhất fetch `origin/main`, chỉ fast-forward, build image `lms-dtq:<12 ký tự commit>`, sao lưu PostgreSQL bằng `pg_dump`, chạy migration rồi chờ app healthy. Build diễn ra khi app cũ vẫn chạy; lúc thay container có thể có gián đoạn ngắn. Không seed dữ liệu demo vào hệ thống thật.
 
-Lệnh thứ hai cài user service/timer `lms-dtq-update` và bật user lingering. Timer chạy sau khi user manager khởi động khoảng 45 giây và khoảng 60–70 giây sau lần kiểm tra trước. Lingering giúp timer khởi động khi server bật/reboot mà không cần đăng nhập SSH. Nếu hệ thống từ chối bật lingering, quản trị server cần cấp quyền cho thao tác đó; kiểm tra kết quả trước khi coi việc tự khởi động là hoàn tất.
+Lệnh thứ hai cài một cron job cho chính user đang chạy: mỗi phút (kể cả ngay sau khi server bật) kiểm tra `origin/main` và chỉ deploy khi có commit mới. Log ở `.deploy/cron.log` (bỏ qua các dòng “no changes”). Dùng cron vì cron nạp lại nhóm của user mỗi lần chạy, nên quyền `docker` cấp sau vẫn có hiệu lực; user manager của systemd chỉ nhận nhóm mới sau khi khởi động lại. Lệnh này tự tắt timer systemd nếu đang bật.
+
+Cách cũ `--install-systemd` vẫn còn: lệnh đó cài user service/timer `lms-dtq-update` và bật user lingering. Timer chạy sau khi user manager khởi động khoảng 45 giây và khoảng 60–70 giây sau lần kiểm tra trước. Lingering giúp timer khởi động khi server bật/reboot mà không cần đăng nhập SSH. Nếu hệ thống từ chối bật lingering, quản trị server cần cấp quyền cho thao tác đó; kiểm tra kết quả trước khi coi việc tự khởi động là hoàn tất.
 
 ```bash
 loginctl show-user "$USER" -p Linger

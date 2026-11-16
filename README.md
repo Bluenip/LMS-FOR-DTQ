@@ -309,10 +309,10 @@ File [Dockerfile](Dockerfile) build trên Node.js 22/Debian, chạy app bằng u
 cp .env.production.example .env.production
 # Điền POSTGRES_PASSWORD, SESSION_SECRET, APP_URL, GOOGLE_CLIENT_ID/SECRET và DRIVE_ENCRYPTION_KEY trong .env.production.
 bash scripts/auto-deploy.sh --once
-bash scripts/auto-deploy.sh --install-systemd
+bash scripts/auto-deploy.sh --install-cron
 ```
 
-Script kiểm tra `origin/main` khoảng mỗi phút, sao lưu database trước deploy, chạy migration và kiểm tra app healthy. Bật user lingering để timer chạy khi reboot mà không cần SSH; app/PostgreSQL cũng tự khởi động cùng Docker. Sau đó cấp giáo viên/quản trị đầu tiên với mật khẩu riêng theo [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md). Production Compose luôn tắt tài khoản demo. Kho S3 cục bộ trong Compose phát triển không được đưa vào cấu hình production.
+Script kiểm tra `origin/main` khoảng mỗi phút, sao lưu database trước deploy, chạy migration và kiểm tra app healthy. Cron job chạy cả ngay sau khi server bật mà không cần SSH; app/PostgreSQL cũng tự khởi động cùng Docker. Sau đó cấp giáo viên/quản trị đầu tiên với mật khẩu riêng theo [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md). Production Compose luôn tắt tài khoản demo. Kho S3 cục bộ trong Compose phát triển không được đưa vào cấu hình production.
 
 Nếu chạy trực tiếp bằng Node.js với PostgreSQL và tài khoản đã cấu hình:
 
