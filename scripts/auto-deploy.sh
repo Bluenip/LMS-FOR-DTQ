@@ -14,7 +14,7 @@ die() { log "ERROR: $*" >&2; exit 1; }
 
 # Git may replace this script during the update. Execute a private snapshot so
 # Bash never continues reading a file that has changed beneath it.
-if [[ "$mode" != --install-systemd && ${LMS_DEPLOY_SNAPSHOT:-0} != 1 ]]; then
+if [[ "$mode" != --install-* && ${LMS_DEPLOY_SNAPSHOT:-0} != 1 ]]; then
   mkdir -p -- "$state_dir"
   run_copy=$(mktemp "$state_dir/run-XXXXXXXX.sh")
   cp -- "${BASH_SOURCE[0]}" "$run_copy"
@@ -22,6 +22,24 @@ if [[ "$mode" != --install-systemd && ${LMS_DEPLOY_SNAPSHOT:-0} != 1 ]]; then
   LMS_DEPLOY_SNAPSHOT=1 LMS_REPO_DIR="$repo_dir" /bin/bash "$run_copy" "$@" || run_status=$?
   rm -f -- "$run_copy"
   exit "$run_status"
+fi
+
+# Cron starts every job with the account's current groups, so a docker group
+# granted after the systemd user manager started still applies. It also runs
+# within a minute of boot. Replaces the systemd timer to avoid two schedulers.
+if [[ "$mode" == --install-cron ]]; then
+  [[ $(id -u) -ne 0 ]] || die 'Install the cron job as the account that owns the repository.'
+  command -v crontab >/dev/null || die 'crontab is required.'
+  mkdir -p -- "$state_dir"
+  marker='# lms-dtq-auto-deploy'
+  job="* * * * * LMS_REPO_DIR='$repo_dir' PATH=/usr/local/bin:/usr/bin:/bin /bin/bash '$repo_dir/scripts/auto-deploy.sh' --once 2>&1 | grep --line-buffered -v 'no changes' >> '$state_dir/cron.log' $marker"
+  { crontab -l 2>/dev/null | grep -vF "$marker" || true; printf '%s\n' "$job"; } | crontab -
+  if command -v systemctl >/dev/null && systemctl --user is-enabled lms-dtq-update.timer >/dev/null 2>&1; then
+    systemctl --user disable --now lms-dtq-update.timer
+    log 'Disabled the systemd update timer; cron now schedules updates.'
+  fi
+  log "Cron job installed; it checks $branch every minute, including right after boot. Log: $state_dir/cron.log"
+  exit 0
 fi
 
 if [[ "$mode" == --install-systemd ]]; then
@@ -66,7 +84,7 @@ EOF
   exit 0
 fi
 
-[[ "$mode" == --once || "$mode" == --force ]] || die 'Usage: auto-deploy.sh [--once|--force|--install-systemd]'
+[[ "$mode" == --once || "$mode" == --force ]] || die 'Usage: auto-deploy.sh [--once|--force|--install-cron|--install-systemd]'
 for program in git docker flock timeout; do
   command -v "$program" >/dev/null || die "$program is required."
 done
