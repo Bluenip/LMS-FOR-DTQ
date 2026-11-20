@@ -1,8 +1,10 @@
 import Link from 'next/link';
 import { APP_NAME } from '@/lib/brand';
 import { SiteShell } from '@/components/site';
+import { redirectIfSignedIn } from '@/lib/server/signed-in-redirect';
 
-export default function Home() {
+export default async function Home() {
+  await redirectIfSignedIn();
   return (
     <SiteShell>
       <section className="site-hero">
