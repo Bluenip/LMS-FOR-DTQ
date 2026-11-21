@@ -737,6 +737,12 @@ small,
 .continue-panel .progress {
   margin: var(--space-lg) 0 20px;
 }
+.overview-lessons {
+  border-top: 1px solid var(--color-line);
+}
+.overview-lessons .list-row {
+  padding: 12px 0;
+}
 .list-row {
   padding: var(--space-md) 0;
   border-bottom: 1px solid var(--color-line);
