@@ -550,7 +550,7 @@ export function TeacherClasses() {
           </div>
           <ErrorLine error={error} />
           <div className="table-wrap">
-            <table className="table">
+            <table className="table card-table">
               <thead>
                 <tr>
                   <th>Học viên</th>
@@ -578,8 +578,8 @@ export function TeacherClasses() {
                           </span>
                         </div>
                       </td>
-                      <td>{date(e.joinedAt)}</td>
-                      <td>
+                      <td data-label="Ngày gửi yêu cầu">{date(e.joinedAt)}</td>
+                      <td data-label={memberTab === 'PENDING' ? 'Xét duyệt' : 'Nhóm học tập'}>
                         {memberTab === 'PENDING' ? (
                           <div className="inline-actions">
                             <Button
