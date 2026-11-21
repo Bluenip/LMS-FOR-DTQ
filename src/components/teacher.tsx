@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import {
@@ -10,6 +10,8 @@ import {
   ChevronLeft,
   ChevronRight,
   ClipboardCheck,
+  ClipboardList,
+  Clock,
   Copy,
   Download,
   Edit3,
@@ -18,6 +20,7 @@ import {
   Plus,
   RefreshCw,
   Save,
+  Send,
   Settings2,
   Trash2,
   Upload,
@@ -40,10 +43,16 @@ import {
 } from '@/components/ui';
 import { api, fold } from '@/lib/client';
 import { uploadFile } from '@/lib/drive-upload';
-import { AttachmentViewer, CourseLessonVideo, DriveVideoPlayer, VideoUploader } from './drive';
+import {
+  AttachmentViewer,
+  CourseLessonVideo,
+  DriveVideoPlayer,
+  VideoUploader,
+  formatSize,
+} from './drive';
 import { bindUploads, uploadActive, useUploads } from '@/lib/upload-manager';
 import { SubmissionDetail } from './submission-detail';
-import { SubmissionLinkList } from './submission-links';
+import { SubmissionLinkList, SubmissionLinkSummary } from './submission-links';
 import { useUnsavedWarning } from '@/lib/use-unsaved-warning';
 import { readSessionDraft, removeSessionDraft, writeSessionDraft } from '@/lib/session-draft';
 import { wordRequirement } from '@/lib/assignment-policy';
@@ -56,6 +65,7 @@ import {
   assignmentCsvFilename,
 } from '@/lib/assignment-grading';
 import type { Assignment, Attachment, Classroom, Lesson, Submission, User } from '@/lib/types';
+import { parseSubmissionLinks } from '@/lib/submission-links';
 
 const norm = fold;
 function useDialogUnsavedWarning(dirty: boolean, discard: () => void) {
@@ -1437,7 +1447,6 @@ function LessonEditor({
                       src={`https://www.youtube-nocookie.com/embed/${youtubeId(videoUrl)}`}
                       title={title || 'Video bài giảng'}
                       allow="encrypted-media; picture-in-picture; fullscreen"
-                      allowFullScreen
                     />
                   </div>
                 )}
@@ -1736,7 +1745,7 @@ function LessonEditor({
               className="video-preview"
               src={`https://www.youtube-nocookie.com/embed/${youtubeId(videoUrl)}`}
               title={title}
-              allowFullScreen
+              allow="fullscreen"
             />
           ) : videoType === 'DRIVE' && videoFileId ? (
             <div className="video-frame">
@@ -1838,6 +1847,13 @@ function assignmentUrl(classId: string, assignmentId?: string) {
   return `/teacher/assignments?${params.toString()}`;
 }
 
+/** "2 tệp đính kèm · 1 liên kết", or "Bài viết trực tiếp" when there is neither. */
+function submissionSummary(submission: Submission) {
+  const files = submission.attachments.length;
+  const links = parseSubmissionLinks(submission.link).length;
+  const parts = [files && `${files} tệp đính kèm`, links && `${links} liên kết`].filter(Boolean);
+  return parts.length ? parts.join(' · ') : 'Bài viết trực tiếp';
+}
 export function TeacherAssignments() {
   const { state, action } = useLms();
   const params = useSearchParams();
@@ -2118,7 +2134,9 @@ export function TeacherAssignments() {
               }
             />
           )}
-          {classSelector}
+          {/* An assignment belongs to one class, already named under its title: the class picker
+              only switches the list, so it is shown on the list and not inside an assignment. */}
+          {!assignment && classSelector}
           {assignment && !assignmentVisible && (
             <p className="notice">
               Bài tập đang ẩn; hãy công bố bài tập và bài giảng liên quan trước khi nhắc học viên
@@ -2404,9 +2422,7 @@ export function TeacherAssignments() {
                                     {submission ? (
                                       <div className="stack">
                                         <span className="small">
-                                          {submission.attachments.length
-                                            ? `${submission.attachments.length} tệp đính kèm`
-                                            : 'Bài viết trực tiếp'}
+                                          {submissionSummary(submission)}
                                         </span>
                                         {submission.attachments.map((a) => (
                                           <span key={a.id} className="inline-actions small">
@@ -2414,6 +2430,7 @@ export function TeacherAssignments() {
                                             <AttachmentViewer file={a} />
                                           </span>
                                         ))}
+                                        <SubmissionLinkSummary link={submission.link} />
                                       </div>
                                     ) : (
                                       '—'
@@ -2519,7 +2536,8 @@ export function TeacherAssignments() {
       )}
       <Dialog
         open={!!gradingId}
-        title={`Bài làm của ${state.users.find((u) => u.id === grading?.studentId)?.name || 'học viên'}`}
+        title={`Chấm bài · ${state.users.find((u) => u.id === grading?.studentId)?.name || 'học viên'}`}
+        className="grade-dialog"
         onClose={() => {
           if (
             !gradingDirty ||
@@ -2756,87 +2774,201 @@ function GradeForm({
     rubric.application <= 40 &&
     rubric.presentation >= 0 &&
     rubric.presentation <= 20;
+  const content = submission.content.trim();
+  const words = content ? content.split(/\s+/u).length : 0;
+  const linkCount = parseSubmissionLinks(submission.link).length;
+  const late =
+    !!assignment &&
+    !!submission.submittedAt &&
+    Date.parse(submission.submittedAt) > Date.parse(assignment.dueAt);
+  const criteria = [
+    { key: 'understanding', label: 'Hiểu nội dung', max: 40 },
+    { key: 'application', label: 'Ví dụ & liên hệ thực tế', max: 40 },
+    { key: 'presentation', label: 'Trình bày', max: 20 },
+  ] as const;
+  const setScore = (key: keyof typeof rubric, value: number) => {
+    setDirty(true);
+    setRubric((x) => ({ ...x, [key]: Number.isFinite(value) ? value : 0 }));
+  };
   return (
-    <div className="stack">
+    <div className="grade-workspace">
       {gradingBlocked && (
         <p className="error" role="alert">
           {staleMessage}
         </p>
       )}
-      <div className="grade-grid">
-        <article className="submission-reading">
-          <h3>Bài làm của học viên</h3>
-          <p className="small muted">{assignment?.instructions}</p>
-          <p className="submission-content">
-            {submission.content ||
-              (submission.attachments.length
-                ? 'Bài làm được gửi trong tệp đính kèm.'
-                : submission.link
-                  ? 'Bài làm được gửi qua liên kết.'
-                  : 'Bài làm không có nội dung.')}
-          </p>
-          <SubmissionLinkList link={submission.link} />
-          {submission.attachments.map((a) => (
-            <div className="list-row" key={a.id}>
-              <FileText size={18} />
-              <span>{a.name}</span>
-              <AttachmentViewer file={a} />
-              <a
-                href={a.url || `/api/files/${a.id}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                aria-label={`Tải ${a.name}`}
-                title="Tải xuống"
-              >
-                <Download size={16} />
-              </a>
-            </div>
-          ))}
-          <p className="small muted">Nộp lúc {date(submission.submittedAt)} (GMT+7)</p>
-        </article>
+      <div className="grade-layout">
+        <section className="grade-work" aria-label="Bài làm của học viên">
+          <div className="grade-meta">
+            <Badge tone={submission.status === 'GRADED' ? 'success' : 'warning'}>
+              {submissionStatus(submission)}
+            </Badge>
+            {submission.submittedAt && (
+              <Badge tone={late ? 'danger' : 'neutral'}>{late ? 'Nộp muộn' : 'Đúng hạn'}</Badge>
+            )}
+            <span>
+              Lần nộp {submission.attempt}
+              {assignment ? `/${assignment.maxAttempts}` : ''}
+            </span>
+            {submission.submittedAt && (
+              <span>
+                <Clock size={14} /> {date(submission.submittedAt)} (GMT+7)
+              </span>
+            )}
+          </div>
+          {assignment && (
+            <details className="grade-brief">
+              <summary>
+                <ClipboardList size={16} /> Đề bài: {assignment.title}
+              </summary>
+              <p>{assignment.instructions || 'Bài tập không có hướng dẫn thêm.'}</p>
+            </details>
+          )}
+          <section className="grade-block">
+            <h3>
+              Bài viết
+              {words > 0 && <small>{words} từ</small>}
+            </h3>
+            {content ? (
+              <div className="grade-essay">{submission.content}</div>
+            ) : (
+              <p className="grade-empty">
+                {submission.attachments.length || linkCount
+                  ? 'Học viên không viết trực tiếp; bài làm nằm trong tệp hoặc liên kết bên dưới.'
+                  : 'Bài làm không có nội dung.'}
+              </p>
+            )}
+          </section>
+          {linkCount > 0 && (
+            <section className="grade-block">
+              <h3>
+                Liên kết <small>{linkCount}</small>
+              </h3>
+              <SubmissionLinkList link={submission.link} />
+            </section>
+          )}
+          {submission.attachments.length > 0 && (
+            <section className="grade-block">
+              <h3>
+                Tệp đính kèm <small>{submission.attachments.length}</small>
+              </h3>
+              <ul className="grade-files">
+                {submission.attachments.map((a) => (
+                  <li key={a.id} className="grade-file">
+                    <span className="grade-file-icon" aria-hidden="true">
+                      <FileText size={18} />
+                    </span>
+                    <span className="grade-file-name">
+                      {a.name}
+                      {a.size ? <small>{formatSize(a.size)}</small> : null}
+                    </span>
+                    <span className="grade-file-actions">
+                      <AttachmentViewer file={a} />
+                      <a
+                        className="button ghost"
+                        href={a.url || `/api/files/${a.id}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        aria-label={`Tải ${a.name}`}
+                      >
+                        <Download size={15} /> Tải về
+                      </a>
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+        </section>
         <form
-          className="stack"
+          className="grade-panel"
+          aria-label="Bảng chấm điểm"
           onChange={() => setDirty(true)}
           onSubmit={(e) => {
             e.preventDefault();
             if (!gradingBlocked) setConfirm(true);
           }}
         >
-          <div className="row">
-            <h3>Bảng chấm điểm</h3>
-            <strong className="grade-total">{score} / 100</strong>
+          <div className="grade-score">
+            <span className="grade-score-label">Tổng điểm</span>
+            <strong className="grade-total">
+              {score}
+              <small>{' / 100'}</small>
+            </strong>
+            <div
+              className="grade-score-bar"
+              role="progressbar"
+              aria-label="Tổng điểm"
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-valuenow={score}
+            >
+              <span style={{ width: `${Math.min(100, Math.max(0, score))}%` }} />
+            </div>
           </div>
-          {(
-            [
-              { key: 'understanding', label: 'Hiểu nội dung', max: 40 },
-              { key: 'application', label: 'Ví dụ & liên hệ thực tế', max: 40 },
-              { key: 'presentation', label: 'Trình bày', max: 20 },
-            ] as const
-          ).map((r) => (
-            <Field key={r.key} label={`${r.label} (${r.max} điểm)`}>
-              <input
-                type="number"
-                required
-                min={0}
-                max={r.max}
-                step={1}
-                value={rubric[r.key]}
-                disabled={busy}
-                onChange={(e) => setRubric((x) => ({ ...x, [r.key]: Number(e.target.value) }))}
-              />
-            </Field>
-          ))}
-          <Field label="Lời khuyên & nhận xét">
+          {criteria.map((r) => {
+            const value = rubric[r.key];
+            const out = !(value >= 0 && value <= r.max);
+            return (
+              <div key={r.key} className={`grade-criterion${out ? ' invalid' : ''}`}>
+                <div className="grade-criterion-head">
+                  <span>{r.label}</span>
+                  <span className="grade-criterion-value">
+                    <input
+                      type="number"
+                      required
+                      min={0}
+                      max={r.max}
+                      step={1}
+                      inputMode="numeric"
+                      aria-label={`${r.label} (${r.max} điểm)`}
+                      aria-invalid={out || undefined}
+                      value={value}
+                      disabled={busy}
+                      onChange={(e) => setScore(r.key, Number(e.target.value))}
+                    />
+                    <span>/ {r.max}</span>
+                  </span>
+                </div>
+                <input
+                  type="range"
+                  className="grade-slider"
+                  min={0}
+                  max={r.max}
+                  step={1}
+                  aria-label={`Kéo để chấm ${r.label}`}
+                  value={Math.min(r.max, Math.max(0, value || 0))}
+                  disabled={busy}
+                  style={
+                    {
+                      '--fill': `${(Math.min(r.max, Math.max(0, value || 0)) / r.max) * 100}%`,
+                    } as CSSProperties
+                  }
+                  onChange={(e) => setScore(r.key, Number(e.target.value))}
+                />
+                {out && <small className="error">Điểm từ 0 đến {r.max}.</small>}
+              </div>
+            );
+          })}
+          <div className="grade-feedback">
+            <label htmlFor={`feedback-${submission.id}`}>Lời khuyên & nhận xét</label>
             <textarea
-              rows={6}
+              id={`feedback-${submission.id}`}
+              rows={5}
               value={feedback}
               disabled={busy}
               onChange={(e) => setFeedback(e.target.value)}
               placeholder="Gửi một lời nhận xét giúp học viên tiến bộ…"
             />
-          </Field>
+            <small>
+              {feedback.trim() ? `${feedback.trim().split(/\s+/u).length} từ` : 'Chưa có nhận xét'}
+            </small>
+          </div>
           <ErrorLine error={error} />
-          <div className="inline-actions">
+          <div className="grade-actions">
+            <Button type="submit" disabled={busy || !valid || gradingBlocked}>
+              <Send size={16} /> Trả bài học viên
+            </Button>
             {submission.status !== 'GRADED' && (
               <Button
                 type="button"
@@ -2847,16 +2979,15 @@ function GradeForm({
                 Lưu điểm nháp
               </Button>
             )}
-            <Button type="submit" disabled={busy || !valid || gradingBlocked}>
-              Trả bài học viên
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => (gradeUnsaved ? setLeaving(true) : onClose())}
+            >
+              Đóng bài chấm
             </Button>
           </div>
         </form>
-      </div>
-      <div className="dialog-footer">
-        <Button variant="ghost" onClick={() => (gradeUnsaved ? setLeaving(true) : onClose())}>
-          Đóng bài chấm
-        </Button>
       </div>
       <Dialog open={confirm} title="Công bố điểm cho học viên?" onClose={() => setConfirm(false)}>
         <p>

@@ -2,6 +2,8 @@
 
 Ứng dụng quản lý lớp học trực tuyến bằng tiếng Việt: giáo viên tổ chức bài giảng và bài tập, học viên học và nộp bài, quản trị viên cấp tài khoản. Frontend và API cùng chạy trong một ứng dụng Next.js; PostgreSQL lưu dữ liệu vận hành, Google Drive (một tài khoản dùng chung do quản trị viên kết nối) lưu tệp và video tải lên.
 
+**Cập nhật 21/11/2026:** học viên nộp tối đa 5 liên kết và **bổ sung bài đã nộp** mà không cần thu hồi; liên kết Canva (kể cả `canva.link` rút gọn và liên kết `/edit`) có nút **Trình chiếu** toàn màn hình và **Xem trước** ngay trên web, cả trong danh sách chấm bài; giáo viên **tải slide đã nộp thành một file ZIP**; màn **chấm bài** và trang **tổng quan lớp** được thiết kế lại (giáo viên/quản trị viên thấy bảng điều khiển lớp thay cho thẻ học tập); nhiều sửa lỗi giao diện điện thoại. Xem [Bài nộp, Canva và tải slide](#bài-nộp-canva-và-tải-slide).
+
 **Cập nhật 16/11/2026:** đăng xuất chỉ áp dụng cho trình duyệt đang dùng; phiên đăng nhập 30 ngày và tự gia hạn khi người dùng còn hoạt động. Server tự deploy `main` bằng cron (mỗi phút và ngay sau khi bật máy). Xem [Chính sách tài khoản](#chính-sách-tài-khoản) và [Triển khai qua tên miền](#triển-khai-qua-tên-miền).
 
 **Cập nhật 08/11/2026 (sau):** vai trò nhóm trưởng, phiếu thực hành theo từng bài, bảng xếp hạng, trang `/introduction`, xem PPTX/DOCX ngay trong trang (PPTX dùng trình chiếu Google Slides), tải tệp chạy nền, giới hạn tệp lớn hơn. Xem [Nhóm, thực hành và xếp hạng](#nhóm-thực-hành-và-xếp-hạng).
@@ -18,8 +20,8 @@
 
 | Thành phần             | Phiên bản trong `package-lock.json` / cách sử dụng                                                               |
 | ---------------------- | ---------------------------------------------------------------------------------------------------------------- |
-| Node.js                | Dùng Node.js 22.13+; lượt rà soát chạy với 22.23.4                                                               |
-| Next.js                | 16.4.4, App Router và Route Handlers, Node.js runtime                                                            |
+| Node.js                | Dùng Node.js 22.13+; lượt rà soát gần nhất chạy với 22.23.1, image Docker dùng `node:22-bookworm-slim`           |
+| Next.js                | 16.4.6, App Router và Route Handlers, Node.js runtime                                                            |
 | React / React DOM      | 19.3.1                                                                                                           |
 | TypeScript             | 7.0.2                                                                                                            |
 | Prisma / Prisma Client | 6.19.0, PostgreSQL                                                                                               |
@@ -68,14 +70,14 @@ Google Drive (cấu hình Google Cloud, API, giới hạn, checklist): [docs/GOO
 | `/profile`                                 | Sửa họ tên, đổi mật khẩu bằng mật khẩu hiện tại                                                                                                  |
 | `/admin`, `/admin/users`                   | Quản trị tài khoản: tạo, sửa tên, kích hoạt, khóa/mở khóa, reset mật khẩu, xóa vĩnh viễn; kết nối Google Drive, dọn tệp mồ côi, nhật ký quản trị |
 | `/classes`                                 | Lớp đang học/chờ duyệt/lưu trữ; tìm kiếm, kiểm tra mã lớp, xin tham gia và hủy yêu cầu chờ duyệt                                                 |
-| `/classes/[id]`                            | Tổng quan, bài giảng, bài tập, thành viên và thông tin lớp                                                                                       |
+| `/classes/[id]`                            | Các tab Tổng quan, Giới thiệu, Bài học, Bài tập, Thành viên, Thông tin lớp; tab Xếp hạng cho giáo viên của lớp và quản trị viên                  |
 | `/classes/[id]/lessons/[lessonId]`         | Video YouTube hoặc Google Drive, tài liệu (PDF/ảnh/DOCX/PPTX xem ngay trong trang), ghi chép, thảo luận, tab Thực hành, đánh dấu hoàn thành      |
-| `/classes/[id]/assignments/[assignmentId]` | Lưu nháp, nộp bài viết/tệp/video/liên kết, xác nhận trung thực, thu hồi/nộp lại theo chính sách, xem điểm đã trả                                 |
+| `/classes/[id]/assignments/[assignmentId]` | Lưu nháp, nộp bài viết/tệp/video và tối đa 5 liên kết, xác nhận trung thực, bổ sung bài đã nộp, thu hồi/nộp lại theo chính sách, xem điểm đã trả |
 | `/classes/[id]/members`                    | Danh sách thành viên, tìm tên không dấu, lọc nhóm, phân trang; chi tiết thành viên với tab Thực hành / Thông tin, duyệt, nhóm và nhóm trưởng     |
 | `/assignments`                             | Tổng hợp bài cần làm, đã nộp và đã chấm                                                                                                          |
 | `/teacher/classes`                         | Tạo/sửa/lưu trữ/khôi phục/xóa lớp, phân công giáo viên, đổi mã, giới hạn sĩ số, duyệt học viên và cấu hình người giảng nội dung                  |
 | `/teacher/lessons`                         | Soạn chương/bài, YouTube/video Google Drive, thư viện video, tài liệu, mốc nội dung, bản nháp và xuất bản                                        |
-| `/teacher/assignments`                     | Tạo/sửa/xóa bài tập, đặt số từ từng bài, chấm theo tiêu chí 40/40/20, lưu điểm nháp, trả điểm, nhắc nộp trong ứng dụng, xuất CSV                 |
+| `/teacher/assignments`                     | Tạo/sửa/xóa bài tập, đặt số từ, chấm theo tiêu chí 40/40/20, lưu điểm nháp, trả điểm, nhắc nộp, xuất CSV, tải slide ZIP, trình chiếu Canva       |
 
 `/classes` và `/assignments` là trang của học viên; tài khoản giáo viên và quản trị viên không thấy mục **Lớp của tôi** / **Bài tập của tôi** trong menu.
 
@@ -96,6 +98,16 @@ Nhắc nộp và trả điểm tạo thông báo trong ứng dụng: chuông có
 Người quản lý lớp chọn **Lớp giảng dạy → Giáo viên phụ trách** để phân công nhiều tài khoản giáo viên. Giáo viên được phân công được quản lý bài giảng, xét duyệt học viên và chấm bài; người quản lý lớp thay đổi cài đặt và phân công. Quản trị viên có thể chuyển quyền quản lý khi tài khoản cũ bị khóa. Tên người trình bày nội dung là trường riêng. Giáo viên có thể tham gia lớp khác như học viên; mã lớp không cấp quyền dạy. Học viên có thể rời lớp hoặc được đưa ra khỏi lớp mà không xóa lịch sử; nếu được duyệt lại, dữ liệu được giữ nguyên.
 
 Ở **Lớp giảng dạy → Cài đặt → Người giảng nội dung**, nhập tên riêng cho từng lớp hoặc để trống để ẩn dòng này trên thẻ lớp. Chương mục của bài giảng mới để trống và chỉ gợi ý những chương đã có trong chính lớp đang chọn; không gán tên người giảng hoặc chương mẫu cho lớp thật.
+
+## Bài nộp, Canva và tải slide
+
+Học viên nộp bài viết, tệp/video và **tối đa 5 liên kết** (mỗi dòng một liên kết). Bài đã nộp nhưng chưa chấm có thể **Bổ sung bài nộp**: thêm nội dung, liên kết hoặc tệp mà không thu hồi, không tốn lượt và không đổi thời điểm nộp; giáo viên nhận thông báo. Chi tiết: [docs/NGHIEP_VU.md](docs/NGHIEP_VU.md#bổ-sung-bài-nộp).
+
+Liên kết **Canva** đã chia sẻ "Bất kỳ ai có liên kết" (dạng `canva.com/design/.../view` hoặc `/edit`, hoặc liên kết rút gọn `canva.link/...`) có hai nút: **Xem trước** (khung trong trang) và **Trình chiếu** (toàn màn hình; trên iPhone khung phủ kín cửa sổ). Nút có ở trang bài tập của học viên, danh sách chấm bài, hộp chấm bài và bài của nhóm. Liên kết rút gọn được máy chủ tra qua `GET /api/canva/resolve` (chỉ đọc đích chuyển hướng của `canva.link`, lưu kết quả 1 ngày). Nên nộp liên kết Canva thay cho tệp PPTX xuất từ Canva: PPTX không mang theo font của Canva nên khi xem trực tuyến có thể sai font.
+
+Trong chi tiết bài tập, **Tải toàn bộ slide đã nộp** (hoặc chọn từng học viên) gom các tệp PPT/PPTX/PPS/PPSX/ODP/KEY/PDF đã nộp thành một file ZIP, mỗi học viên một thư mục (học viên trùng tên có thư mục riêng). Tệp không tải được từ Drive được liệt kê trong `LỖI - tệp không tải được.txt` trong ZIP. Nút tải dành cho giáo viên của lớp và quản trị viên; API `GET /api/assignments/{id}/slides` cũng cho nhóm trưởng tải bài của nhóm mình.
+
+Màn **chấm bài** gồm bài làm (trạng thái, đúng hạn/nộp muộn, đề bài thu gọn, bài viết kèm số từ, liên kết và tệp) và thẻ điểm luôn trong tầm nhìn: tổng điểm, từng tiêu chí nhập số hoặc kéo thanh, nhận xét, **Trả bài học viên** / **Lưu điểm nháp**.
 
 ## Nhóm, thực hành và xếp hạng
 
@@ -269,7 +281,7 @@ Các bản xuất Stitch là tài liệu tham chiếu cho 8 màn hình chính, k
 | `npm run build`                                        | Sinh Prisma Client và build production                |
 | `npm start`                                            | Chạy bản đã build                                     |
 | `npm run typecheck`                                    | Kiểm tra TypeScript                                   |
-| `npm test`                                             | Kiểm thử backend trong `tests/*.test.ts`              |
+| `npm test`                                             | Kiểm thử backend trong `tests/*.test.ts` và `*.mjs`   |
 | `npm run test:e2e`                                     | Kiểm thử Playwright trong `tests/*.spec.ts`           |
 | `npm run test:integration`                             | Kiểm thử HTTP với PostgreSQL và S3 thật đã cấu hình   |
 | `npm run format:check` / `npm run format`              | Kiểm tra / sửa định dạng mã nguồn bằng Prettier       |
@@ -299,19 +311,28 @@ npm run test:e2e
 
 Playwright mặc định dùng `http://localhost:3000`, tái sử dụng server đang chạy hoặc tự khởi động `next dev`. Các test thay đổi dữ liệu; dùng bản sao ứng dụng và dữ liệu kiểm thử riêng. Đặt `E2E_ISOLATED=true` để Playwright từ chối tái sử dụng server có sẵn, chọn cổng riêng qua `E2E_BASE_URL`, và đặt `APP_URL` của server trùng với địa chỉ đó. Không trỏ bộ test vào server thật.
 
-Hai ca quản trị/hồ sơ cần `ADMIN_E2E_EMAIL` và `ADMIN_E2E_PASSWORD` của tài khoản quản trị thử nghiệm riêng; thiếu thông tin thì bị bỏ qua. Các ca dùng tài khoản mẫu cần môi trường cho phép các tài khoản đó. Không trỏ bộ test này vào dữ liệu thật.
+Một số ca cần tài khoản thử nghiệm riêng (đã kích hoạt, không bắt đổi mật khẩu); thiếu biến thì ca đó bị bỏ qua:
 
-Lượt chạy gần nhất ngày **21/11/2026** (commit `d42c548`, trên bản clone sạch từ GitHub):
+| Biến                                                                                                              | Dùng cho                                                                                                                              |
+| ----------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| `ADMIN_E2E_EMAIL`, `ADMIN_E2E_PASSWORD`                                                                           | Quản trị viên tạm: quản lý tài khoản (`admin.spec.ts`), hồ sơ và đổi mật khẩu (`auth.spec.ts`)                                        |
+| `E2E_OWNER_EMAIL`, `E2E_TEACHER_A_EMAIL`, `E2E_TEACHER_B_EMAIL`, `E2E_STUDENT_EMAIL`, `E2E_TEACHER_TEST_PASSWORD` | Chủ lớp, hai giáo viên và một học viên dùng chung mật khẩu (`audit-fixes.spec.ts`, `class-teachers.spec.ts`; cần `E2E_ISOLATED=true`) |
 
-| Kiểm tra                               | Kết quả                                                                                                      |
-| -------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
-| TypeScript, Prettier, build production | Đạt                                                                                                          |
-| Backend (Node test runner)             | 179 test: 178 đạt, 1 bỏ qua (test PostgreSQL, đã chạy riêng)                                                 |
-| Test PostgreSQL thật                   | Đạt với PostgreSQL 17 (container tạm, đã chạy migration)                                                     |
-| Playwright (`E2E_ISOLATED=true`)       | 33 kịch bản: 26 đạt, 7 bỏ qua vì cần tài khoản quản trị/tài khoản kiểm thử riêng (`ADMIN_E2E_*`, ...), 0 lỗi |
-| Kiểm thử tích hợp PostgreSQL + S3      | Chưa chạy lại trong lượt này                                                                                 |
+`class-teachers.spec.ts` tìm hai giáo viên theo tên, nên tài khoản A và B phải có họ tên đúng là `Giáo viên Kiểm thử A` và `Giáo viên Kiểm thử B`. Ca "API quản trị từ chối giáo viên/học viên mẫu" chỉ chạy ở chế độ JSON demo (không đặt `DATABASE_URL`). Các ca dùng tài khoản mẫu cần môi trường cho phép các tài khoản đó. Không trỏ bộ test này vào dữ liệu thật.
 
-**Bổ sung bài nộp** có 2 kịch bản Playwright riêng trong `tests/submission-addendum.spec.ts`, cùng test nghiệp vụ và test route.
+Lượt chạy gần nhất ngày **22/11/2026** (trước khi push, trên PostgreSQL 17 trong container tạm, có đủ tài khoản kiểm thử riêng):
+
+| Kiểm tra                               | Kết quả                                                                                                        |
+| -------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| TypeScript, Prettier, build production | Đạt                                                                                                            |
+| `npm audit --omit=dev`                 | 0 lỗ hổng                                                                                                      |
+| Backend (Node test runner)             | 187 test: 186 đạt, 1 bỏ qua (test PostgreSQL, đã chạy riêng và đạt)                                            |
+| Playwright                             | 33/33 kịch bản đạt: 32 trên PostgreSQL với tài khoản kiểm thử riêng, 1 ở chế độ JSON demo; không bỏ qua ca nào |
+| Duyệt bản build production             | 42 trang × 4 vai trò × desktop/điện thoại: không lỗi JavaScript, không tràn ngang, không điều khiển thiếu tên  |
+| Phân quyền API mới                     | Tải slide ZIP và tra liên kết Canva: 401 khi chưa đăng nhập, 403 cho người không có quyền, 400 cho liên kết lạ |
+| Kiểm thử tích hợp PostgreSQL + S3      | Chưa chạy lại trong lượt này                                                                                   |
+
+Tính năng mới có kịch bản riêng: `submission-addendum.spec.ts` (bổ sung bài nộp), `canva-present.spec.ts` (trình chiếu Canva, liên kết rút gọn, từ danh sách và hộp chấm bài).
 
 Kết quả lượt kiểm thử ngày **08/11/2026** (bản có Google Drive, trước các tính năng nhóm/thực hành/xếp hạng):
 

@@ -198,7 +198,7 @@ test('teacher and student receive remote changes without reload and keep unsaved
     // Unsaved teacher grading inputs also survive an unrelated remote change.
     await studentRow.getByRole('button', { name: 'Chấm bài', exact: true }).click();
     const gradeDialog = teacherPage.getByRole('dialog').filter({
-      has: teacherPage.getByRole('heading', { name: 'Bài làm của Nguyễn Văn An', exact: true }),
+      has: teacherPage.getByRole('heading', { name: 'Chấm bài · Nguyễn Văn An', exact: true }),
     });
     await gradeDialog.getByLabel('Hiểu nội dung (40 điểm)', { exact: true }).fill('38');
     const unsavedFeedback = 'Nhận xét đang soạn phải được giữ nguyên.';

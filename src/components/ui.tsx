@@ -58,12 +58,15 @@ export function Dialog({
   onClose,
   children,
   wide = false,
+  className,
 }: {
   open: boolean;
   title: string;
   onClose: () => void;
   children: ReactNode;
   wide?: boolean;
+  /** Extra class on the <dialog>, e.g. a wider layout for one screen. */
+  className?: string;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
   useEffect(() => {
@@ -73,7 +76,7 @@ export function Dialog({
   return (
     <dialog
       ref={ref}
-      className={wide ? 'dialog wide' : 'dialog'}
+      className={['dialog', wide && 'wide', className].filter(Boolean).join(' ')}
       onCancel={(event) => {
         event.preventDefault();
         onClose();

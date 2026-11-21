@@ -143,10 +143,56 @@ export function SubmissionLinkList({ link }: { link: string | undefined }) {
 }
 
 /**
+ * Compact form for a row of the grading list: each link on one line with its kind, and the Canva
+ * ones with "Trình chiếu", so a teacher can present straight from the list.
+ */
+export function SubmissionLinkSummary({ link }: { link: string | undefined }) {
+  const links = parseSubmissionLinks(link);
+  if (!links.length) return null;
+  return (
+    <>
+      {links.map((l, i) => (
+        <span key={`${i}-${l}`} className="inline-actions small submission-link-summary">
+          <a className="text-link" href={l} target="_blank" rel="noopener noreferrer" title={l}>
+            {LINK_KIND_LABEL[linkKind(l)]}
+            {links.length > 1 ? ` ${i + 1}` : ''}
+          </a>
+          <CanvaPresentButton link={l} />
+        </span>
+      ))}
+    </>
+  );
+}
+
+function CanvaPresentButton({ link }: { link: string }) {
+  const src = useCanvaEmbed(link);
+  return src ? <CanvaPresent src={src} /> : null;
+}
+
+/**
  * The embeddable view of a Canva link: worked out directly for canva.com design links, asked of the
  * server for canva.link short links (it reads where they redirect). null while unknown or when the
  * link is not a design.
  */
+// Short links already resolved in this tab, so list rows and dialogs ask the server once per link.
+const shortLinkEmbeds = new Map<string, Promise<string | null>>();
+function resolveShortLink(link: string) {
+  let pending = shortLinkEmbeds.get(link);
+  if (!pending) {
+    pending = api<{ embed: string | null }>(
+      `/api/canva/resolve?url=${encodeURIComponent(link)}`,
+    ).then(
+      (r) => r.embed,
+      () => {
+        shortLinkEmbeds.delete(link); // a failure may be temporary: try again next time
+        return null;
+      },
+    );
+    shortLinkEmbeds.set(link, pending);
+  }
+  return pending;
+}
+
 function useCanvaEmbed(link: string) {
   const direct = canvaEmbedUrl(link);
   const short = !direct && isCanvaShortLink(link);
@@ -154,9 +200,7 @@ function useCanvaEmbed(link: string) {
   useEffect(() => {
     if (!short) return;
     let live = true;
-    api<{ embed: string | null }>(`/api/canva/resolve?url=${encodeURIComponent(link)}`)
-      .then((r) => live && setResolved({ link, embed: r.embed }))
-      .catch(() => live && setResolved({ link, embed: null }));
+    void resolveShortLink(link).then((embed) => live && setResolved({ link, embed }));
     return () => {
       live = false;
     };
@@ -185,13 +229,7 @@ function CanvaPreview({ src }: { src: string }) {
       <Dialog open={open} title="Bài thuyết trình Canva" onClose={() => setOpen(false)} wide>
         {open && (
           <div className="video-frame">
-            <iframe
-              src={src}
-              title="Bài thuyết trình Canva"
-              allow="fullscreen"
-              allowFullScreen
-              loading="lazy"
-            />
+            <iframe src={src} title="Bài thuyết trình Canva" allow="fullscreen" loading="lazy" />
           </div>
         )}
         <p className="small muted">
@@ -264,7 +302,7 @@ function CanvaPresent({ src }: { src: string }) {
             >
               <X size={20} /> Thoát
             </button>
-            <iframe src={src} title="Bài thuyết trình Canva" allow="fullscreen" allowFullScreen />
+            <iframe src={src} title="Bài thuyết trình Canva" allow="fullscreen" />
           </dialog>,
           document.body,
         )}

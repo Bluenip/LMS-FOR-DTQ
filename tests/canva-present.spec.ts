@@ -61,10 +61,14 @@ test('a teacher presents a Canva submission full screen from the grading dialog'
       }),
     );
     await page.goto(`/teacher/assignments?class=${classroom.id}&assignment=${assignment.id}`);
+    // Only the Canva link offers a presentation: once in the list row, once in the dialog.
+    await expect(
+      page.getByRole('button', { name: 'Trình chiếu bài Canva toàn màn hình' }),
+    ).toHaveCount(1);
     await page.getByRole('button', { name: 'Chấm bài', exact: true }).first().click();
-
-    // Only the Canva link offers a presentation.
-    const present = page.getByRole('button', { name: 'Trình chiếu bài Canva toàn màn hình' });
+    const present = page
+      .locator('dialog.dialog')
+      .getByRole('button', { name: 'Trình chiếu bài Canva toàn màn hình' });
     await expect(present).toHaveCount(1);
     await present.click();
 
@@ -146,12 +150,27 @@ test('a canva.link short link also gets "Trình chiếu", using the design it le
       }),
     );
     await page.goto(`/teacher/assignments?class=${classroom.id}&assignment=${assignment.id}`);
-    await page.getByRole('button', { name: 'Chấm bài', exact: true }).first().click();
-    await page.getByRole('button', { name: 'Trình chiếu bài Canva toàn màn hình' }).click();
     const stage = page.getByRole('dialog', { name: 'Trình chiếu bài Canva' });
+    // Straight from the list of students, without opening the grading dialog.
+    const row = page.locator('.grade-table tbody tr').filter({ hasText: '1 liên kết' });
+    await expect(row.getByRole('link', { name: 'Canva', exact: true })).toHaveAttribute(
+      'href',
+      'https://canva.link/v91ulg5rmmzzj0r',
+    );
+    await row.getByRole('button', { name: 'Trình chiếu bài Canva toàn màn hình' }).click();
     await expect(stage.locator('iframe')).toHaveAttribute('src', embed);
     await expect(page.frameLocator('.canva-stage iframe').getByText('Slide rút gọn')).toBeVisible();
     expect(asked).toContain('https://canva.link/v91ulg5rmmzzj0r');
+    await page.getByRole('button', { name: 'Thoát trình chiếu' }).click();
+    await expect(stage).toHaveCount(0);
+
+    // And from the grading dialog.
+    await page.getByRole('button', { name: 'Chấm bài', exact: true }).first().click();
+    await page
+      .getByRole('dialog')
+      .getByRole('button', { name: 'Trình chiếu bài Canva toàn màn hình' })
+      .click();
+    await expect(stage.locator('iframe')).toHaveAttribute('src', embed);
     await page.getByRole('button', { name: 'Thoát trình chiếu' }).click();
     await expect(stage).toHaveCount(0);
 

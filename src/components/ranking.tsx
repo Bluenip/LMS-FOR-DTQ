@@ -6,6 +6,7 @@ import type { Ranking, RankRow } from '@/lib/server/ranking';
 import { useLms } from './lms-provider';
 import { Badge, Empty } from './ui';
 
+/** Medals only for members who have points: a 0-point tie is not a podium. */
 const medal = (rank: number) => (rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : '');
 
 function Table({ rows, lessons }: { rows: RankRow[]; lessons: number }) {
@@ -29,7 +30,7 @@ function Table({ rows, lessons }: { rows: RankRow[]; lessons: number }) {
             <tr key={r.userId}>
               <td data-label="Hạng">
                 <strong>
-                  {medal(r.rank)} {r.rank}
+                  {r.total > 0 ? medal(r.rank) : ''} {r.rank}
                 </strong>
               </td>
               <td data-label="Thành viên">
