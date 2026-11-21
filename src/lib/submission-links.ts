@@ -59,16 +59,36 @@ export const LINK_KIND_LABEL: Record<LinkKind, string> = {
   other: 'Liên kết',
 };
 
-/** Canva design links that can be shown in an iframe: /design/<id>/<token>/view (or /watch). */
+/**
+ * Canva design links that can be shown in an iframe: /design/<id>/<token>/view, /watch or /edit.
+ * The embed is always the read-only view, which opens when the design is shared by link (an edit
+ * share link includes viewing).
+ */
 export function canvaEmbedUrl(value: string): string | null {
   try {
     const url = new URL(value);
     if (url.protocol !== 'https:' || host(value) !== 'canva.com') return null;
-    const m = url.pathname.match(/^\/design\/([A-Za-z0-9_-]+)\/([A-Za-z0-9_-]+)\/(view|watch)\/?$/);
+    const m = url.pathname.match(
+      /^\/design\/([A-Za-z0-9_-]+)\/([A-Za-z0-9_-]+)\/(view|watch|edit)\/?$/,
+    );
     if (!m) return null;
     return `https://www.canva.com/design/${m[1]}/${m[2]}/view?embed`;
   } catch {
     return null;
+  }
+}
+
+/** Canva's short share links (canva.link/<code>) redirect to the design; the server resolves them. */
+export function isCanvaShortLink(value: string): boolean {
+  try {
+    const url = new URL(value);
+    return (
+      url.protocol === 'https:' &&
+      url.hostname.toLowerCase() === 'canva.link' &&
+      /^\/[A-Za-z0-9_-]{3,64}\/?$/.test(url.pathname)
+    );
+  } catch {
+    return false;
   }
 }
 

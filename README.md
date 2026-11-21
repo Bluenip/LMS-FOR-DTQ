@@ -249,7 +249,7 @@ prisma/                Schema, 19 migration và mẫu CORS bucket
 docker/s3rver/         Kho S3 giả lập chỉ dành cho phát triển/kiểm thử
 scripts/               Seed, cấp/thu hồi giáo viên/quản trị, kiểm thử tích hợp/chịu tải, dọn Drive/kho tệp,
                        tự triển khai, sao lưu database và hỗ trợ chụp giao diện
-tests/                 32 file kiểm thử backend (*.test.ts/.mjs), 11 file Playwright (*.spec.ts)
+tests/                 33 file kiểm thử backend (*.test.ts/.mjs), 11 file Playwright (*.spec.ts)
 docs/                  Tài khoản, tích hợp, bản đồ thiết kế, rà soát và triển khai
 public/                Font cục bộ, giấy phép font và ảnh chờ video
 stitch_custom_video_learning_platform/
@@ -308,7 +308,7 @@ Lượt chạy gần nhất ngày **21/11/2026** (commit `d42c548`, trên bản 
 | TypeScript, Prettier, build production | Đạt                                                                                                          |
 | Backend (Node test runner)             | 179 test: 178 đạt, 1 bỏ qua (test PostgreSQL, đã chạy riêng)                                                 |
 | Test PostgreSQL thật                   | Đạt với PostgreSQL 17 (container tạm, đã chạy migration)                                                     |
-| Playwright (`E2E_ISOLATED=true`)       | 32 kịch bản: 25 đạt, 7 bỏ qua vì cần tài khoản quản trị/tài khoản kiểm thử riêng (`ADMIN_E2E_*`, ...), 0 lỗi |
+| Playwright (`E2E_ISOLATED=true`)       | 33 kịch bản: 26 đạt, 7 bỏ qua vì cần tài khoản quản trị/tài khoản kiểm thử riêng (`ADMIN_E2E_*`, ...), 0 lỗi |
 | Kiểm thử tích hợp PostgreSQL + S3      | Chưa chạy lại trong lượt này                                                                                 |
 
 **Bổ sung bài nộp** có 2 kịch bản Playwright riêng trong `tests/submission-addendum.spec.ts`, cùng test nghiệp vụ và test route.

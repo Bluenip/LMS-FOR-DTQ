@@ -7,6 +7,7 @@ import { runAction } from '../src/lib/server/actions';
 import { seedData } from '../src/lib/server/seed-data';
 import {
   canvaEmbedUrl,
+  isCanvaShortLink,
   isCanvaEditLink,
   linkKind,
   parseSubmissionLinks,
@@ -65,7 +66,7 @@ test('every link must be a web address and at most five are accepted', () => {
   );
 });
 
-test('Canva links are recognised and only shared view links are embedded', () => {
+test('Canva links are recognised and design links are embedded as the read-only view', () => {
   assert.equal(linkKind('https://www.canva.com/design/DAF1/abc/edit'), 'canva');
   assert.equal(linkKind('https://canva.link/xyz'), 'canva');
   assert.equal(linkKind('https://docs.google.com/presentation/d/1/edit'), 'slides');
@@ -74,7 +75,16 @@ test('Canva links are recognised and only shared view links are embedded', () =>
     canvaEmbedUrl('https://www.canva.com/design/DAF1/abc/view?utm_content=x'),
     'https://www.canva.com/design/DAF1/abc/view?embed',
   );
-  assert.equal(canvaEmbedUrl('https://www.canva.com/design/DAF1/abc/edit'), null);
+  assert.equal(
+    canvaEmbedUrl('https://www.canva.com/design/DAF1/abc/edit?utm_source=sharebutton'),
+    'https://www.canva.com/design/DAF1/abc/view?embed',
+  );
+  assert.equal(canvaEmbedUrl('http://www.canva.com/design/DAF1/abc/view'), null);
+  assert.equal(canvaEmbedUrl('https://www.canva.com/design/DAF1/abc/remix'), null);
+  assert(isCanvaShortLink('https://canva.link/v91ulg5rmmzzj0r'));
+  assert(!isCanvaShortLink('http://canva.link/v91ulg5rmmzzj0r'));
+  assert(!isCanvaShortLink('https://canva.link/a/b'));
+  assert(!isCanvaShortLink('https://evil.example/v91ulg5rmmzzj0r'));
   assert.equal(canvaEmbedUrl('https://evil.example/design/DAF1/abc/view'), null);
   assert(isCanvaEditLink('https://www.canva.com/design/DAF1/abc/edit?utm=1'));
   assert(!isCanvaEditLink('https://www.canva.com/design/DAF1/abc/view'));

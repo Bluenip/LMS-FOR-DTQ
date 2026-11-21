@@ -103,3 +103,67 @@ test('a teacher presents a Canva submission full screen from the grading dialog'
     await student.close();
   }
 });
+
+test('a canva.link short link also gets "Trình chiếu", using the design it leads to', async ({
+  browser,
+  baseURL,
+}) => {
+  const teacher = await browser.newContext({ baseURL });
+  const student = await browser.newContext({ baseURL });
+  let classroom: Classroom | undefined;
+  try {
+    await login(teacher.request, 'teacher');
+    await login(student.request, 'student');
+    classroom = await action<Classroom>(teacher.request, 'createClass', {
+      title: `Canva rút gọn ${Date.now()}`,
+      autoApprove: true,
+    });
+    await action(student.request, 'joinClass', { code: classroom.code });
+    const assignment = await action<Assignment>(teacher.request, 'createAssignment', {
+      classId: classroom.id,
+      title: 'Báo cáo tâm đắc',
+      instructions: 'Nộp bài thuyết trình Canva',
+      minWords: 0,
+      dueAt: '2099-01-01T00:00:00.000Z',
+    });
+    await action(student.request, 'submitAssignment', {
+      assignmentId: assignment.id,
+      content: '',
+      link: 'https://canva.link/v91ulg5rmmzzj0r',
+      pledge: true,
+    });
+    const page = await teacher.newPage();
+    // The server reads where canva.link redirects; here that answer is stubbed.
+    const asked: string[] = [];
+    await page.route('**/api/canva/resolve?**', (route) => {
+      asked.push(new URL(route.request().url()).searchParams.get('url') || '');
+      return route.fulfill({ json: { embed } });
+    });
+    await page.route(/^https:\/\/www\.canva\.com\//, (route) =>
+      route.fulfill({
+        contentType: 'text/html',
+        body: '<!doctype html><meta charset="utf-8"><body style="background:#fff"><h1>Slide rút gọn</h1></body>',
+      }),
+    );
+    await page.goto(`/teacher/assignments?class=${classroom.id}&assignment=${assignment.id}`);
+    await page.getByRole('button', { name: 'Chấm bài', exact: true }).first().click();
+    await page.getByRole('button', { name: 'Trình chiếu bài Canva toàn màn hình' }).click();
+    const stage = page.getByRole('dialog', { name: 'Trình chiếu bài Canva' });
+    await expect(stage.locator('iframe')).toHaveAttribute('src', embed);
+    await expect(page.frameLocator('.canva-stage iframe').getByText('Slide rút gọn')).toBeVisible();
+    expect(asked).toContain('https://canva.link/v91ulg5rmmzzj0r');
+    await page.getByRole('button', { name: 'Thoát trình chiếu' }).click();
+    await expect(stage).toHaveCount(0);
+
+    // The real endpoint refuses links that are not canva.link short links.
+    const refused = await teacher.request.get(
+      `/api/canva/resolve?url=${encodeURIComponent('https://evil.example/abc')}`,
+    );
+    expect(refused.status()).toBe(400);
+  } finally {
+    if (classroom)
+      await action(teacher.request, 'deleteClass', { classId: classroom.id, code: classroom.code });
+    await teacher.close();
+    await student.close();
+  }
+});

@@ -2,11 +2,13 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal, flushSync } from 'react-dom';
 import { ExternalLink, Eye, Link2, MonitorPlay, Plus, X } from 'lucide-react';
+import { api } from '@/lib/client';
 import {
   LINK_KIND_LABEL,
   MAX_SUBMISSION_LINKS,
   canvaEmbedUrl,
   isCanvaEditLink,
+  isCanvaShortLink,
   isWebLink,
   linkKind,
   parseSubmissionLinks,
@@ -123,8 +125,7 @@ export function SubmissionLinkList({ link }: { link: string | undefined }) {
             {l}
           </a>
           <span className="submission-link-actions">
-            <CanvaPresent link={l} />
-            <CanvaPreview link={l} />
+            <CanvaActions link={l} />
             <a
               className="button ghost"
               href={l}
@@ -141,10 +142,41 @@ export function SubmissionLinkList({ link }: { link: string | undefined }) {
   );
 }
 
-function CanvaPreview({ link }: { link: string }) {
-  const [open, setOpen] = useState(false);
-  const src = canvaEmbedUrl(link);
+/**
+ * The embeddable view of a Canva link: worked out directly for canva.com design links, asked of the
+ * server for canva.link short links (it reads where they redirect). null while unknown or when the
+ * link is not a design.
+ */
+function useCanvaEmbed(link: string) {
+  const direct = canvaEmbedUrl(link);
+  const short = !direct && isCanvaShortLink(link);
+  const [resolved, setResolved] = useState<{ link: string; embed: string | null } | null>(null);
+  useEffect(() => {
+    if (!short) return;
+    let live = true;
+    api<{ embed: string | null }>(`/api/canva/resolve?url=${encodeURIComponent(link)}`)
+      .then((r) => live && setResolved({ link, embed: r.embed }))
+      .catch(() => live && setResolved({ link, embed: null }));
+    return () => {
+      live = false;
+    };
+  }, [link, short]);
+  return direct ?? (resolved?.link === link ? resolved.embed : null);
+}
+
+function CanvaActions({ link }: { link: string }) {
+  const src = useCanvaEmbed(link);
   if (!src) return null;
+  return (
+    <>
+      <CanvaPresent src={src} />
+      <CanvaPreview src={src} />
+    </>
+  );
+}
+
+function CanvaPreview({ src }: { src: string }) {
+  const [open, setOpen] = useState(false);
   return (
     <>
       <Button variant="ghost" onClick={() => setOpen(true)} aria-label="Xem trước bài Canva">
@@ -177,10 +209,9 @@ function CanvaPreview({ link }: { link: string }) {
  * (desktop, Android); on iPhone, which allows it only for videos, it simply covers the window.
  * Esc, the close button or leaving full screen ends it.
  */
-function CanvaPresent({ link }: { link: string }) {
+function CanvaPresent({ src }: { src: string }) {
   const [open, setOpen] = useState(false);
   const stage = useRef<HTMLDialogElement>(null);
-  const src = canvaEmbedUrl(link);
   useEffect(() => {
     if (!open) return;
     // Leaving full screen with the browser's own Esc or gesture ends the presentation too.
@@ -193,7 +224,6 @@ function CanvaPresent({ link }: { link: string }) {
       if (document.fullscreenElement) void document.exitFullscreen().catch(() => {});
     };
   }, [open]);
-  if (!src) return null;
   return (
     <>
       <Button
