@@ -245,12 +245,20 @@ function NotFound() {
     </Empty>
   );
 }
-function ProgressBar({ done, total }: { done: number; total: number }) {
+function ProgressBar({
+  done,
+  total,
+  label = 'Tiến độ bài học',
+}: {
+  done: number;
+  total: number;
+  label?: string;
+}) {
   const percent = total ? Math.round((done / total) * 100) : 0;
   return (
     <div>
       <div className="progress-caption">
-        <span>Tiến độ bài học</span>
+        <span>{label}</span>
         <strong>
           {done}/{total} bài ({percent}%)
         </strong>
@@ -261,7 +269,7 @@ function ProgressBar({ done, total }: { done: number; total: number }) {
         aria-valuenow={done}
         aria-valuemax={total}
         aria-valuemin={0}
-        aria-label="Tiến độ học tập"
+        aria-label={label}
       >
         <span style={{ width: `${percent}%` }} />
       </div>
@@ -652,6 +660,7 @@ export function ClassDetail({ classId }: { classId: string }) {
           (p) => p.lessonId === l.id && p.userId === state.user.id && p.completed,
         ),
     ) || lessons[0];
+  const chapters = [...new Set(lessons.map((l) => l.chapter).filter(Boolean))];
   const assignments = state.assignments
     .filter((a) => a.classId === classId)
     .sort((a, b) => a.dueAt.localeCompare(b.dueAt));
@@ -758,20 +767,61 @@ export function ClassDetail({ classId }: { classId: string }) {
             {next ? (
               <section className="continue-panel">
                 <div className="row between">
-                  <Badge>{completedAll ? 'Đã hoàn thành' : 'Tiếp tục học tập'}</Badge>
+                  <Badge tone={completedAll ? 'success' : 'neutral'}>
+                    {completedAll ? 'Đã hoàn thành' : 'Tiếp tục học tập'}
+                  </Badge>
                   <span className="small muted">
                     {done}/{lessons.length} bài hoàn thành
                   </span>
                 </div>
-                <h2>
-                  Bài {next.order}: {next.title}
-                </h2>
-                <p className="small muted">{next.chapter}</p>
+                {completedAll ? (
+                  <>
+                    <h2>
+                      {chapters.length === 1
+                        ? chapters[0]
+                        : `Đã học xong ${lessons.length} bài giảng`}
+                    </h2>
+                    <p className="small muted">
+                      {chapters.length > 1
+                        ? `${chapters.length} chương · ${lessons.length} bài giảng`
+                        : `${lessons.length} bài giảng`}
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <h2>
+                      Bài {next.order}: {next.title}
+                    </h2>
+                    <p className="small muted">{next.chapter}</p>
+                  </>
+                )}
                 <ProgressBar done={done} total={lessons.length} />
+                {completedAll && (
+                  <div className="overview-lessons">
+                    {lessons.map((l) => (
+                      <Link
+                        key={l.id}
+                        href={`/classes/${classId}/lessons/${l.id}`}
+                        className="list-row"
+                      >
+                        <span className="lesson-number completed">
+                          <Check size={16} />
+                        </span>
+                        <div className="lesson-info">
+                          <strong>
+                            Bài {l.order}: {l.title}
+                          </strong>
+                          {l.duration && <p>{l.duration}</p>}
+                        </div>
+                        <ChevronRight size={16} />
+                      </Link>
+                    ))}
+                  </div>
+                )}
                 <div className="row between" style={{ marginTop: 20 }}>
                   <span className="small muted">Học từng bài, thực hành mỗi ngày.</span>
                   <Link className="button primary" href={`/classes/${classId}/lessons/${next.id}`}>
-                    {completedAll ? 'Học lại' : 'Tiếp tục học'}
+                    {completedAll ? 'Học lại từ đầu' : 'Tiếp tục học'}
                     <ArrowRight size={16} />
                   </Link>
                 </div>
@@ -782,9 +832,9 @@ export function ClassDetail({ classId }: { classId: string }) {
                 description="Giáo viên sẽ thông báo khi có bài học mới."
               />
             )}
-            {assignments.slice(0, 2).map((a) => (
-              <AssignmentCard key={a.id} assignment={a} />
-            ))}
+            {assignments.length > 0 && (
+              <AssignmentSummary classId={classId} assignments={assignments} />
+            )}
           </div>
           <aside className="stack">
             <section className="panel stack">
@@ -866,6 +916,71 @@ function LessonList({ classId, lessons }: { classId: string; lessons: Lesson[] }
         );
       })}
     </div>
+  );
+}
+function AssignmentSummary({
+  classId,
+  assignments,
+}: {
+  classId: string;
+  assignments: Assignment[];
+}) {
+  const { state } = useLms();
+  const isSubmitted = (a: Assignment) =>
+    state.submissions.some(
+      (s) =>
+        s.assignmentId === a.id &&
+        s.studentId === state.user.id &&
+        (s.status === 'SUBMITTED' || s.status === 'GRADED'),
+    );
+  const submitted = assignments.filter(isSubmitted).length;
+  const pending = assignments.filter((a) => !isSubmitted(a));
+  const nextUp = pending[0];
+  const draft =
+    nextUp &&
+    state.submissions.some(
+      (s) => s.assignmentId === nextUp.id && s.studentId === state.user.id && s.status === 'DRAFT',
+    );
+  return (
+    <article className="panel">
+      <div className="section-heading">
+        <Badge tone={nextUp ? 'warning' : 'success'}>
+          {nextUp ? `Còn ${pending.length} bài chưa nộp` : 'Đã nộp đủ'}
+        </Badge>
+        <span className="small muted">
+          {submitted}/{assignments.length} bài đã nộp
+        </span>
+      </div>
+      <h3>Bài tập của lớp</h3>
+      <div style={{ margin: '16px 0 20px' }}>
+        <ProgressBar done={submitted} total={assignments.length} label="Tiến độ bài tập" />
+      </div>
+      {nextUp ? (
+        <div className="row between">
+          <div>
+            <span className="small muted">{draft ? 'Bản nháp đang làm' : 'Cần làm tiếp'}</span>
+            <p>
+              <strong>{nextUp.title}</strong>
+            </p>
+            <span className="small muted">Hạn: {dateTime(nextUp.dueAt)}</span>
+          </div>
+          <Link className="button secondary" href={`/classes/${classId}/assignments/${nextUp.id}`}>
+            {draft ? 'Làm tiếp' : 'Làm bài'}
+            <ArrowRight size={15} />
+          </Link>
+        </div>
+      ) : (
+        <div className="row between">
+          <span className="small muted">
+            Bạn đã nộp tất cả bài tập. Theo dõi phản hồi của giáo viên.
+          </span>
+          <Link className="button secondary" href={`/classes/${classId}?tab=assignments`}>
+            Xem bài tập
+            <ArrowRight size={15} />
+          </Link>
+        </div>
+      )}
+    </article>
   );
 }
 function AssignmentCard({ assignment: a }: { assignment: Assignment }) {
