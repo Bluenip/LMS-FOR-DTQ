@@ -1871,6 +1871,7 @@ export function TeacherAssignments() {
       ? { ...openedSubmission, status: 'DRAFT' as const }
       : undefined);
   const [gradingDirty, setGradingDirty] = useState(false);
+  const [slidePick, setSlidePick] = useState<string[]>([]);
   const [editor, setEditor] = useState<{
     classId: string;
     assignment?: Assignment;
@@ -2246,6 +2247,29 @@ export function TeacherAssignments() {
                     placeholder="Tìm tên học viên…"
                   />
                 </div>
+                {stats.submitted > 0 && assignment && (
+                  <div className="inline-actions">
+                    <a
+                      className="button secondary"
+                      href={`/api/assignments/${assignment.id}/slides${
+                        slidePick.length ? `?students=${slidePick.join(',')}` : ''
+                      }`}
+                    >
+                      <Download size={16} />{' '}
+                      {slidePick.length
+                        ? `Tải slide của ${slidePick.length} học viên đã chọn`
+                        : 'Tải toàn bộ slide đã nộp'}
+                    </a>
+                    {slidePick.length > 0 && (
+                      <Button variant="ghost" onClick={() => setSlidePick([])}>
+                        Bỏ chọn
+                      </Button>
+                    )}
+                    <small className="muted">
+                      Tệp PPT, PPTX, PDF… gom thành 1 file ZIP, mỗi học viên một thư mục.
+                    </small>
+                  </div>
+                )}
                 {stats.total === 0 ? (
                   <Empty
                     title="Lớp chưa có học viên chính thức"
@@ -2266,6 +2290,30 @@ export function TeacherAssignments() {
                         >
                           <thead>
                             <tr>
+                              <th scope="col">
+                                <input
+                                  type="checkbox"
+                                  aria-label="Chọn tất cả học viên đã nộp trong trang"
+                                  checked={
+                                    rows
+                                      .slice((page - 1) * 8, page * 8)
+                                      .filter((r) => r.submission)
+                                      .every((r) => slidePick.includes(r.studentId)) &&
+                                    rows.slice((page - 1) * 8, page * 8).some((r) => r.submission)
+                                  }
+                                  onChange={(e) => {
+                                    const ids = rows
+                                      .slice((page - 1) * 8, page * 8)
+                                      .filter((r) => r.submission)
+                                      .map((r) => r.studentId);
+                                    setSlidePick((prev) =>
+                                      e.target.checked
+                                        ? [...new Set([...prev, ...ids])]
+                                        : prev.filter((x) => !ids.includes(x)),
+                                    );
+                                  }}
+                                />
+                              </th>
                               <th scope="col">Học viên</th>
                               <th scope="col">Thời gian nộp</th>
                               <th scope="col">Bài làm</th>
@@ -2279,6 +2327,22 @@ export function TeacherAssignments() {
                               .slice((page - 1) * 8, page * 8)
                               .map(({ studentId, user, submission }) => (
                                 <tr key={studentId}>
+                                  <td data-label="Chọn tải">
+                                    {submission && (
+                                      <input
+                                        type="checkbox"
+                                        aria-label={`Chọn bài của ${user?.name || 'học viên'} để tải`}
+                                        checked={slidePick.includes(studentId)}
+                                        onChange={(e) =>
+                                          setSlidePick((prev) =>
+                                            e.target.checked
+                                              ? [...prev, studentId]
+                                              : prev.filter((x) => x !== studentId),
+                                          )
+                                        }
+                                      />
+                                    )}
+                                  </td>
                                   <td data-label="Học viên">
                                     <div className="member-name">
                                       <span className="avatar">{initials(user?.name || 'HV')}</span>

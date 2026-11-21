@@ -2,7 +2,14 @@ import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import type { Database, DriveFile, DriveStatus, DriveUpload, StoredUser } from '@/lib/types';
 import { managesClass } from '@/lib/class-teachers';
-import { accessDriveDocument, driveJobUnused, isClassMaterial, teacherClass } from './actions';
+import {
+  accessDriveDocument,
+  driveJobUnused,
+  isClassMaterial,
+  ledGroupMembers,
+  teacherClass,
+} from './actions';
+import { zipStream } from './zip';
 import { assertOrigin, errorResponse, HttpError, requireUser, sessionUserId } from './auth';
 import {
   appOrigin,
@@ -980,6 +987,78 @@ export async function serveDocument(
               "sandbox; default-src 'none'; media-src 'self'; img-src 'self'",
           }
         : {}),
+    },
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Bulk download of submitted slides
+// ---------------------------------------------------------------------------
+const SLIDE_FILE = /\.(pptx?|pps|ppsx|odp|key|pdf)$/i;
+const safeName = (value: string) =>
+  value
+    .replace(/[\\/:*?"<>|\u0000-\u001f]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 120) || 'file';
+
+/**
+ * ZIP of the slide files handed in for an assignment, one folder per student. Teachers of the class
+ * and administrators get every submission (or the chosen students); a group leader only the
+ * members of their own group. Files are streamed from Drive one after another.
+ */
+export async function slidesArchive(userId: string, assignmentId: string, only: string[] | null) {
+  viewLimit.consume(userId);
+  const plan = await withDatabase((db) => {
+    const user = readUser(db, userId);
+    const assignment = db.assignments.find((a) => a.id === assignmentId);
+    const classroom = assignment && db.classes.find((c) => c.id === assignment.classId);
+    if (!assignment || !classroom) throw new HttpError(404, 'Không tìm thấy bài tập.');
+    const manage = user.isAdmin || managesClass(classroom, user);
+    const mates = manage ? new Set<string>() : ledGroupMembers(db, user, classroom.id);
+    if (!manage && !mates.size)
+      throw new HttpError(403, 'Chỉ giáo viên, quản trị viên hoặc trưởng nhóm được tải bài nộp.');
+    const wanted = only ? new Set(only) : null;
+    const used = new Set<string>();
+    const files: { path: string; fileId: string }[] = [];
+    for (const submission of db.submissions) {
+      if (submission.assignmentId !== assignment.id || submission.status === 'DRAFT') continue;
+      if (!manage && !mates.has(submission.studentId)) continue;
+      if (wanted && !wanted.has(submission.studentId)) continue;
+      const student = safeName(
+        db.users.find((u) => u.id === submission.studentId)?.name || 'Học viên',
+      );
+      for (const attachment of submission.attachments) {
+        const job = db.driveUploads.find((j) => j.id === attachment.id);
+        if (!job || job.status !== 'COMPLETED' || !job.driveFileId || !SLIDE_FILE.test(job.name))
+          continue;
+        try {
+          accessDriveDocument(db, user, job.id);
+        } catch {
+          continue;
+        }
+        let path = `${student}/${safeName(job.name)}`;
+        for (let n = 2; used.has(path.toLowerCase()); n++)
+          path = `${student}/${safeName(job.name).replace(/(\.[^.]*)?$/, ` (${n})$1`)}`;
+        used.add(path.toLowerCase());
+        files.push({ path, fileId: job.driveFileId });
+      }
+    }
+    if (!files.length) throw new HttpError(404, 'Chưa có tệp slide nào để tải.');
+    return { title: safeName(assignment.title), files };
+  }, false);
+  const body = zipStream(
+    plan.files.map((f) => ({
+      name: f.path,
+      open: async () => (await driveDownload(f.fileId).catch(() => null))?.body ?? null,
+    })),
+  );
+  return new Response(body, {
+    headers: {
+      'Content-Type': 'application/zip',
+      'Content-Disposition': `attachment; filename="slides.zip"; filename*=UTF-8''${encodeURIComponent(`${plan.title} - slide.zip`)}`,
+      'Cache-Control': 'private, no-store',
+      'X-Content-Type-Options': 'nosniff',
     },
   });
 }
