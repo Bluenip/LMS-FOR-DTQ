@@ -46,7 +46,7 @@ import { SubmissionDetail } from './submission-detail';
 import { useUnsavedWarning } from '@/lib/use-unsaved-warning';
 import { readSessionDraft, removeSessionDraft, writeSessionDraft } from '@/lib/session-draft';
 import { wordRequirement } from '@/lib/assignment-policy';
-import { assignedTeacherIds, classTeacherNames, managesClass } from '@/lib/class-teachers';
+import { assignedTeacherIds, classTeacherRoster, managesClass } from '@/lib/class-teachers';
 import {
   assignmentRows,
   assignmentStats,
@@ -341,7 +341,14 @@ export function TeacherClasses() {
                     aria-label="Sĩ số lớp học"
                   />
                   <p className="small muted">{c.schedule || 'Chưa thiết lập lịch học'}</p>
-                  <p className="small">Giáo viên phụ trách: {classTeacherNames(c, state.users)}</p>
+                  <p className="small">
+                    {(() => {
+                      const roster = classTeacherRoster(c, state.users);
+                      return roster.lead
+                        ? `Giáo viên chính: ${roster.lead}${roster.assistants.length ? ` · Giáo viên phụ: ${roster.assistants.join(', ')}` : ''}`
+                        : 'Chưa phân công giáo viên';
+                    })()}
+                  </p>
                   <div className="row small">
                     <span>Nhận học viên: {c.enrollmentOpen ? 'Đang mở' : 'Đã đóng'}</span>
                     <span>{c.autoApprove ? 'Tự động duyệt' : 'Duyệt thủ công'}</span>
@@ -754,6 +761,26 @@ function ClassTeacherManager({
           ))}
           {!teachers.length && <p className="muted">Chưa có tài khoản giáo viên để phân công.</p>}
         </fieldset>
+      )}
+      {teachers && selected.length > 1 && (
+        <label className="field">
+          <span>Giáo viên chính</span>
+          <select
+            value={selected[0]}
+            disabled={busy}
+            onChange={(event) => {
+              const lead = event.target.value;
+              setSelected((current) => [lead, ...current.filter((id) => id !== lead)]);
+            }}
+          >
+            {selected.map((id) => (
+              <option key={id} value={id}>
+                {teachers.find((teacher) => teacher.id === id)?.name || id}
+              </option>
+            ))}
+          </select>
+          <small className="muted">Những giáo viên còn lại hiển thị là giáo viên phụ.</small>
+        </label>
       )}
       <ErrorLine error={error} />
       <div className="dialog-footer">
