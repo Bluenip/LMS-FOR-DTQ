@@ -57,6 +57,7 @@ export async function actionScope(
     case 'saveSubmission':
     case 'submitAssignment':
     case 'withdrawSubmission':
+    case 'addToSubmission':
     case 'remindStudents':
       return { classIds: await classOf(tx, 'assignment', input.assignmentId) };
     case 'gradeSubmission':

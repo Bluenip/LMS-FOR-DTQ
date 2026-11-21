@@ -59,6 +59,7 @@ import {
 import { AttachmentViewer, DriveVideoPlayer, UploadProgress } from './drive';
 import { SubmissionDetail } from './submission-detail';
 import { SubmissionLinkList, SubmissionLinksEditor } from './submission-links';
+import { SubmissionAddendum } from './submission-addendum';
 import { joinSubmissionLinks, parseSubmissionLinks } from '@/lib/submission-links';
 import { PracticePanel, PracticeSheet } from './practice';
 import { LecturerCard } from './lecturer';
@@ -1859,11 +1860,19 @@ export function AssignmentPage({
                           setError('Vui lòng xác nhận bài làm trung thực trước khi nộp.');
                           return;
                         }
-                        if (!content.trim() && !files.length && !parseSubmissionLinks(link).length) {
+                        if (
+                          !content.trim() &&
+                          !files.length &&
+                          !parseSubmissionLinks(link).length
+                        ) {
                           setError('Vui lòng nhập bài làm, đính kèm tệp hoặc liên kết minh chứng.');
                           return;
                         }
-                        if (!files.length && !parseSubmissionLinks(link).length && !acceptsWordCount(count, a)) {
+                        if (
+                          !files.length &&
+                          !parseSubmissionLinks(link).length &&
+                          !acceptsWordCount(count, a)
+                        ) {
                           setError(
                             `Bài viết cần ${wordRequirement(a)}, hoặc có tệp đính kèm/liên kết minh chứng.`,
                           );
@@ -1892,6 +1901,11 @@ export function AssignmentPage({
                   <FileAttachment key={f.id} file={f} />
                 ))}
                 <SubmissionLinkList link={submission?.link} />
+                {!archived &&
+                  submission?.status === 'SUBMITTED' &&
+                  (a.allowLate || Date.now() <= new Date(a.dueAt).getTime()) && (
+                    <SubmissionAddendum assignment={a} submission={submission} classId={classId} />
+                  )}
                 <div className="notice success">
                   <CheckCircle2 size={18} />
                   <span>

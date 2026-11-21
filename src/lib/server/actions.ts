@@ -1203,7 +1203,10 @@ export function runAction(db: Database, user: StoredUser, input: Record<string, 
         .object({
           assignmentId: id,
           content: text.default(''),
-          link: z.string().max(2000 * MAX_SUBMISSION_LINKS + 10).default(''),
+          link: z
+            .string()
+            .max(2000 * MAX_SUBMISSION_LINKS + 10)
+            .default(''),
           attachments: z.array(attachmentSchema).max(10).default([]),
           pledge: z.boolean().optional(),
           expectedRevision: z.string().max(120).optional(),
@@ -1273,6 +1276,68 @@ export function runAction(db: Database, user: StoredUser, input: Record<string, 
             assignmentId: a.id,
           });
       }
+      return submissionFor(s);
+    }
+    case 'addToSubmission': {
+      // Adds to work already handed in without withdrawing it: more files, links or a written
+      // addendum. Nothing is removed or replaced, it costs no attempt and the submission time (and
+      // so "on time / late") stays as it was. Only before the grade is returned.
+      const v = z
+        .object({
+          assignmentId: id,
+          content: text.default(''),
+          link: z
+            .string()
+            .max(2000 * MAX_SUBMISSION_LINKS + 10)
+            .default(''),
+          attachments: z.array(attachmentSchema).max(10).default([]),
+          expectedRevision: z.string().max(120).optional(),
+        })
+        .parse(input);
+      const { a, c } = assignment(db, user, v.assignmentId);
+      learnerClass(db, user, c.id);
+      active(c);
+      const s = db.submissions.find((x) => x.assignmentId === a.id && x.studentId === user.id);
+      if (!s || s.status === 'DRAFT')
+        throw new HttpError(409, 'Bạn chưa nộp bài: hãy dùng nút Nộp bài.');
+      if (s.status === 'GRADED')
+        throw new HttpError(409, 'Bài đã được chấm nên không thể bổ sung thêm.');
+      if (!a.allowLate && Date.now() > Date.parse(a.dueAt))
+        throw new HttpError(409, 'Đã hết hạn nộp bài.');
+      checkRevision(s.revision, v.expectedRevision, 'Bài nộp');
+      const newLinks = parseSubmissionLinks(v.link);
+      if (newLinks.some((l) => l.length > 2000 || !isWebLink(l)))
+        throw new HttpError(400, 'Liên kết phải bắt đầu bằng http:// hoặc https://.');
+      const links = [...new Set([...parseSubmissionLinks(s.link), ...newLinks])];
+      if (links.length > MAX_SUBMISSION_LINKS)
+        throw new HttpError(400, `Chỉ được gửi tối đa ${MAX_SUBMISSION_LINKS} liên kết.`);
+      const known = new Set(s.attachments.map((f) => f.id));
+      const added = attachments(db, user, c.id, v.attachments).filter((f) => !known.has(f.id));
+      if (s.attachments.length + added.length > 10)
+        throw new HttpError(400, 'Mỗi bài nộp chỉ được đính kèm tối đa 10 tệp.');
+      const extra = v.content.trim();
+      if (!extra && !added.length && links.length === parseSubmissionLinks(s.link).length)
+        throw new HttpError(400, 'Hãy thêm nội dung, tệp hoặc liên kết để bổ sung.');
+      if (extra) {
+        const stamp = new Date().toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' });
+        const merged = `${s.content ? `${s.content}\n\n` : ''}— Bổ sung lúc ${stamp} —\n${extra}`;
+        if (merged.length > 50000) throw new HttpError(400, 'Bài làm quá dài, không thể bổ sung.');
+        s.content = merged;
+      }
+      s.attachments = [...s.attachments, ...added];
+      s.link = joinSubmissionLinks(links);
+      s.revision = uid();
+      // A teacher who has this submission open for grading is told it changed under them.
+      s.gradeRevision = uid();
+      for (const teacherId of new Set([c.teacherId, ...assignedTeacherIds(c)]))
+        db.notifications.push({
+          id: uid(),
+          userId: teacherId,
+          content: `${user.name} đã bổ sung bài nộp “${a.title}”.`,
+          createdAt: time(),
+          read: false,
+          assignmentId: a.id,
+        });
       return submissionFor(s);
     }
     case 'withdrawSubmission': {

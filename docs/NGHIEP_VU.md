@@ -266,3 +266,13 @@ Chỉ **giáo viên của lớp** và **quản trị viên** xem được; học
 - Cùng điểm thì cùng hạng (1, 2, 2, 4); nếu bằng điểm thì người đã học nhiều bài hơn xếp trước.
 - Vị trí: tab **Xếp hạng** của lớp (giáo viên), cuối tab **Thực hành** của mỗi bài giảng (giáo viên), và mục **Bảng xếp hạng thực hành** trong trang Quản trị (chọn bất kỳ lớp nào).
 - Chấm cho từng thành viên: ở tab **Thực hành** của bài, hoặc trong hộp thoại **Chi tiết** của thành viên (trang Thành viên) → "Thực hành theo bài giảng" → **Chấm thực hành**.
+
+## Bổ sung bài nộp
+
+Học viên đã nộp bài có thể **bổ sung** mà không cần thu hồi: nút **Bổ sung bài nộp** trong trang bài tập, thêm nội dung viết, liên kết hoặc tệp đính kèm.
+
+- Chỉ khi bài ở trạng thái **Đã nộp** (chưa được chấm). Bài đã chấm thì không bổ sung được.
+- Còn hạn nộp, hoặc bài tập cho phép nộp muộn.
+- Phần đã nộp được giữ nguyên, chỉ thêm vào: nội dung viết thêm được nối kèm mốc thời gian, liên kết gộp (tối đa 5), tệp thêm vào (tổng tối đa 10). Không tốn lượt nộp và **không đổi thời điểm nộp** (nên "đúng hạn / nộp muộn" giữ nguyên).
+- Giáo viên nhận thông báo "đã bổ sung bài nộp". Nếu giáo viên đang mở màn hình chấm bài đó, họ được báo bài đã thay đổi và cần mở lại.
+- Thu hồi để sửa lại toàn bộ vẫn như cũ (cần bật cho nộp lại, còn lượt, trước hạn, chưa chấm).
