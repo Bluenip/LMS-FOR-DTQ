@@ -975,6 +975,15 @@ export function TeacherLessons() {
   }, [chosen, classId, selected?.id, selectedId]);
   const [creating, setCreating] = useState(false);
   const [editorDirty, setEditorDirty] = useState(false);
+  // On narrow screens the editor sits below the whole lesson list: bring it into view when a
+  // lesson is picked or a new one is started.
+  const editorRef = useRef<HTMLDivElement>(null);
+  const [reveal, setReveal] = useState(0);
+  useEffect(() => {
+    if (!reveal || !window.matchMedia('(max-width: 900px)').matches) return;
+    const still = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    editorRef.current?.scrollIntoView({ block: 'start', behavior: still ? 'auto' : 'smooth' });
+  }, [reveal]);
   const canSwitch = () =>
     !editorDirty ||
     window.confirm('Bài giảng có thay đổi chưa lưu. Bạn muốn bỏ thay đổi và chuyển bài?');
@@ -1050,6 +1059,7 @@ export function TeacherLessons() {
                   setCreating(true);
                   setError('');
                   setEditorDirty(false);
+                  setReveal((n) => n + 1);
                 }
               }}
             >
@@ -1093,6 +1103,7 @@ export function TeacherLessons() {
                             setCreating(false);
                             setError('');
                             setEditorDirty(false);
+                            setReveal((n) => n + 1);
                           }
                         }}
                       >
@@ -1116,7 +1127,7 @@ export function TeacherLessons() {
             </div>
             {!visible.length && <p className="muted small">Chưa có bài giảng phù hợp.</p>}
           </aside>
-          <div>
+          <div className="teacher-editor-slot" ref={editorRef}>
             {creating || selected ? (
               <LessonEditor
                 key={creating ? `new-${classId}` : selected?.id}

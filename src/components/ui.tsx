@@ -154,6 +154,37 @@ export function Search({
     </label>
   );
 }
+/**
+ * For a horizontally scrolling strip (tab bars): marks with data-fade-start / data-fade-end
+ * whether more items are hidden on either side, so CSS can fade that edge, and scrolls the
+ * selected item into view. Pass the selected id so it re-centres when the selection changes.
+ */
+export function useScrollFade<T extends HTMLElement>(selected?: string) {
+  const ref = useRef<T>(null);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const update = () => {
+      el.dataset.fadeStart = String(el.scrollLeft > 4);
+      el.dataset.fadeEnd = String(el.scrollLeft + el.clientWidth < el.scrollWidth - 4);
+    };
+    const active = el.querySelector<HTMLElement>('[aria-selected="true"], [aria-current="page"]');
+    if (active && el.scrollWidth > el.clientWidth) {
+      const box = el.getBoundingClientRect();
+      const item = active.getBoundingClientRect();
+      el.scrollLeft += item.left - box.left - (box.width - item.width) / 2;
+    }
+    update();
+    el.addEventListener('scroll', update, { passive: true });
+    const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(update);
+    observer?.observe(el);
+    return () => {
+      el.removeEventListener('scroll', update);
+      observer?.disconnect();
+    };
+  }, [selected]);
+  return ref;
+}
 export function Tabs({
   items,
   value,
@@ -163,8 +194,9 @@ export function Tabs({
   value: string;
   onChange: (v: string) => void;
 }) {
+  const ref = useScrollFade<HTMLDivElement>(value);
   return (
-    <div className="tabs" role="tablist">
+    <div className="tabs" role="tablist" ref={ref}>
       {items.map((i) => (
         <button
           type="button"

@@ -46,6 +46,7 @@ import {
   Search,
   StoredVideo,
   Tabs,
+  useScrollFade,
 } from './ui';
 import { dateTime, fold, initials, words, youtubeId } from '@/lib/client';
 import {
@@ -203,8 +204,9 @@ function ClassNavigation({ classId, active }: { classId: string; active: string 
   const classroom = state.classes.find((c) => c.id === classId);
   const canRank =
     !!classroom && (managesClass(classroom, state.user) || state.user.isAdmin === true);
+  const ref = useScrollFade<HTMLElement>(active);
   return (
-    <nav className="class-tabs" aria-label="Điều hướng lớp học">
+    <nav className="class-tabs" aria-label="Điều hướng lớp học" ref={ref}>
       {[
         { id: 'overview', label: 'Tổng quan', icon: BookOpen },
         { id: 'intro', label: 'Giới thiệu', icon: GraduationCap },
@@ -218,6 +220,7 @@ function ClassNavigation({ classId, active }: { classId: string; active: string 
           key={id}
           href={id === 'members' ? `/classes/${classId}/members` : `/classes/${classId}?tab=${id}`}
           className={active === id ? 'active' : ''}
+          aria-current={active === id ? 'page' : undefined}
         >
           <Icon size={16} />
           {label}
