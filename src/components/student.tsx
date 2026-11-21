@@ -64,7 +64,12 @@ import { RankingPanel } from './ranking';
 import { practiceScore, PRACTICE_GROUPS } from '@/lib/practice';
 import { submissionStatus } from '@/lib/assignment-grading';
 import { acceptsWordCount, wordRequirement } from '@/lib/assignment-policy';
-import { classTeacherNames, classTeacherRoster, managesClass } from '@/lib/class-teachers';
+import {
+  classTeacherNames,
+  classTeacherRoster,
+  contentAuthorDiffers,
+  managesClass,
+} from '@/lib/class-teachers';
 import { useUnsavedWarning } from '@/lib/use-unsaved-warning';
 import { readSessionDraft, removeSessionDraft, writeSessionDraft } from '@/lib/session-draft';
 import type { Classroom, Lesson, Assignment, Attachment } from '@/lib/types';
@@ -419,7 +424,9 @@ export function ClassList() {
                           {roster.assistants.length > 0 && (
                             <small>Giáo viên phụ: {roster.assistants.join(', ')}</small>
                           )}
-                          {c.contentAuthor && <small>Nội dung: {c.contentAuthor}</small>}
+                          {contentAuthorDiffers(c.contentAuthor, roster.lead) && (
+                            <small>Nội dung: {c.contentAuthor}</small>
+                          )}
                         </div>
                       </div>
                       <ProgressBar done={done} total={lessons.length} />

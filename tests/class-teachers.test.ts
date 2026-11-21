@@ -1,7 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { accessFile, classTeacherOptions, runAction, stateFor } from '../src/lib/server/actions';
-import { assignedTeacherIds, classTeacherNames, managesClass } from '../src/lib/class-teachers';
+import {
+  assignedTeacherIds,
+  classTeacherNames,
+  contentAuthorDiffers,
+  managesClass,
+} from '../src/lib/class-teachers';
 import { seedData } from '../src/lib/server/seed-data';
 import type { Assignment, Classroom, Discussion, StoredUser, Submission } from '../src/lib/types';
 
@@ -264,4 +269,14 @@ test('teachers can keep existing shared lesson files while editing, without atta
       }),
     /không có quyền/,
   );
+});
+
+test('the content presenter line is hidden only when it names the lead teacher', () => {
+  assert.equal(contentAuthorDiffers('Thầy Thích Hạnh Từ', 'Thích Hạnh Từ'), false);
+  assert.equal(contentAuthorDiffers('thich hanh tu', 'Thích Hạnh Từ'), false);
+  assert.equal(contentAuthorDiffers('Sư cô Diệu Trang', 'Diệu Trang'), false);
+  assert.equal(contentAuthorDiffers('Thầy Thích Hạnh Từ', 'Diệu Trang'), true);
+  assert.equal(contentAuthorDiffers('Thầy Thích Hạnh Từ', null), true);
+  assert.equal(contentAuthorDiffers('', 'Thích Hạnh Từ'), false);
+  assert.equal(contentAuthorDiffers(undefined, 'Thích Hạnh Từ'), false);
 });
