@@ -58,6 +58,8 @@ import {
 } from '@/lib/upload-manager';
 import { AttachmentViewer, DriveVideoPlayer, UploadProgress } from './drive';
 import { SubmissionDetail } from './submission-detail';
+import { SubmissionLinkList, SubmissionLinksEditor } from './submission-links';
+import { joinSubmissionLinks, parseSubmissionLinks } from '@/lib/submission-links';
 import { PracticePanel, PracticeSheet } from './practice';
 import { LecturerCard } from './lecturer';
 import { RankingPanel } from './ranking';
@@ -1550,7 +1552,7 @@ export function AssignmentPage({
       const result = (await action(submit ? 'submitAssignment' : 'saveSubmission', {
         assignmentId,
         content,
-        link,
+        link: joinSubmissionLinks(parseSubmissionLinks(link)),
         attachments: files,
         pledge,
         expectedRevision: revision,
@@ -1644,7 +1646,11 @@ export function AssignmentPage({
               <Field label="Nội dung bản đang viết">
                 <textarea aria-label="Nội dung bản đang viết" value={content} readOnly />
               </Field>
-              {link && <p className="reading-copy">{link}</p>}
+              {link.trim() && (
+                <p className="reading-copy" style={{ whiteSpace: 'pre-wrap' }}>
+                  {link.trim()}
+                </p>
+              )}
               {files.map((file) => (
                 <FileAttachment key={file.id} file={file} />
               ))}
@@ -1800,19 +1806,15 @@ export function AssignmentPage({
                     />
                   ))}
                 </div>
-                <Field label="Liên kết minh chứng (không bắt buộc)">
-                  <input
-                    type="url"
-                    value={link}
-                    disabled={busy || archived}
-                    onChange={(e) => {
-                      setLink(e.target.value);
-                      setSaved(false);
-                      setDirty(true);
-                    }}
-                    placeholder="https://…"
-                  />
-                </Field>
+                <SubmissionLinksEditor
+                  value={link}
+                  disabled={busy || archived}
+                  onChange={(value) => {
+                    setLink(value);
+                    setSaved(false);
+                    setDirty(true);
+                  }}
+                />
                 <label className="check-label">
                   <input
                     type="checkbox"
@@ -1857,11 +1859,11 @@ export function AssignmentPage({
                           setError('Vui lòng xác nhận bài làm trung thực trước khi nộp.');
                           return;
                         }
-                        if (!content.trim() && !files.length && !link.trim()) {
+                        if (!content.trim() && !files.length && !parseSubmissionLinks(link).length) {
                           setError('Vui lòng nhập bài làm, đính kèm tệp hoặc liên kết minh chứng.');
                           return;
                         }
-                        if (!files.length && !link.trim() && !acceptsWordCount(count, a)) {
+                        if (!files.length && !parseSubmissionLinks(link).length && !acceptsWordCount(count, a)) {
                           setError(
                             `Bài viết cần ${wordRequirement(a)}, hoặc có tệp đính kèm/liên kết minh chứng.`,
                           );
@@ -1889,16 +1891,7 @@ export function AssignmentPage({
                 {submission?.attachments.map((f) => (
                   <FileAttachment key={f.id} file={f} />
                 ))}
-                {submission?.link && (
-                  <a
-                    href={submission.link}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="text-link small"
-                  >
-                    Xem liên kết minh chứng
-                  </a>
-                )}
+                <SubmissionLinkList link={submission?.link} />
                 <div className="notice success">
                   <CheckCircle2 size={18} />
                   <span>

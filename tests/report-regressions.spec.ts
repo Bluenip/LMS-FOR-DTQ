@@ -156,7 +156,7 @@ test('a remote link-only submission and returned grade keep a local draft visibl
     await expect(page.getByLabel('Nội dung bản đang viết', { exact: true })).toHaveValue(
       'Bản viết đang dở cần giữ lại',
     );
-    await expect(page.getByRole('link', { name: 'Xem liên kết minh chứng' })).toHaveAttribute(
+    await expect(page.getByRole('link', { name: 'https://example.com/evidence', exact: true })).toHaveAttribute(
       'href',
       'https://example.com/evidence',
     );

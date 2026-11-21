@@ -2341,3 +2341,43 @@ h3 {
 .table tr.selected {
   background: var(--color-accent-soft);
 }
+.submission-link-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+.submission-link-row input {
+  flex: 1;
+  min-width: 0;
+}
+.submission-links .notice {
+  margin: 0;
+}
+.submission-link-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.submission-link-list li {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: 10px 0;
+  border-bottom: 1px solid var(--color-line);
+}
+.submission-link-list li:last-child {
+  border: 0;
+}
+.submission-link-list .text-link {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+}
+.submission-link-actions {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+}

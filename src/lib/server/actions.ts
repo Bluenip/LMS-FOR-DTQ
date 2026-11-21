@@ -1,3 +1,9 @@
+import {
+  MAX_SUBMISSION_LINKS,
+  isWebLink,
+  joinSubmissionLinks,
+  parseSubmissionLinks,
+} from '@/lib/submission-links';
 import { PRACTICE_ITEM_IDS } from '@/lib/practice';
 import { randomBytes, randomUUID } from 'node:crypto';
 import { z } from 'zod';
@@ -1197,7 +1203,7 @@ export function runAction(db: Database, user: StoredUser, input: Record<string, 
         .object({
           assignmentId: id,
           content: text.default(''),
-          link: z.string().max(2000).default(''),
+          link: z.string().max(2000 * MAX_SUBMISSION_LINKS + 10).default(''),
           attachments: z.array(attachmentSchema).max(10).default([]),
           pledge: z.boolean().optional(),
           expectedRevision: z.string().max(120).optional(),
@@ -1208,13 +1214,12 @@ export function runAction(db: Database, user: StoredUser, input: Record<string, 
       active(c);
       if (action === 'submitAssignment' && !a.allowLate && Date.now() > Date.parse(a.dueAt))
         throw new HttpError(409, 'Đã hết hạn nộp bài.');
-      if (v.link) {
-        try {
-          if (!['https:', 'http:'].includes(new URL(v.link).protocol)) throw new Error();
-        } catch {
-          throw new HttpError(400, 'Liên kết phải bắt đầu bằng http:// hoặc https://.');
-        }
-      }
+      const links = parseSubmissionLinks(v.link);
+      if (links.length > MAX_SUBMISSION_LINKS)
+        throw new HttpError(400, `Chỉ được gửi tối đa ${MAX_SUBMISSION_LINKS} liên kết.`);
+      if (links.some((l) => l.length > 2000 || !isWebLink(l)))
+        throw new HttpError(400, 'Liên kết phải bắt đầu bằng http:// hoặc https://.');
+      v.link = joinSubmissionLinks(links);
       const files = attachments(db, user, c.id, v.attachments);
       let s = db.submissions.find((s) => s.assignmentId === a.id && s.studentId === user.id);
       if (v.expectedRevision !== undefined && v.expectedRevision !== (s?.revision || ''))
