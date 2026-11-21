@@ -413,8 +413,28 @@ progress.progress::-moz-progress-bar {
     margin-bottom: var(--space-xs);
   }
   .grade-table tbody td:first-child,
-  .grade-table tbody td:last-child {
+  .grade-table tbody td:last-child,
+  .grade-table tbody td.pick + td {
     grid-column: 1/-1;
+  }
+  /* The slide-download checkbox sits in the corner of the card, beside the student's name. */
+  .grade-table tbody tr {
+    position: relative;
+  }
+  .grade-table tbody td.pick {
+    position: absolute;
+    top: var(--space-md);
+    right: var(--space-md);
+  }
+  .grade-table tbody td.pick::before {
+    content: none;
+  }
+  .grade-table tbody td.pick + td {
+    padding-right: 36px;
+  }
+  .grade-table tbody td.pick input {
+    width: 22px;
+    height: 22px;
   }
   .grade-table .member-name {
     white-space: normal;

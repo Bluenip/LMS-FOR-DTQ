@@ -14,29 +14,45 @@ const stream = (...parts: string[]) =>
     },
   });
 
-test('zipStream builds a valid archive, skipping entries that cannot be opened', async () => {
-  const body = zipStream([
-    { name: 'An/bai 1.pptx', open: async () => stream('hello ', 'world') },
-    { name: 'An/loi.pptx', open: async () => null },
-    { name: 'Bình/bài 2.pdf', open: async () => stream('xin chào') },
-  ]);
-  const buffer = Buffer.from(await new Response(body).arrayBuffer());
-  const dir = mkdtempSync(join(tmpdir(), 'zip-'));
-  const file = join(dir, 'a.zip');
-  writeFileSync(file, buffer);
-  // The reader is Python's zipfile (ZIP64 aware) and verifies every CRC.
-  const out = execFileSync(
-    'python',
-    [
-      '-c',
-      'import zipfile,sys;z=zipfile.ZipFile(sys.argv[1]);assert z.testzip() is None;' +
-        '[print(n+"="+z.read(n).decode()) for n in sorted(z.namelist())]',
-      file,
-    ],
-    { encoding: 'utf8' },
-  );
-  assert.match(out, /An\/bai 1\.pptx=hello world/);
-  assert.match(out, /Bình\/bài 2\.pdf=xin chào/);
-  assert.doesNotMatch(out, /loi\.pptx/);
-  assert.ok(readFileSync(file).length > 0);
+// Python's zipfile reads ZIP64 and checks every CRC; it may be installed as python3 or python.
+const python = ['python3', 'python'].find((bin) => {
+  try {
+    execFileSync(bin, ['--version'], { stdio: 'ignore' });
+    return true;
+  } catch {
+    return false;
+  }
 });
+
+test(
+  'zipStream builds a valid archive, skipping entries that cannot be opened',
+  {
+    skip: python ? false : 'Python is not installed',
+  },
+  async () => {
+    const body = zipStream([
+      { name: 'An/bai 1.pptx', open: async () => stream('hello ', 'world') },
+      { name: 'An/loi.pptx', open: async () => null },
+      { name: 'Bình/bài 2.pdf', open: async () => stream('xin chào') },
+    ]);
+    const buffer = Buffer.from(await new Response(body).arrayBuffer());
+    const dir = mkdtempSync(join(tmpdir(), 'zip-'));
+    const file = join(dir, 'a.zip');
+    writeFileSync(file, buffer);
+    // The reader is Python's zipfile (ZIP64 aware) and verifies every CRC.
+    const out = execFileSync(
+      python!,
+      [
+        '-c',
+        'import zipfile,sys;z=zipfile.ZipFile(sys.argv[1]);assert z.testzip() is None;' +
+          '[print(n+"="+z.read(n).decode()) for n in sorted(z.namelist())]',
+        file,
+      ],
+      { encoding: 'utf8' },
+    );
+    assert.match(out, /An\/bai 1\.pptx=hello world/);
+    assert.match(out, /Bình\/bài 2\.pdf=xin chào/);
+    assert.doesNotMatch(out, /loi\.pptx/);
+    assert.ok(readFileSync(file).length > 0);
+  },
+);

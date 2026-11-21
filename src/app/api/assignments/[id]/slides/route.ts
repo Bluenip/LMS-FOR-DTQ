@@ -2,7 +2,11 @@ import { errorResponse, HttpError, sessionUserId } from '@/lib/server/auth';
 import { slidesArchive } from '@/lib/server/drive-service';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
-/** GET /api/assignments/:id/slides?students=a,b — ZIP of the submitted slide files (all when omitted). */
+/**
+ * GET /api/assignments/:id/slides?students=a,b — ZIP of the submitted slide files (all when
+ * omitted). With &check=1 it answers { files, students } instead, so the page can report "nothing
+ * to download" or an error without sending the browser to an error page.
+ */
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const userId = await sessionUserId();
@@ -15,7 +19,8 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
           .filter(Boolean)
           .slice(0, 1000)
       : null;
-    return await slidesArchive(userId, (await params).id, only);
+    const check = new URL(request.url).searchParams.get('check') === '1';
+    return await slidesArchive(userId, (await params).id, only, check);
   } catch (error) {
     return errorResponse(error);
   }
