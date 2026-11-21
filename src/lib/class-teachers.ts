@@ -19,3 +19,14 @@ export function classTeacherNames(classroom: Classroom, users: User[]): string {
     .filter((name): name is string => !!name);
   return names.join(', ') || 'Chưa phân công giáo viên';
 }
+
+/** The first assigned teacher leads the class; the rest assist. */
+export function classTeacherRoster(
+  classroom: Classroom,
+  users: User[],
+): { lead: string | null; assistants: string[] } {
+  const names = assignedTeacherIds(classroom)
+    .map((id) => users.find((user) => user.id === id)?.name)
+    .filter((name): name is string => !!name);
+  return { lead: names[0] ?? null, assistants: names.slice(1) };
+}

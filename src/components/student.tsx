@@ -64,7 +64,7 @@ import { RankingPanel } from './ranking';
 import { practiceScore, PRACTICE_GROUPS } from '@/lib/practice';
 import { submissionStatus } from '@/lib/assignment-grading';
 import { acceptsWordCount, wordRequirement } from '@/lib/assignment-policy';
-import { classTeacherNames, managesClass } from '@/lib/class-teachers';
+import { classTeacherNames, classTeacherRoster, managesClass } from '@/lib/class-teachers';
 import { useUnsavedWarning } from '@/lib/use-unsaved-warning';
 import { readSessionDraft, removeSessionDraft, writeSessionDraft } from '@/lib/session-draft';
 import type { Classroom, Lesson, Assignment, Attachment } from '@/lib/types';
@@ -387,7 +387,7 @@ export function ClassList() {
                     p.completed &&
                     lessons.some((l) => l.id === p.lessonId),
                 ).length;
-                const teachers = classTeacherNames(c, state.users);
+                const roster = classTeacherRoster(c, state.users);
                 const task = allTasks.find((a) => a.classId === c.id);
                 const pending = enrollments.find((e) => e.classId === c.id)?.status === 'PENDING';
                 return (
@@ -414,8 +414,11 @@ export function ClassList() {
                           <GraduationCap size={21} />
                         </span>
                         <div>
-                          <small>Giáo viên phụ trách</small>
-                          <strong>{teachers}</strong>
+                          <small>Giáo viên chính</small>
+                          <strong>{roster.lead || 'Chưa phân công giáo viên'}</strong>
+                          {roster.assistants.length > 0 && (
+                            <small>Giáo viên phụ: {roster.assistants.join(', ')}</small>
+                          )}
                           {c.contentAuthor && <small>Nội dung: {c.contentAuthor}</small>}
                         </div>
                       </div>
@@ -664,7 +667,7 @@ export function ClassDetail({ classId }: { classId: string }) {
   const assignments = state.assignments
     .filter((a) => a.classId === classId)
     .sort((a, b) => a.dueAt.localeCompare(b.dueAt));
-  const teachers = classTeacherNames(c, state.users);
+  const roster = classTeacherRoster(c, state.users);
   return (
     <>
       <PageHeading
@@ -738,9 +741,15 @@ export function ClassDetail({ classId }: { classId: string }) {
             <h2>Thông tin lớp học</h2>
             <p className="reading-copy">{c.description}</p>
             <div className="list-row">
-              <span>Giáo viên phụ trách</span>
-              <strong>{teachers}</strong>
+              <span>Giáo viên chính</span>
+              <strong>{roster.lead || 'Chưa phân công giáo viên'}</strong>
             </div>
+            {roster.assistants.length > 0 && (
+              <div className="list-row">
+                <span>Giáo viên phụ</span>
+                <strong>{roster.assistants.join(', ')}</strong>
+              </div>
+            )}
             <div className="list-row">
               <span>Lịch học</span>
               <strong>{c.schedule || 'Chưa có lịch học'}</strong>
@@ -840,12 +849,18 @@ export function ClassDetail({ classId }: { classId: string }) {
             <section className="panel stack">
               <h2>Giảng đường của bạn</h2>
               <div className="member-profile">
-                <span className="avatar">{initials(teachers)}</span>
+                <span className="avatar">{initials(roster.lead || '?')}</span>
                 <div>
-                  <strong>{teachers}</strong>
-                  <p>Giáo viên phụ trách</p>
+                  <strong>{roster.lead || 'Chưa phân công giáo viên'}</strong>
+                  <p>Giáo viên chính</p>
                 </div>
               </div>
+              {roster.assistants.length > 0 && (
+                <div className="list-row">
+                  <span className="small muted">Giáo viên phụ</span>
+                  <strong>{roster.assistants.join(', ')}</strong>
+                </div>
+              )}
               <div className="list-row">
                 <span className="small muted">Học viên</span>
                 <strong>
@@ -2399,7 +2414,7 @@ export function MembersPage({ classId }: { classId: string }) {
   const canOpen = (e: { userId: string; group: number }) =>
     canManage ||
     (!!myEnrollment?.leader && e.group === myEnrollment.group && e.userId !== state.user.id);
-  const teachers = classTeacherNames(c, state.users);
+  const roster = classTeacherRoster(c, state.users);
   const members = state.enrollments
     .filter((e) => e.classId === classId && e.status === 'APPROVED')
     .map((e) => ({ ...e, user: state.users.find((u) => u.id === e.userId) }))
@@ -2436,12 +2451,18 @@ export function MembersPage({ classId }: { classId: string }) {
             <Badge tone="success">Đồng hành cùng lớp</Badge>
           </div>
           <div className="member-profile">
-            <span className="avatar">{initials(teachers)}</span>
+            <span className="avatar">{initials(roster.lead || '?')}</span>
             <div>
-              <strong>{teachers}</strong>
-              <p>Hướng dẫn học tập và phản hồi bài thực hành</p>
+              <strong>{roster.lead || 'Chưa phân công giáo viên'}</strong>
+              <p>Giáo viên chính · Hướng dẫn học tập và phản hồi bài thực hành</p>
             </div>
           </div>
+          {roster.assistants.length > 0 && (
+            <div className="list-row" style={{ marginTop: 12 }}>
+              <span className="small muted">Giáo viên phụ</span>
+              <strong>{roster.assistants.join(', ')}</strong>
+            </div>
+          )}
         </section>
         <section className="panel">
           <div className="section-heading">
