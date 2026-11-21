@@ -312,6 +312,11 @@ test('student persists lesson activity, drafts and submits an assignment', async
       'Bài viết cần từ 300 đến 500 từ',
     );
     await page.getByLabel('Bài thu hoạch').fill(essay);
+    const canva = 'https://www.canva.com/design/DAFtest123/abcToken/view';
+    await page.getByLabel('Liên kết bài thuyết trình / minh chứng', { exact: true }).fill(canva);
+    await expect(page.getByText('Bất kỳ ai có liên kết', { exact: false })).toBeVisible();
+    await page.getByRole('button', { name: 'Thêm liên kết', exact: true }).click();
+    await page.getByLabel('Liên kết 2', { exact: true }).fill('https://youtu.be/aqz-KE-bpKQ');
     await page.getByRole('button', { name: 'Nộp bài', exact: true }).click();
     const confirmation = page
       .getByRole('dialog')
@@ -321,6 +326,8 @@ test('student persists lesson activity, drafts and submits an assignment', async
     await expect(page.getByRole('heading', { name: 'Bài đã nộp', exact: true })).toBeVisible();
     await page.reload({ waitUntil: 'domcontentloaded' });
     await expect(page.getByRole('heading', { name: 'Bài đã nộp', exact: true })).toBeVisible();
+    await expect(page.getByRole('link', { name: canva, exact: true })).toHaveAttribute('href', canva);
+    await expect(page.getByRole('button', { name: 'Xem trước bài Canva' })).toBeVisible();
 
     const persisted = await state(student);
     expect(persisted.notes.find((n) => n.lessonId === lesson.id)?.content).toBe(note);
@@ -332,6 +339,7 @@ test('student persists lesson activity, drafts and submits an assignment', async
       status: 'SUBMITTED',
       attempt: 1,
       content: essay,
+      link: `${canva}\nhttps://youtu.be/aqz-KE-bpKQ`,
     });
   } finally {
     if (classroom)

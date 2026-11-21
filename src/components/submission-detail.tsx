@@ -4,6 +4,7 @@ import { Eye, FileText } from 'lucide-react';
 import { submissionStatus } from '@/lib/assignment-grading';
 import type { Submission } from '@/lib/types';
 import { AttachmentViewer } from './drive';
+import { SubmissionLinkList } from './submission-links';
 import { Badge, Button, Dialog } from './ui';
 
 const date = (s?: string) =>
@@ -64,10 +65,8 @@ export function SubmissionDetail({
             </section>
             {submission.link && (
               <section className="stack">
-                <h3>Liên kết minh chứng</h3>
-                <a className="text-link" href={submission.link} target="_blank" rel="noreferrer">
-                  {submission.link}
-                </a>
+                <h3>Liên kết bài thuyết trình / minh chứng</h3>
+                <SubmissionLinkList link={submission.link} />
               </section>
             )}
             <section className="stack">

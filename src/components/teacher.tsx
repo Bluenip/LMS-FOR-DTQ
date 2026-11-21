@@ -43,6 +43,7 @@ import { uploadFile } from '@/lib/drive-upload';
 import { AttachmentViewer, CourseLessonVideo, DriveVideoPlayer, VideoUploader } from './drive';
 import { bindUploads, uploadActive, useUploads } from '@/lib/upload-manager';
 import { SubmissionDetail } from './submission-detail';
+import { SubmissionLinkList } from './submission-links';
 import { useUnsavedWarning } from '@/lib/use-unsaved-warning';
 import { readSessionDraft, removeSessionDraft, writeSessionDraft } from '@/lib/session-draft';
 import { wordRequirement } from '@/lib/assignment-policy';
@@ -2669,16 +2670,7 @@ function GradeForm({
                   ? 'Bài làm được gửi qua liên kết.'
                   : 'Bài làm không có nội dung.')}
           </p>
-          {submission.link && (
-            <a
-              className="list-row"
-              href={submission.link}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Mở liên kết minh chứng
-            </a>
-          )}
+          <SubmissionLinkList link={submission.link} />
           {submission.attachments.map((a) => (
             <div className="list-row" key={a.id}>
               <FileText size={18} />
