@@ -249,7 +249,7 @@ prisma/                Schema, 19 migration và mẫu CORS bucket
 docker/s3rver/         Kho S3 giả lập chỉ dành cho phát triển/kiểm thử
 scripts/               Seed, cấp/thu hồi giáo viên/quản trị, kiểm thử tích hợp/chịu tải, dọn Drive/kho tệp,
                        tự triển khai, sao lưu database và hỗ trợ chụp giao diện
-tests/                 30 file kiểm thử backend (*.test.ts/.mjs), 11 file Playwright (*.spec.ts)
+tests/                 32 file kiểm thử backend (*.test.ts/.mjs), 11 file Playwright (*.spec.ts)
 docs/                  Tài khoản, tích hợp, bản đồ thiết kế, rà soát và triển khai
 public/                Font cục bộ, giấy phép font và ảnh chờ video
 stitch_custom_video_learning_platform/

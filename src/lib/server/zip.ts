@@ -14,10 +14,24 @@ export interface ZipEntry {
 
 const crc = crc32 as unknown as (data: Uint8Array, value?: number) => number;
 
-function dosTime(date: Date) {
-  const time = (date.getHours() << 11) | (date.getMinutes() << 5) | (date.getSeconds() >> 1);
-  const day =
-    (Math.max(0, date.getFullYear() - 1980) << 9) | ((date.getMonth() + 1) << 5) | date.getDate();
+/** MS-DOS date and time of the entries, in Vietnam time (the server itself runs on UTC). */
+export function dosTime(date: Date, timeZone = 'Asia/Ho_Chi_Minh') {
+  const parts = Object.fromEntries(
+    new Intl.DateTimeFormat('en-GB', {
+      timeZone,
+      year: 'numeric',
+      month: 'numeric',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: 'numeric',
+      second: 'numeric',
+      hourCycle: 'h23',
+    })
+      .formatToParts(date)
+      .map((p) => [p.type, Number(p.value)]),
+  ) as Record<'year' | 'month' | 'day' | 'hour' | 'minute' | 'second', number>;
+  const time = (parts.hour << 11) | (parts.minute << 5) | (parts.second >> 1);
+  const day = (Math.max(0, parts.year - 1980) << 9) | (parts.month << 5) | parts.day;
   return { time, day };
 }
 

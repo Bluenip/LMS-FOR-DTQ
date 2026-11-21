@@ -995,68 +995,139 @@ export async function serveDocument(
 // Bulk download of submitted slides
 // ---------------------------------------------------------------------------
 const SLIDE_FILE = /\.(pptx?|pps|ppsx|odp|key|pdf)$/i;
-const safeName = (value: string) =>
-  value
-    .replace(/[\\/:*?"<>|\u0000-\u001f]/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim()
-    .slice(0, 120) || 'file';
+/** A file or folder name safe on Windows, macOS and Linux; keeps the extension when shortened. */
+export function safeName(value: string, max = 120) {
+  const clean =
+    value
+      .replace(/[\\/:*?"<>|\u0000-\u001f]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .replace(/^[.\s]+/, '')
+      .trim() || 'file';
+  if (clean.length <= max) return clean;
+  const ext = /\.[A-Za-z0-9]{1,8}$/.exec(clean)?.[0] ?? '';
+  return clean.slice(0, max - ext.length).trimEnd() + ext;
+}
+/** RFC 5987 value for filename*: encodeURIComponent leaves ' ( ) * unescaped. */
+const rfc5987 = (value: string) =>
+  encodeURIComponent(value).replace(
+    /['()*]/g,
+    (c) => `%${c.charCodeAt(0).toString(16).toUpperCase()}`,
+  );
 
 /**
- * ZIP of the slide files handed in for an assignment, one folder per student. Teachers of the class
- * and administrators get every submission (or the chosen students); a group leader only the
- * members of their own group. Files are streamed from Drive one after another.
+ * Plans the ZIP of the slide files handed in for an assignment, one folder per student. Teachers of
+ * the class and administrators get every submission (or the chosen students); a group leader only
+ * the members of their own group. Two students with the same name get separate folders.
  */
-export async function slidesArchive(userId: string, assignmentId: string, only: string[] | null) {
-  viewLimit.consume(userId);
-  const plan = await withDatabase((db) => {
-    const user = readUser(db, userId);
-    const assignment = db.assignments.find((a) => a.id === assignmentId);
-    const classroom = assignment && db.classes.find((c) => c.id === assignment.classId);
-    if (!assignment || !classroom) throw new HttpError(404, 'Không tìm thấy bài tập.');
-    const manage = user.isAdmin || managesClass(classroom, user);
-    const mates = manage ? new Set<string>() : ledGroupMembers(db, user, classroom.id);
-    if (!manage && !mates.size)
-      throw new HttpError(403, 'Chỉ giáo viên, quản trị viên hoặc trưởng nhóm được tải bài nộp.');
-    const wanted = only ? new Set(only) : null;
-    const used = new Set<string>();
-    const files: { path: string; fileId: string }[] = [];
-    for (const submission of db.submissions) {
-      if (submission.assignmentId !== assignment.id || submission.status === 'DRAFT') continue;
-      if (!manage && !mates.has(submission.studentId)) continue;
-      if (wanted && !wanted.has(submission.studentId)) continue;
-      const student = safeName(
-        db.users.find((u) => u.id === submission.studentId)?.name || 'Học viên',
-      );
-      for (const attachment of submission.attachments) {
-        const job = db.driveUploads.find((j) => j.id === attachment.id);
-        if (!job || job.status !== 'COMPLETED' || !job.driveFileId || !SLIDE_FILE.test(job.name))
-          continue;
-        try {
-          accessDriveDocument(db, user, job.id);
-        } catch {
-          continue;
-        }
-        let path = `${student}/${safeName(job.name)}`;
-        for (let n = 2; used.has(path.toLowerCase()); n++)
-          path = `${student}/${safeName(job.name).replace(/(\.[^.]*)?$/, ` (${n})$1`)}`;
-        used.add(path.toLowerCase());
-        files.push({ path, fileId: job.driveFileId });
+export function slidesPlan(
+  db: Database,
+  user: StoredUser,
+  assignmentId: string,
+  only: string[] | null,
+) {
+  const assignment = db.assignments.find((a) => a.id === assignmentId);
+  const classroom = assignment && db.classes.find((c) => c.id === assignment.classId);
+  if (!assignment || !classroom) throw new HttpError(404, 'Không tìm thấy bài tập.');
+  const manage = user.isAdmin || managesClass(classroom, user);
+  const mates = manage ? new Set<string>() : ledGroupMembers(db, user, classroom.id);
+  if (!manage && !mates.size)
+    throw new HttpError(403, 'Chỉ giáo viên, quản trị viên hoặc trưởng nhóm được tải bài nộp.');
+  const wanted = only ? new Set(only) : null;
+  const folders = new Map<string, string>(); // studentId -> folder
+  const takenFolders = new Set<string>();
+  const used = new Set<string>();
+  const files: { path: string; fileId: string }[] = [];
+  for (const submission of db.submissions) {
+    if (submission.assignmentId !== assignment.id || submission.status === 'DRAFT') continue;
+    if (!manage && !mates.has(submission.studentId)) continue;
+    if (wanted && !wanted.has(submission.studentId)) continue;
+    for (const attachment of submission.attachments) {
+      const job = db.driveUploads.find((j) => j.id === attachment.id);
+      if (!job || job.status !== 'COMPLETED' || !job.driveFileId || !SLIDE_FILE.test(job.name))
+        continue;
+      try {
+        accessDriveDocument(db, user, job.id);
+      } catch {
+        continue;
       }
+      let folder = folders.get(submission.studentId);
+      if (!folder) {
+        const student = db.users.find((u) => u.id === submission.studentId);
+        const base = safeName(student?.name || 'Học viên', 80);
+        folder = base;
+        if (takenFolders.has(folder.toLowerCase())) {
+          const email = student?.email?.split('@')[0];
+          folder = safeName(email ? `${base} (${email})` : `${base} (2)`, 110);
+          for (let n = 2; takenFolders.has(folder.toLowerCase()); n++) folder = `${base} (${n})`;
+        }
+        takenFolders.add(folder.toLowerCase());
+        folders.set(submission.studentId, folder);
+      }
+      const name = safeName(job.name);
+      let path = `${folder}/${name}`;
+      for (let n = 2; used.has(path.toLowerCase()); n++)
+        path = `${folder}/${name.replace(/(\.[^.]*)?$/, ` (${n})$1`)}`;
+      used.add(path.toLowerCase());
+      files.push({ path, fileId: job.driveFileId });
     }
-    if (!files.length) throw new HttpError(404, 'Chưa có tệp slide nào để tải.');
-    return { title: safeName(assignment.title), files };
-  }, false);
-  const body = zipStream(
-    plan.files.map((f) => ({
-      name: f.path,
-      open: async () => (await driveDownload(f.fileId).catch(() => null))?.body ?? null,
-    })),
+  }
+  if (!files.length) throw new HttpError(404, 'Chưa có tệp slide nào để tải.');
+  return { title: safeName(assignment.title), files, students: folders.size };
+}
+
+const textStream = (text: string) =>
+  new ReadableStream<Uint8Array>({
+    start(controller) {
+      controller.enqueue(new TextEncoder().encode(text));
+      controller.close();
+    },
+  });
+
+/**
+ * ZIP of the submitted slides, streamed from Drive one file after another. With `check` it only
+ * says how many files there are, so the page can show a message instead of a failed download.
+ * A file Drive cannot serve is listed in "LỖI - tệp không tải được.txt" at the end of the ZIP.
+ */
+export async function slidesArchive(
+  userId: string,
+  assignmentId: string,
+  only: string[] | null,
+  check = false,
+) {
+  viewLimit.consume(userId);
+  const plan = await withDatabase(
+    (db) => slidesPlan(db, readUser(db, userId), assignmentId, only),
+    false,
   );
+  if (check)
+    return Response.json(
+      { files: plan.files.length, students: plan.students },
+      { headers: { 'Cache-Control': 'private, no-store' } },
+    );
+  const failed: string[] = [];
+  const body = zipStream([
+    ...plan.files.map((f) => ({
+      name: f.path,
+      open: async () => {
+        const res = await driveDownload(f.fileId).catch(() => null);
+        if (!res?.body) failed.push(f.path);
+        return res?.body ?? null;
+      },
+    })),
+    {
+      name: 'LỖI - tệp không tải được.txt',
+      open: async () =>
+        failed.length
+          ? textStream(
+              `Không tải được ${failed.length} tệp từ Google Drive. Hãy thử tải lại sau:\r\n\r\n${failed.join('\r\n')}\r\n`,
+            )
+          : null,
+    },
+  ]);
   return new Response(body, {
     headers: {
       'Content-Type': 'application/zip',
-      'Content-Disposition': `attachment; filename="slides.zip"; filename*=UTF-8''${encodeURIComponent(`${plan.title} - slide.zip`)}`,
+      'Content-Disposition': `attachment; filename="slides.zip"; filename*=UTF-8''${rfc5987(`${plan.title} - slide.zip`)}`,
       'Cache-Control': 'private, no-store',
       'X-Content-Type-Options': 'nosniff',
     },

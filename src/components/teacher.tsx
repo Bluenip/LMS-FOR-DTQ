@@ -1871,7 +1871,33 @@ export function TeacherAssignments() {
       ? { ...openedSubmission, status: 'DRAFT' as const }
       : undefined);
   const [gradingDirty, setGradingDirty] = useState(false);
+  // Students picked for the slide ZIP; cleared when another assignment is opened.
   const [slidePick, setSlidePick] = useState<string[]>([]);
+  const [slideState, setSlideState] = useState<{ busy?: boolean; error?: string }>({});
+  useEffect(() => {
+    setSlidePick([]);
+    setSlideState({});
+  }, [requestedAssignment]);
+  // A message about the previous choice of students no longer applies.
+  useEffect(() => setSlideState({}), [slidePick]);
+  async function downloadSlides(assignmentId: string) {
+    const query = slidePick.length ? `students=${slidePick.map(encodeURIComponent).join(',')}` : '';
+    const url = `/api/assignments/${encodeURIComponent(assignmentId)}/slides`;
+    setSlideState({ busy: true });
+    try {
+      // Ask first, so "nothing to download" or an error shows here instead of an error page.
+      await api(`${url}?${query ? `${query}&` : ''}check=1`, { cache: 'no-store' });
+      const link = document.createElement('a');
+      link.href = query ? `${url}?${query}` : url;
+      link.download = '';
+      document.body.append(link);
+      link.click();
+      link.remove();
+      setSlideState({});
+    } catch (e) {
+      setSlideState({ error: (e as Error).message });
+    }
+  }
   const [editor, setEditor] = useState<{
     classId: string;
     assignment?: Assignment;
@@ -2249,17 +2275,16 @@ export function TeacherAssignments() {
                 </div>
                 {stats.submitted > 0 && assignment && (
                   <div className="inline-actions">
-                    <a
-                      className="button secondary"
-                      href={`/api/assignments/${assignment.id}/slides${
-                        slidePick.length ? `?students=${slidePick.join(',')}` : ''
-                      }`}
+                    <Button
+                      variant="secondary"
+                      disabled={slideState.busy}
+                      onClick={() => void downloadSlides(assignment.id)}
                     >
                       <Download size={16} />{' '}
                       {slidePick.length
                         ? `Tải slide của ${slidePick.length} học viên đã chọn`
                         : 'Tải toàn bộ slide đã nộp'}
-                    </a>
+                    </Button>
                     {slidePick.length > 0 && (
                       <Button variant="ghost" onClick={() => setSlidePick([])}>
                         Bỏ chọn
@@ -2268,6 +2293,11 @@ export function TeacherAssignments() {
                     <small className="muted">
                       Tệp PPT, PPTX, PDF… gom thành 1 file ZIP, mỗi học viên một thư mục.
                     </small>
+                    {slideState.error && (
+                      <p className="error" role="alert">
+                        {slideState.error}
+                      </p>
+                    )}
                   </div>
                 )}
                 {stats.total === 0 ? (
@@ -2290,7 +2320,7 @@ export function TeacherAssignments() {
                         >
                           <thead>
                             <tr>
-                              <th scope="col">
+                              <th scope="col" className="pick">
                                 <input
                                   type="checkbox"
                                   aria-label="Chọn tất cả học viên đã nộp trong trang"
@@ -2327,7 +2357,7 @@ export function TeacherAssignments() {
                               .slice((page - 1) * 8, page * 8)
                               .map(({ studentId, user, submission }) => (
                                 <tr key={studentId}>
-                                  <td data-label="Chọn tải">
+                                  <td className="pick">
                                     {submission && (
                                       <input
                                         type="checkbox"
