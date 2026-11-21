@@ -189,3 +189,44 @@
 .admin-row-actions .button.admin-delete:hover {
   background: var(--color-error-soft);
 }
+
+/* Account actions: one quiet style for all, laid out as an even grid; deleting stands out in red. */
+.admin-row-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+  min-width: 260px;
+  max-width: 320px;
+}
+.admin-row-actions .button,
+.admin-row-actions .button.secondary,
+.admin-row-actions .button.ghost {
+  justify-content: flex-start;
+  gap: 6px;
+  min-height: 34px;
+  padding: 6px 10px;
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+  background: var(--color-white);
+  color: var(--color-ink);
+  border: 1px solid var(--color-line);
+  box-shadow: none;
+}
+.admin-row-actions .button:hover {
+  background: var(--color-paper);
+  border-color: rgb(142 46 16 / 30%);
+}
+.admin-row-actions .button.admin-delete {
+  color: var(--color-error);
+  border-color: rgb(179 38 30 / 25%);
+}
+.admin-row-actions .button.admin-delete:hover {
+  background: var(--color-error-soft);
+}
+@media (max-width: 1100px) {
+  .admin-row-actions {
+    min-width: 0;
+    max-width: none;
+  }
+}

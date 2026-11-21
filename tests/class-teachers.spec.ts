@@ -73,11 +73,14 @@ test('the creator assigns two teachers, who can teach and grade until removed', 
     const manager = ownerPage
       .getByRole('dialog')
       .filter({ has: ownerPage.getByRole('heading', { name: 'Phân công giáo viên phụ trách' }) });
-    await manager.getByLabel(/Giáo viên Kiểm thử A/).check();
-    await manager.getByLabel(/Giáo viên Kiểm thử B/).check();
+    await manager.getByRole('checkbox', { name: /Giáo viên Kiểm thử A/ }).check();
+    await manager.getByRole('checkbox', { name: /Giáo viên Kiểm thử B/ }).check();
     await manager.getByRole('button', { name: 'Lưu phân công' }).click();
     await expect(manager).not.toBeVisible();
-    await expect(card).toContainText('Giáo viên Kiểm thử A, Giáo viên Kiểm thử B');
+    // The card names the lead teacher and the assistants separately.
+    await expect(card).toContainText(
+      'Giáo viên chính: Giáo viên Kiểm thử A · Giáo viên phụ: Giáo viên Kiểm thử B',
+    );
     expect((await first.request.get(`/api/classes/${classroom.id}/teachers`)).status()).toBe(403);
     expect((await student.request.get(`/api/classes/${classroom.id}/teachers`)).status()).toBe(403);
     const studentPage = await student.newPage();
@@ -85,14 +88,15 @@ test('the creator assigns two teachers, who can teach and grade until removed', 
     const studentCard = studentPage
       .locator('article.class-card')
       .filter({ has: studentPage.getByRole('heading', { name: classroom.title, exact: true }) });
-    await expect(studentCard).toContainText('Giáo viên Kiểm thử A, Giáo viên Kiểm thử B');
+    await expect(studentCard).toContainText('Giáo viên Kiểm thử A');
+    await expect(studentCard).toContainText('Giáo viên phụ: Giáo viên Kiểm thử B');
     const firstPage = await first.newPage();
     await firstPage.goto(`/teacher/assignments?class=${classroom.id}&assignment=${assignment.id}`);
     await expect(firstPage.getByRole('heading', { name: assignment.title })).toBeVisible();
     await firstPage.getByRole('button', { name: 'Chấm bài' }).click();
     const grade = firstPage
       .getByRole('dialog')
-      .filter({ has: firstPage.getByRole('heading', { name: /Bài làm của/ }) });
+      .filter({ has: firstPage.getByRole('heading', { name: /Chấm bài · / }) });
     await grade.getByLabel('Hiểu nội dung (40 điểm)').fill('30');
     await grade.getByLabel('Ví dụ & liên hệ thực tế (40 điểm)').fill('30');
     await grade.getByLabel('Trình bày (20 điểm)').fill('20');
@@ -109,8 +113,11 @@ test('the creator assigns two teachers, who can teach and grade until removed', 
     ).toBe(80);
     expect((await state(second.request)).classes.some((c) => c.id === classroom!.id)).toBe(true);
     await card.getByRole('button', { name: 'Giáo viên phụ trách', exact: true }).click();
-    await manager.getByLabel(/Giáo viên Kiểm thử A/).uncheck();
+    await manager.getByRole('checkbox', { name: /Giáo viên Kiểm thử A/ }).uncheck();
     await manager.getByRole('button', { name: 'Lưu phân công' }).click();
+    // Wait for the save itself: B's name was already on the card before it.
+    await expect(manager).not.toBeVisible();
+    await expect(card).not.toContainText('Giáo viên Kiểm thử A');
     await expect(card).toContainText('Giáo viên Kiểm thử B');
     expect((await state(first.request)).classes.some((c) => c.id === classroom!.id)).toBe(false);
     await expect(firstPage.getByRole('heading', { name: /Không tìm thấy lớp/ })).toBeVisible({

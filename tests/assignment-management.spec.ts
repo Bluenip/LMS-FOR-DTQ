@@ -152,8 +152,10 @@ test('teachers manage word requirements, a student submits over 500 words, and a
     await create.getByLabel('Số từ tối đa', { exact: true }).fill('200');
     await create.getByRole('button', { name: 'Giao bài tập', exact: true }).click();
     await expect(create).not.toBeVisible();
-    await expect(page.getByRole('status')).toContainText(title);
-    await expect(page.getByRole('status').getByRole('link', { name: 'Xem bài nộp' })).toBeVisible();
+    // The page may also show the unread-notifications banner, another status region.
+    const notice = page.locator('.assignment-notice');
+    await expect(notice).toContainText(title);
+    await expect(notice.getByRole('link', { name: 'Xem bài nộp' })).toBeVisible();
     await expect(page.getByRole('table', { name: 'Quản lý bài tập đã giao' })).toBeVisible();
     const a = (await state(teacher.request)).assignments.find((a) => a.title === title)!;
     expect(a).toMatchObject({ minWords: 150, maxWords: 200 });
@@ -417,7 +419,7 @@ test('gradebook and CSV cover the entire approved class and protect a zero draft
     expect(lines.slice(1).every((line) => line.includes(first.title))).toBeTruthy();
 
     await zeroRow.getByRole('button', { name: 'Chấm bài' }).click();
-    const grade = dialog(page, `Bài làm của ${users[1].name}`);
+    const grade = dialog(page, `Chấm bài · ${users[1].name}`);
     await grade.getByRole('button', { name: 'Trả bài học viên' }).click();
     await dialog(page, 'Công bố điểm cho học viên?')
       .getByRole('button', { name: 'Xác nhận trả bài' })
@@ -516,6 +518,9 @@ test('assignment navigation preserves context, handles stale links and warns bef
     await expect(page.getByRole('heading', { name: a.title })).toBeVisible();
     await page.getByRole('tab', { name: /Cần chấm/ }).click();
     await page.getByLabel('Tìm tên học viên…').fill('Nguyễn');
+    // An assignment belongs to one class: switching class happens from the list.
+    await expect(page.getByLabel('Lớp học')).toHaveCount(0);
+    await page.getByRole('link', { name: /Danh sách bài tập/ }).click();
     await page.getByLabel('Lớp học').selectOption(empty.id);
     await expect(page).toHaveURL(new RegExp(`class=${empty.id}$`));
     await expect(page.getByRole('table', { name: 'Quản lý bài tập đã giao' })).toBeVisible();
@@ -538,7 +543,7 @@ test('assignment navigation preserves context, handles stale links and warns bef
     await page.goto(`/teacher/assignments?class=${c.id}`);
     await page.getByRole('link', { name: a.title }).click();
     await page.getByRole('button', { name: 'Chấm bài' }).click();
-    const grading = dialog(page, 'Bài làm của Nguyễn Văn An');
+    const grading = dialog(page, 'Chấm bài · Nguyễn Văn An');
     await grading.getByLabel('Lời khuyên & nhận xét').fill('Nhận xét chưa lưu');
     const cancelClose = page.waitForEvent('dialog').then((prompt) => prompt.dismiss());
     await Promise.all([cancelClose, page.keyboard.press('Escape')]);
@@ -605,7 +610,7 @@ test('an open grading draft survives withdrawal and blocks grading a later attem
     const page = await teacher.newPage();
     await page.goto(`/teacher/assignments?class=${classroom.id}&assignment=${assignment.id}`);
     await page.getByRole('button', { name: 'Chấm bài' }).click();
-    const grading = dialog(page, 'Bài làm của Nguyễn Văn An');
+    const grading = dialog(page, 'Chấm bài · Nguyễn Văn An');
     await grading.getByLabel('Lời khuyên & nhận xét').fill('Nhận xét chưa lưu');
     await action(student.request, 'withdrawSubmission', { assignmentId: assignment.id });
     await expect(grading.getByRole('alert')).toContainText('Học viên đã thu hồi bài', {
@@ -671,7 +676,9 @@ test('detail editing and deletion return to the correct class and failed writes 
     await remove.getByLabel('Nhập tên bài tập để xác nhận').fill(assignment.title);
     await remove.getByRole('button', { name: 'Xác nhận xóa bài tập' }).click();
     await expect(page).toHaveURL(new RegExp(`class=${classroom.id}$`));
-    await expect(page.getByRole('status')).toContainText(`Đã xóa bài tập “${assignment.title}”`);
+    await expect(page.locator('.assignment-notice')).toContainText(
+      `Đã xóa bài tập “${assignment.title}”`,
+    );
     await expect(page.getByRole('heading', { name: 'Lớp này chưa có bài tập' })).toBeVisible();
 
     await page.route('**/api/actions', async (route) => {

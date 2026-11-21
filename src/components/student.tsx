@@ -230,9 +230,14 @@ function ClassNavigation({ classId, active }: { classId: string; active: string 
   );
 }
 function ClassBreadcrumb({ classroom, tail }: { classroom: Classroom; tail?: string }) {
+  const { state } = useLms();
+  // Teachers and administrators reach a class from "Lớp giảng dạy", not the learner's list.
+  const staff = managesClass(classroom, state.user) || state.user.isAdmin === true;
   return (
     <>
-      <Link href="/classes">Lớp của tôi</Link>
+      <Link href={staff ? '/teacher/classes' : '/classes'}>
+        {staff ? 'Lớp giảng dạy' : 'Lớp của tôi'}
+      </Link>
       <ChevronRight size={13} />
       <Link href={`/classes/${classroom.id}`}>{classroom.title}</Link>
       {tail && (
@@ -260,10 +265,13 @@ function ProgressBar({
   done,
   total,
   label = 'Tiến độ bài học',
+  unit = 'bài',
 }: {
   done: number;
   total: number;
   label?: string;
+  /** What is being counted, e.g. "bài" or "học viên". */
+  unit?: string;
 }) {
   const percent = total ? Math.round((done / total) * 100) : 0;
   return (
@@ -271,7 +279,7 @@ function ProgressBar({
       <div className="progress-caption">
         <span>{label}</span>
         <strong>
-          {done}/{total} bài ({percent}%)
+          {done}/{total} {unit} ({percent}%)
         </strong>
       </div>
       <div
@@ -681,37 +689,78 @@ export function ClassDetail({ classId }: { classId: string }) {
     .filter((a) => a.classId === classId)
     .sort((a, b) => a.dueAt.localeCompare(b.dueAt));
   const roster = classTeacherRoster(c, state.users);
+  const staff = managesClass(c, state.user) || state.user.isAdmin === true;
+  const learners = state.enrollments.filter(
+    (e) => e.classId === classId && e.status === 'APPROVED',
+  ).length;
   return (
     <>
-      <PageHeading
-        title={c.title}
-        description={c.description}
-        breadcrumb={
-          <>
-            <Link href="/classes">
-              <ArrowLeft size={14} /> Lớp của tôi
-            </Link>
-            <span>/</span>
-            <span>{c.code}</span>
-          </>
-        }
-        actions={
-          <>
-            {next && (
-              <Link className="button primary" href={`/classes/${classId}/lessons/${next.id}`}>
-                <Play size={16} />
-                {completedAll ? 'Học lại' : 'Học tiếp'}
+      <nav className="breadcrumb class-breadcrumb" aria-label="Vị trí">
+        <Link href={staff ? '/teacher/classes' : '/classes'}>
+          <ArrowLeft size={14} /> {staff ? 'Lớp giảng dạy' : 'Lớp của tôi'}
+        </Link>
+        <span>/</span>
+        <span>{c.code}</span>
+      </nav>
+      <header className="class-hero">
+        <div className="class-hero-main">
+          <div className="class-hero-tags">
+            <span className="class-hero-code">{c.code}</span>
+            <span className={`class-hero-status ${c.status === 'ACTIVE' ? 'live' : ''}`}>
+              {c.status === 'ACTIVE' ? 'Đang diễn ra' : 'Đã lưu trữ'}
+            </span>
+            {staff && <span className="class-hero-status">Bạn quản lý lớp này</span>}
+          </div>
+          <h1>{c.title}</h1>
+          {c.description && <p className="class-hero-description">{c.description}</p>}
+          <ul className="class-hero-meta">
+            <li>
+              <GraduationCap size={16} />
+              {roster.lead || 'Chưa phân công giáo viên'}
+              {roster.assistants.length > 0 && ` · ${roster.assistants.length} giáo viên phụ`}
+            </li>
+            <li>
+              <Users size={16} />
+              {learners} học viên
+            </li>
+            <li>
+              <BookOpen size={16} />
+              {lessons.length} bài giảng
+            </li>
+            <li>
+              <Calendar size={16} />
+              {c.schedule || 'Chưa có lịch học'}
+            </li>
+          </ul>
+        </div>
+        <div className="class-hero-actions">
+          {staff ? (
+            <>
+              <Link
+                className="button class-hero-primary"
+                href={`/teacher/assignments?class=${classId}`}
+              >
+                <ClipboardCheck size={16} />
+                Bài cần chấm
               </Link>
-            )}
-            {managesClass(c, state.user) && (
-              <Link href="/teacher/classes" className="button secondary">
+              <Link className="button class-hero-secondary" href="/teacher/classes">
                 <Settings size={16} />
                 Quản lý lớp
               </Link>
-            )}
-          </>
-        }
-      />
+            </>
+          ) : (
+            next && (
+              <Link
+                className="button class-hero-primary"
+                href={`/classes/${classId}/lessons/${next.id}`}
+              >
+                <Play size={16} />
+                {completedAll ? 'Học lại' : 'Học tiếp'}
+              </Link>
+            )
+          )}
+        </div>
+      </header>
       <ClassNavigation classId={classId} active={tab} />
       {tab === 'lessons' ? (
         <div className="panel">
@@ -783,6 +832,8 @@ export function ClassDetail({ classId }: { classId: string }) {
             </ul>
           </section>
         </div>
+      ) : staff ? (
+        <ClassDashboard classId={classId} />
       ) : (
         <div className="split">
           <div className="stack">
@@ -859,39 +910,7 @@ export function ClassDetail({ classId }: { classId: string }) {
             )}
           </div>
           <aside className="stack">
-            <section className="panel stack">
-              <h2>Giảng đường của bạn</h2>
-              <div className="member-profile">
-                <span className="avatar">{initials(roster.lead || '?')}</span>
-                <div>
-                  <strong>{roster.lead || 'Chưa phân công giáo viên'}</strong>
-                  <p>Giáo viên chính</p>
-                </div>
-              </div>
-              {roster.assistants.length > 0 && (
-                <div className="list-row">
-                  <span className="small muted">Giáo viên phụ</span>
-                  <strong>{roster.assistants.join(', ')}</strong>
-                </div>
-              )}
-              <div className="list-row">
-                <span className="small muted">Học viên</span>
-                <strong>
-                  {
-                    state.enrollments.filter(
-                      (e) => e.classId === classId && e.status === 'APPROVED',
-                    ).length
-                  }
-                </strong>
-              </div>
-              <div>
-                <span className="small muted">Lịch học</span>
-                <p className="small">{c.schedule || 'Chưa có lịch học'}</p>
-              </div>
-              <Link className="text-link small" href={`/classes/${classId}/members`}>
-                Gặp gỡ thành viên
-              </Link>
-            </section>
+            <ClassTeamCard classId={classId} />
             <section className="panel stack">
               <h2>Quy định nộp bài</h2>
               <ul className="help-list">
@@ -909,6 +928,204 @@ export function ClassDetail({ classId }: { classId: string }) {
     </>
   );
 }
+/** Teaching team and class facts, shown beside the overview. */
+function ClassTeamCard({ classId }: { classId: string }) {
+  const { state } = useLms();
+  const c = state.classes.find((x) => x.id === classId);
+  if (!c) return null;
+  const roster = classTeacherRoster(c, state.users);
+  const learners = state.enrollments.filter(
+    (e) => e.classId === classId && e.status === 'APPROVED',
+  ).length;
+  return (
+    <section className="panel stack class-team">
+      <h2>Đội ngũ giảng dạy</h2>
+      <ul className="class-team-list">
+        <li>
+          <span className="avatar">{initials(roster.lead || '?')}</span>
+          <div>
+            <strong>{roster.lead || 'Chưa phân công giáo viên'}</strong>
+            <small>Giáo viên chính</small>
+          </div>
+        </li>
+        {roster.assistants.map((name) => (
+          <li key={name}>
+            <span className="avatar">{initials(name)}</span>
+            <div>
+              <strong>{name}</strong>
+              <small>Giáo viên phụ</small>
+            </div>
+          </li>
+        ))}
+      </ul>
+      <dl className="class-facts">
+        <div>
+          <dt>Học viên</dt>
+          <dd>{learners}</dd>
+        </div>
+        <div>
+          <dt>Lịch học</dt>
+          <dd>{c.schedule || 'Chưa có lịch học'}</dd>
+        </div>
+      </dl>
+      <Link className="text-link small" href={`/classes/${classId}/members`}>
+        Gặp gỡ thành viên
+      </Link>
+    </section>
+  );
+}
+
+/**
+ * Overview for the teachers of a class and administrators: how the class is doing and what needs
+ * attention, instead of the learner's "continue learning" cards.
+ */
+function ClassDashboard({ classId }: { classId: string }) {
+  const { state } = useLms();
+  const now = Date.now();
+  const approved = state.enrollments.filter(
+    (e) => e.classId === classId && e.status === 'APPROVED',
+  );
+  const pending = state.enrollments.filter(
+    (e) => e.classId === classId && e.status === 'PENDING',
+  ).length;
+  const allLessons = state.lessons.filter((l) => l.classId === classId);
+  const published = allLessons.filter((l) => l.published).length;
+  const assignments = state.assignments
+    .filter((a) => a.classId === classId)
+    .sort((a, b) => a.dueAt.localeCompare(b.dueAt));
+  const learnerIds = new Set(approved.map((e) => e.userId));
+  const handedIn = (a: Assignment) =>
+    state.submissions.filter(
+      (s) => s.assignmentId === a.id && s.status !== 'DRAFT' && learnerIds.has(s.studentId),
+    );
+  const toGrade = assignments.reduce(
+    (n, a) => n + handedIn(a).filter((s) => s.status === 'SUBMITTED').length,
+    0,
+  );
+  const upcoming = assignments.filter((a) => Date.parse(a.dueAt) >= now).slice(0, 3);
+  const recent = assignments
+    .filter((a) => Date.parse(a.dueAt) < now)
+    .slice(-3)
+    .reverse();
+  const shown = upcoming.length ? upcoming : recent;
+  const stats = [
+    {
+      label: 'Học viên chính thức',
+      value: approved.length,
+      note: pending ? `${pending} yêu cầu chờ duyệt` : 'Không có yêu cầu chờ duyệt',
+      href: `/classes/${classId}/members`,
+      icon: Users,
+      alert: pending > 0,
+    },
+    {
+      label: 'Bài giảng đã xuất bản',
+      value: `${published}/${allLessons.length}`,
+      note:
+        allLessons.length - published
+          ? `${allLessons.length - published} bản nháp`
+          : 'Không có bản nháp',
+      href: `/teacher/lessons?class=${classId}`,
+      icon: BookOpen,
+    },
+    {
+      label: 'Bài cần chấm',
+      value: toGrade,
+      note: toGrade ? 'Đang chờ giáo viên chấm' : 'Đã chấm hết',
+      href: `/teacher/assignments?class=${classId}`,
+      icon: ClipboardCheck,
+      alert: toGrade > 0,
+    },
+    {
+      label: 'Bài tập đã giao',
+      value: assignments.length,
+      note: upcoming.length ? `${upcoming.length} bài còn hạn` : 'Không còn bài đang mở',
+      href: `/teacher/assignments?class=${classId}`,
+      icon: ClipboardList,
+    },
+  ];
+  return (
+    <div className="split">
+      <div className="stack">
+        <section className="class-stats" aria-label="Tình hình lớp">
+          {stats.map(({ label, value, note, href, icon: Icon, alert }) => (
+            <Link key={label} href={href} className={`class-stat${alert ? ' alert' : ''}`}>
+              <span className="class-stat-icon">
+                <Icon size={18} />
+              </span>
+              <strong>{value}</strong>
+              <span className="class-stat-label">{label}</span>
+              <small>{note}</small>
+            </Link>
+          ))}
+        </section>
+        <section className="panel stack">
+          <div className="section-heading">
+            <h2>{upcoming.length ? 'Hạn nộp sắp tới' : 'Bài tập gần đây'}</h2>
+            <Link className="text-link small" href={`/teacher/assignments?class=${classId}`}>
+              Tất cả bài tập
+            </Link>
+          </div>
+          {shown.length ? (
+            <ul className="class-deadlines">
+              {shown.map((a) => {
+                const subs = handedIn(a);
+                const waiting = subs.filter((s) => s.status === 'SUBMITTED').length;
+                return (
+                  <li key={a.id}>
+                    <div className="class-deadline-head">
+                      <Link
+                        href={`/teacher/assignments?class=${classId}&assignment=${a.id}`}
+                        className="class-deadline-title"
+                      >
+                        {a.title}
+                      </Link>
+                      <Badge tone={Date.parse(a.dueAt) < now ? 'neutral' : 'warning'}>
+                        {Date.parse(a.dueAt) < now ? 'Đã hết hạn' : 'Đang mở'}
+                      </Badge>
+                    </div>
+                    <small className="muted">Hạn: {dateTime(a.dueAt)}</small>
+                    <ProgressBar
+                      done={subs.length}
+                      total={approved.length}
+                      label="Học viên đã nộp"
+                      unit="học viên"
+                    />
+                    {waiting > 0 && (
+                      <small className="class-deadline-note">{waiting} bài chờ chấm</small>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+          ) : (
+            <p className="muted small">Lớp chưa có bài tập nào.</p>
+          )}
+        </section>
+      </div>
+      <aside className="stack">
+        <ClassTeamCard classId={classId} />
+        <section className="panel stack">
+          <h2>Lối tắt</h2>
+          <div className="class-shortcuts">
+            <Link href={`/teacher/lessons?class=${classId}`}>
+              <BookOpen size={17} /> Kho bài giảng
+            </Link>
+            <Link href={`/teacher/assignments?class=${classId}&new=1`}>
+              <Plus size={17} /> Giao bài tập mới
+            </Link>
+            <Link href={`/classes/${classId}/members`}>
+              <Users size={17} /> Thành viên & nhóm
+            </Link>
+            <Link href={`/classes/${classId}?tab=ranking`}>
+              <Trophy size={17} /> Bảng xếp hạng
+            </Link>
+          </div>
+        </section>
+      </aside>
+    </div>
+  );
+}
+
 function LessonList({ classId, lessons }: { classId: string; lessons: Lesson[] }) {
   const { state } = useLms();
   if (!lessons.length)
@@ -1161,7 +1378,6 @@ export function LessonPage({ classId, lessonId }: { classId: string; lessonId: s
                   src={`https://www.youtube-nocookie.com/embed/${yid}`}
                   title={lesson.title}
                   allow="accelerometer; encrypted-media; gyroscope; picture-in-picture; fullscreen"
-                  allowFullScreen
                 />
               ) : lesson.videoType === 'DRIVE' && lesson.driveFileId ? (
                 <DriveVideoPlayer fileId={lesson.driveFileId} title={lesson.title} />

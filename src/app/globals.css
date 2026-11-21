@@ -2575,3 +2575,334 @@ h3 {
     flex-wrap: wrap;
   }
 }
+/* A link in the grading list: its kind as the text, and "Trình chiếu" for Canva designs. */
+.submission-link-summary .text-link {
+  font-weight: 500;
+}
+
+/* ---------------------------------------------------------------------------
+   Class page: hero shared by every tab, staff dashboard, teaching team card.
+   --------------------------------------------------------------------------- */
+.class-breadcrumb {
+  margin-bottom: 14px;
+}
+.class-hero {
+  position: relative;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: var(--space-lg);
+  padding: 32px 36px;
+  margin-bottom: 24px;
+  border-radius: 20px;
+  color: var(--color-accent-ink);
+  background:
+    radial-gradient(120% 140% at 100% 0%, rgb(255 255 255 / 12%), transparent 55%),
+    linear-gradient(135deg, #a9391a, var(--color-accent) 55%, #6b2009);
+  box-shadow: 0 18px 40px -28px rgb(107 32 9 / 70%);
+  overflow: hidden;
+}
+.class-hero-main {
+  min-width: 0;
+  display: grid;
+  gap: 12px;
+}
+.class-hero-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.class-hero-code,
+.class-hero-status {
+  display: inline-flex;
+  align-items: center;
+  min-height: 26px;
+  padding: 0 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+.class-hero-code {
+  background: var(--color-accent-ink);
+  color: var(--color-accent);
+}
+.class-hero-status {
+  background: rgb(255 255 255 / 14%);
+  color: var(--color-accent-ink);
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 22%);
+}
+.class-hero-status.live::before {
+  content: '';
+  width: 7px;
+  height: 7px;
+  margin-right: 7px;
+  border-radius: 50%;
+  background: #9be3a8;
+  box-shadow: 0 0 0 3px rgb(155 227 168 / 25%);
+}
+.class-hero h1 {
+  margin: 0;
+  font-size: clamp(28px, 3.4vw, 40px);
+  line-height: 1.15;
+  color: inherit;
+  overflow-wrap: anywhere;
+}
+.class-hero-description {
+  margin: 0;
+  max-width: 68ch;
+  font-size: 14px;
+  line-height: 1.7;
+  opacity: 0.9;
+}
+.class-hero-meta {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 20px;
+  font-size: 13px;
+  opacity: 0.95;
+}
+.class-hero-meta li {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+.class-hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  flex: none;
+}
+.button.class-hero-primary {
+  background: var(--color-accent-ink);
+  color: var(--color-accent);
+  font-weight: 600;
+  box-shadow: 0 6px 16px -8px rgb(0 0 0 / 45%);
+}
+.button.class-hero-primary:hover {
+  background: #fff;
+}
+.button.class-hero-secondary {
+  background: rgb(255 255 255 / 12%);
+  color: var(--color-accent-ink);
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 35%);
+}
+.button.class-hero-secondary:hover {
+  background: rgb(255 255 255 / 20%);
+}
+.class-hero .button:focus-visible {
+  outline: 2px solid var(--color-accent-ink);
+  outline-offset: 2px;
+}
+/* Staff dashboard */
+.class-stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+.class-stat {
+  display: grid;
+  gap: 4px;
+  padding: 18px 20px;
+  border-radius: 16px;
+  border: 1px solid var(--color-line);
+  background: var(--color-white);
+  color: var(--color-ink);
+  transition:
+    border-color var(--dur-short),
+    transform var(--dur-short),
+    box-shadow var(--dur-short);
+}
+.class-stat:hover {
+  border-color: rgb(142 46 16 / 35%);
+  transform: translateY(-1px);
+  box-shadow: 0 10px 24px -18px rgb(48 40 33 / 45%);
+}
+.class-stat-icon {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  margin-bottom: 6px;
+  border-radius: 10px;
+  background: var(--color-paper-2);
+  color: var(--color-ink-2);
+}
+.class-stat.alert .class-stat-icon {
+  background: var(--color-accent-soft);
+  color: var(--color-accent);
+}
+.class-stat strong {
+  font-family: var(--font-heading);
+  font-size: 32px;
+  line-height: 1.1;
+  color: var(--color-accent);
+  font-variant-numeric: tabular-nums;
+}
+.class-stat-label {
+  font-size: 13px;
+  font-weight: 600;
+}
+.class-stat small {
+  font-size: 12px;
+  color: var(--color-ink-2);
+}
+.class-stat.alert small {
+  color: var(--color-accent);
+  font-weight: 500;
+}
+.class-deadlines {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+}
+.class-deadlines li {
+  display: grid;
+  gap: 6px;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--color-line);
+}
+.class-deadlines li:first-child {
+  padding-top: 0;
+}
+.class-deadlines li:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+.class-deadline-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+.class-deadline-title {
+  font-weight: 600;
+  color: var(--color-ink);
+}
+.class-deadline-title:hover {
+  color: var(--color-accent);
+}
+.class-deadline-note {
+  color: var(--color-accent);
+  font-weight: 500;
+}
+.class-shortcuts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+.class-shortcuts a {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--color-paper);
+  border: 1px solid var(--color-line);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-ink);
+}
+.class-shortcuts a:hover {
+  border-color: rgb(142 46 16 / 35%);
+  color: var(--color-accent);
+}
+/* Teaching team card */
+.class-team-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 12px;
+}
+.class-team-list li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.class-team-list div {
+  display: grid;
+}
+.class-team-list small {
+  font-size: 12px;
+  color: var(--color-ink-2);
+}
+.class-facts {
+  margin: 0;
+  display: grid;
+  border-top: 1px solid var(--color-line);
+}
+.class-facts > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--color-line);
+  font-size: 13px;
+}
+.class-facts dt {
+  color: var(--color-ink-2);
+}
+.class-facts dd {
+  margin: 0;
+  font-weight: 600;
+  text-align: right;
+}
+@media (max-width: 900px) {
+  .class-hero {
+    flex-direction: column;
+    align-items: stretch;
+    padding: 26px 24px;
+  }
+}
+@media (max-width: 600px) {
+  .class-hero {
+    padding: 22px 18px;
+    border-radius: 16px;
+    margin-bottom: 18px;
+  }
+  .class-hero-meta {
+    display: grid;
+    gap: 6px;
+  }
+  .class-hero-actions .button {
+    flex: 1 1 140px;
+    justify-content: center;
+  }
+  .class-stats {
+    gap: 10px;
+  }
+  .class-stat {
+    padding: 14px;
+  }
+  .class-stat strong {
+    font-size: 26px;
+  }
+  .class-shortcuts {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* Card grids fill the row: one class or assignment no longer leaves two thirds of it empty. */
+.card-grid,
+.student-layout .card-grid {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr));
+}
+.student-layout .class-card {
+  max-width: none;
+}
+@media (min-width: 601px) {
+  .toolbar .search {
+    min-width: 280px;
+  }
+}
+/* The lesson library sidebar is narrow: its filter tabs wrap instead of hiding "Bản nháp". */
+.teacher-layout aside .tabs {
+  flex-wrap: wrap;
+  mask-image: none;
+}

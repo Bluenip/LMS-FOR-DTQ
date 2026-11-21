@@ -466,7 +466,7 @@ test('teacher creates and publishes a lesson, approves enrollment and returns a 
       .getByRole('button', { name: 'Chấm bài', exact: true })
       .click();
     const gradeDialog = page.getByRole('dialog').filter({
-      has: page.getByRole('heading', { name: 'Bài làm của Nguyễn Văn An', exact: true }),
+      has: page.getByRole('heading', { name: 'Chấm bài · Nguyễn Văn An', exact: true }),
     });
     await gradeDialog.getByLabel('Hiểu nội dung (40 điểm)', { exact: true }).fill('39');
     await gradeDialog.getByLabel('Ví dụ & liên hệ thực tế (40 điểm)', { exact: true }).fill('37');

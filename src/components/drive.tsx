@@ -25,7 +25,7 @@ import { Badge, Button, Dialog, Empty, Field, IconButton, Search } from './ui';
 import { useLms } from './lms-provider';
 
 const DRIVE_ID = /^[\w-]{10,120}$/;
-const formatSize = (bytes: number) =>
+export const formatSize = (bytes: number) =>
   bytes >= 1073741824
     ? `${(bytes / 1073741824).toFixed(2)} GB`
     : `${(bytes / 1048576).toFixed(bytes >= 10485760 ? 0 : 1)} MB`;
@@ -785,7 +785,6 @@ function SlideViewer({ file }: { file: { id: string; name: string; mimeType: str
                   src={url}
                   title={file.name}
                   allow="fullscreen"
-                  allowFullScreen
                 />
                 <div className="slide-controls">
                   <IconButton
