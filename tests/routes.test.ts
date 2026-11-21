@@ -198,6 +198,21 @@ test(
       body: JSON.stringify({ action: 'updateClass', classId, title: 'Đổi tên' }),
     });
     assert.equal(stale.status, 409);
+    // Adding to a handed-in submission also needs the revision the form was opened with.
+    const student = await login('student@detuquy.vn', 'Demo@2026');
+    const state = await json(await call('/api/state', student.cookie));
+    const assignmentId = (state.assignments as { id: string }[])[0]?.id;
+    assert.ok(assignmentId, 'the demo student sees an assignment');
+    const addendum = await call('/api/actions', student.cookie, {
+      method: 'POST',
+      body: JSON.stringify({
+        action: 'addToSubmission',
+        assignmentId,
+        content: 'Bổ sung không kèm phiên bản',
+      }),
+    });
+    assert.equal(addendum.status, 409);
+    assert.match(String((await json(addendum)).error), /Phiên soạn thảo đã cũ/);
   },
 );
 

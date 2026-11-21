@@ -42,6 +42,7 @@ function requireEditVersion(input: Record<string, unknown>) {
       'deleteLesson',
       'deleteAssignment',
       'withdrawSubmission',
+      'addToSubmission',
     ].includes(String(input.action)) &&
     typeof input.expectedRevision !== 'string'
   )

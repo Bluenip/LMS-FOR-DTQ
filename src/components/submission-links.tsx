@@ -12,15 +12,22 @@ import {
 } from '@/lib/submission-links';
 import { Badge, Button, Dialog } from './ui';
 
-/** Editor for the evidence links of a submission; `value` holds one link per line. */
+/**
+ * Editor for the evidence links of a submission; `value` holds one link per line. `max` caps the
+ * rows (fewer when links were already handed in) and `hint` replaces the default limit note.
+ */
 export function SubmissionLinksEditor({
   value,
   disabled,
   onChange,
+  max = MAX_SUBMISSION_LINKS,
+  hint,
 }: {
   value: string;
   disabled?: boolean;
   onChange: (value: string) => void;
+  max?: number;
+  hint?: string;
 }) {
   // Keep empty rows while editing; only the saved value drops them.
   const rows = value.split('\n');
@@ -66,7 +73,7 @@ export function SubmissionLinksEditor({
           )}
         </div>
       ))}
-      {rows.length < MAX_SUBMISSION_LINKS && (
+      {rows.length < max && (
         <div>
           <Button
             variant="ghost"
@@ -81,7 +88,8 @@ export function SubmissionLinksEditor({
         </div>
       )}
       <small>
-        Tối đa {MAX_SUBMISSION_LINKS} liên kết, ví dụ bài thuyết trình Canva kèm video trình bày.
+        {hint ??
+          `Tối đa ${MAX_SUBMISSION_LINKS} liên kết, ví dụ bài thuyết trình Canva kèm video trình bày.`}
       </small>
       {invalid && (
         <small className="error">Liên kết phải bắt đầu bằng http:// hoặc https://.</small>
