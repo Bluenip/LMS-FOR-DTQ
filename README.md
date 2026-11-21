@@ -249,7 +249,7 @@ prisma/                Schema, 19 migration và mẫu CORS bucket
 docker/s3rver/         Kho S3 giả lập chỉ dành cho phát triển/kiểm thử
 scripts/               Seed, cấp/thu hồi giáo viên/quản trị, kiểm thử tích hợp/chịu tải, dọn Drive/kho tệp,
                        tự triển khai, sao lưu database và hỗ trợ chụp giao diện
-tests/                 28 file kiểm thử backend (*.test.ts/.mjs), 9 file Playwright (*.spec.ts)
+tests/                 30 file kiểm thử backend (*.test.ts/.mjs), 9 file Playwright (*.spec.ts)
 docs/                  Tài khoản, tích hợp, bản đồ thiết kế, rà soát và triển khai
 public/                Font cục bộ, giấy phép font và ảnh chờ video
 stitch_custom_video_learning_platform/
@@ -301,7 +301,17 @@ Playwright mặc định dùng `http://localhost:3000`, tái sử dụng server 
 
 Hai ca quản trị/hồ sơ cần `ADMIN_E2E_EMAIL` và `ADMIN_E2E_PASSWORD` của tài khoản quản trị thử nghiệm riêng; thiếu thông tin thì bị bỏ qua. Các ca dùng tài khoản mẫu cần môi trường cho phép các tài khoản đó. Không trỏ bộ test này vào dữ liệu thật.
 
-Lượt chạy gần nhất ngày **16/11/2026**: TypeScript đạt; backend 171 test, 163 đạt, 8 bỏ qua (1 test cần `TEST_DATABASE_URL`, 7 test route cần bản build production). Chưa chạy lại Playwright và kiểm thử tích hợp trong lượt này.
+Lượt chạy gần nhất ngày **21/11/2026** (commit `d42c548`, trên bản clone sạch từ GitHub):
+
+| Kiểm tra                               | Kết quả                                                                                                      |
+| -------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| TypeScript, Prettier, build production | Đạt                                                                                                          |
+| Backend (Node test runner)             | 179 test: 178 đạt, 1 bỏ qua (test PostgreSQL, đã chạy riêng)                                                 |
+| Test PostgreSQL thật                   | Đạt với PostgreSQL 17 (container tạm, đã chạy migration)                                                     |
+| Playwright (`E2E_ISOLATED=true`)       | 29 kịch bản: 22 đạt, 7 bỏ qua vì cần tài khoản quản trị/tài khoản kiểm thử riêng (`ADMIN_E2E_*`, ...), 0 lỗi |
+| Kiểm thử tích hợp PostgreSQL + S3      | Chưa chạy lại trong lượt này                                                                                 |
+
+Chưa có kịch bản Playwright cho **Bổ sung bài nộp**; phần server có test nghiệp vụ và test route.
 
 Kết quả lượt kiểm thử ngày **08/11/2026** (bản có Google Drive, trước các tính năng nhóm/thực hành/xếp hạng):
 

@@ -274,5 +274,7 @@ Học viên đã nộp bài có thể **bổ sung** mà không cần thu hồi: 
 - Chỉ khi bài ở trạng thái **Đã nộp** (chưa được chấm). Bài đã chấm thì không bổ sung được.
 - Còn hạn nộp, hoặc bài tập cho phép nộp muộn.
 - Phần đã nộp được giữ nguyên, chỉ thêm vào: nội dung viết thêm được nối kèm mốc thời gian, liên kết gộp (tối đa 5), tệp thêm vào (tổng tối đa 10). Không tốn lượt nộp và **không đổi thời điểm nộp** (nên "đúng hạn / nộp muộn" giữ nguyên).
+- Form cho biết bài nộp đã có bao nhiêu liên kết và còn thêm được bao nhiêu; không cho nhập vượt giới hạn. Liên kết trùng với liên kết đã nộp không được tính.
+- Yêu cầu bổ sung phải kèm phiên bản bài nộp lúc mở form; nếu bài đã thay đổi ở phiên khác (ví dụ vừa được chấm), yêu cầu bị từ chối và cần tải lại.
 - Giáo viên nhận thông báo "đã bổ sung bài nộp". Nếu giáo viên đang mở màn hình chấm bài đó, họ được báo bài đã thay đổi và cần mở lại.
 - Thu hồi để sửa lại toàn bộ vẫn như cũ (cần bật cho nộp lại, còn lượt, trước hạn, chưa chấm).
