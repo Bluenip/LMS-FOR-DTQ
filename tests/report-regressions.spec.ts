@@ -156,10 +156,9 @@ test('a remote link-only submission and returned grade keep a local draft visibl
     await expect(page.getByLabel('Nội dung bản đang viết', { exact: true })).toHaveValue(
       'Bản viết đang dở cần giữ lại',
     );
-    await expect(page.getByRole('link', { name: 'https://example.com/evidence', exact: true })).toHaveAttribute(
-      'href',
-      'https://example.com/evidence',
-    );
+    await expect(
+      page.getByRole('link', { name: 'https://example.com/evidence', exact: true }),
+    ).toHaveAttribute('href', 'https://example.com/evidence');
     const state = await (await student.request.get('/api/state')).json();
     expect(state.submissions.find((item: Submission) => item.id === submission.id)).toMatchObject({
       status: 'GRADED',
