@@ -1354,6 +1354,81 @@ function FileAttachment({
     </div>
   );
 }
+/** Sidebar on the assignment page: every assignment in the class with the student's status. */
+function AssignmentOutline({ classId, assignment }: { classId: string; assignment: Assignment }) {
+  const { state } = useLms();
+  const assignments = state.assignments
+    .filter((a) => a.classId === classId)
+    .sort((a, b) => a.dueAt.localeCompare(b.dueAt));
+  const submissionOf = (id: string) =>
+    state.submissions.find((s) => s.assignmentId === id && s.studentId === state.user.id);
+  const submitted = assignments.filter((a) => {
+    const status = submissionOf(a.id)?.status;
+    return status === 'SUBMITTED' || status === 'GRADED';
+  }).length;
+  const lesson = assignment.lessonId
+    ? state.lessons.find((l) => l.id === assignment.lessonId && l.published)
+    : undefined;
+  return (
+    <aside className="panel" style={{ padding: 0 }}>
+      <div className="curriculum-heading">
+        <h2>Bài tập của lớp</h2>
+        <p className="small muted" style={{ marginTop: 8 }}>
+          {submitted}/{assignments.length} bài đã nộp
+        </p>
+      </div>
+      <div className="curriculum">
+        {assignments.map((a, index) => {
+          const sub = submissionOf(a.id);
+          const done = sub?.status === 'SUBMITTED' || sub?.status === 'GRADED';
+          const current = a.id === assignment.id;
+          return (
+            <Link
+              key={a.id}
+              className={`lesson-item ${current ? 'selected' : ''}`}
+              href={`/classes/${classId}/assignments/${a.id}`}
+              aria-current={current ? 'page' : undefined}
+            >
+              <span className={`lesson-number ${done ? 'completed' : ''}`}>
+                {done ? <Check size={15} /> : index + 1}
+              </span>
+              <span className="lesson-info">
+                <strong>{a.title}</strong>
+                <small>
+                  {sub?.status === 'GRADED'
+                    ? `Đã chấm · ${sub.score}/100 điểm`
+                    : sub?.status === 'SUBMITTED'
+                      ? 'Đã nộp'
+                      : sub?.status === 'DRAFT'
+                        ? `Bản nháp · Hạn ${dateTime(a.dueAt)}`
+                        : `Chưa nộp · Hạn ${dateTime(a.dueAt)}`}
+                </small>
+              </span>
+              {current && <Pencil size={14} className="accent" />}
+            </Link>
+          );
+        })}
+      </div>
+      {lesson && (
+        <div style={{ padding: 17, borderBottom: '1px solid var(--color-line)' }}>
+          <p className="small muted">Bài giảng liên quan</p>
+          <Link
+            href={`/classes/${classId}/lessons/${lesson.id}`}
+            className="text-link small"
+            style={{ display: 'inline-block', marginTop: 6 }}
+          >
+            Xem lại: {lesson.title}
+          </Link>
+        </div>
+      )}
+      <div style={{ padding: 17 }}>
+        <Link href={`/classes/${classId}?tab=assignments`} className="text-link small">
+          Xem tất cả bài tập
+        </Link>
+      </div>
+    </aside>
+  );
+}
 export function AssignmentPage({
   classId,
   assignmentId,
@@ -1856,6 +1931,7 @@ export function AssignmentPage({
           </section>
         </div>
         <aside className="stack">
+          <AssignmentOutline classId={classId} assignment={a} />
           <section className="panel">
             <h2>Tiêu chí đánh giá</h2>
             <div className="rubric-list">
@@ -1891,9 +1967,6 @@ export function AssignmentPage({
               </li>
               <li>Lưu nháp để tiếp tục viết khi quay lại.</li>
             </ul>
-            <Link className="text-link small" href={`/classes/${classId}?tab=assignments`}>
-              Xem bài tập của lớp
-            </Link>
           </section>
         </aside>
       </div>
