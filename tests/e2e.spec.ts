@@ -391,8 +391,10 @@ test('teacher creates and publishes a lesson, approves enrollment and returns a 
     const lesson = (await draftResponse.json()).result as Lesson;
     expect(lesson.published).toBe(false);
     await expect(
-      page.getByRole('heading', { name: 'Biên tập bài giảng', exact: true }),
+      page.getByRole('heading', { name: 'Chỉnh sửa bài giảng', exact: true }),
     ).toBeVisible();
+    // New lessons open on the Google Drive source; the YouTube field lives on its own tab.
+    await page.getByRole('tab', { name: 'YouTube', exact: true }).click();
     await page.getByLabel('Liên kết YouTube', { exact: true }).fill('https://youtu.be/aqz-KE-bpKQ');
     await expect(
       page.getByText('Định dạng liên kết YouTube hợp lệ.', { exact: true }),
