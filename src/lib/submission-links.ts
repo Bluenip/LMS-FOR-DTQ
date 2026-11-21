@@ -38,7 +38,12 @@ function host(value: string): string {
 
 export function linkKind(value: string): LinkKind {
   const h = host(value);
-  if (h === 'canva.com' || h.endsWith('.canva.com') || h === 'canva.link' || h.endsWith('.canva.site'))
+  if (
+    h === 'canva.com' ||
+    h.endsWith('.canva.com') ||
+    h === 'canva.link' ||
+    h.endsWith('.canva.site')
+  )
     return 'canva';
   if (h === 'docs.google.com' && /\/presentation\//.test(value)) return 'slides';
   if (h === 'drive.google.com' || h === 'docs.google.com') return 'drive';

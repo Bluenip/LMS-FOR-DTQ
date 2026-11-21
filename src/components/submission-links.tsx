@@ -40,7 +40,9 @@ export function SubmissionLinksEditor({
             value={row}
             disabled={disabled}
             autoFocus={i === added}
-            aria-label={rows.length > 1 ? `Liên kết ${i + 1}` : 'Liên kết bài thuyết trình / minh chứng'}
+            aria-label={
+              rows.length > 1 ? `Liên kết ${i + 1}` : 'Liên kết bài thuyết trình / minh chứng'
+            }
             placeholder="Dán link Canva, Google Slides, Drive, YouTube…"
             onChange={(e) => {
               const next = [...rows];
@@ -81,7 +83,9 @@ export function SubmissionLinksEditor({
       <small>
         Tối đa {MAX_SUBMISSION_LINKS} liên kết, ví dụ bài thuyết trình Canva kèm video trình bày.
       </small>
-      {invalid && <small className="error">Liên kết phải bắt đầu bằng http:// hoặc https://.</small>}
+      {invalid && (
+        <small className="error">Liên kết phải bắt đầu bằng http:// hoặc https://.</small>
+      )}
       {hasCanva && (
         <p className="notice warning">
           <Link2 size={16} />

@@ -326,7 +326,10 @@ test('student persists lesson activity, drafts and submits an assignment', async
     await expect(page.getByRole('heading', { name: 'Bài đã nộp', exact: true })).toBeVisible();
     await page.reload({ waitUntil: 'domcontentloaded' });
     await expect(page.getByRole('heading', { name: 'Bài đã nộp', exact: true })).toBeVisible();
-    await expect(page.getByRole('link', { name: canva, exact: true })).toHaveAttribute('href', canva);
+    await expect(page.getByRole('link', { name: canva, exact: true })).toHaveAttribute(
+      'href',
+      canva,
+    );
     await expect(page.getByRole('button', { name: 'Xem trước bài Canva' })).toBeVisible();
 
     const persisted = await state(student);
