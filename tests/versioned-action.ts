@@ -19,6 +19,7 @@ export async function versionedAction(
       'deleteLesson',
       'deleteAssignment',
       'withdrawSubmission',
+      'addToSubmission',
       'removeEnrollment',
       'leaveClass',
     ].includes(action) ||
@@ -41,7 +42,8 @@ export async function versionedAction(
   if (
     action === 'saveSubmission' ||
     action === 'submitAssignment' ||
-    action === 'withdrawSubmission'
+    action === 'withdrawSubmission' ||
+    action === 'addToSubmission'
   ) {
     const submission = state.submissions.find(
       (s) => s.assignmentId === payload.assignmentId && s.studentId === state.user.id,

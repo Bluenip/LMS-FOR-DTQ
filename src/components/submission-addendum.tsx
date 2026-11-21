@@ -1,7 +1,11 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { PlusCircle, Send } from 'lucide-react';
-import { joinSubmissionLinks, parseSubmissionLinks } from '@/lib/submission-links';
+import {
+  MAX_SUBMISSION_LINKS,
+  joinSubmissionLinks,
+  parseSubmissionLinks,
+} from '@/lib/submission-links';
 import {
   cancelUpload,
   dismissUpload,
@@ -61,8 +65,14 @@ export function SubmissionAddendum({
   }, [uploads]);
 
   const room = 10 - submission.attachments.length - files.length;
-  const hasLinks = parseSubmissionLinks(link).length > 0;
-  const nothing = !note.trim() && !files.length && !hasLinks;
+  // Links already handed in stay; only new, distinct ones count against the limit.
+  const existingLinks = parseSubmissionLinks(submission.link);
+  const linkRoom = Math.max(0, MAX_SUBMISSION_LINKS - existingLinks.length);
+  const newLinks = [
+    ...new Set(parseSubmissionLinks(link).filter((l) => !existingLinks.includes(l))),
+  ];
+  const tooManyLinks = newLinks.length > linkRoom;
+  const nothing = !note.trim() && !files.length && !newLinks.length;
 
   async function send() {
     setBusy(true);
@@ -71,7 +81,7 @@ export function SubmissionAddendum({
       await action('addToSubmission', {
         assignmentId: assignment.id,
         content: note,
-        link: joinSubmissionLinks(parseSubmissionLinks(link)),
+        link: joinSubmissionLinks(newLinks),
         attachments: files,
         expectedRevision: submission.revision || '',
       });
@@ -124,9 +134,26 @@ export function SubmissionAddendum({
           placeholder="Viết thêm điều bạn muốn gửi kèm bài đã nộp…"
         />
       </Field>
-      <Field label="Liên kết bổ sung">
-        <SubmissionLinksEditor value={link} disabled={busy} onChange={setLink} />
-      </Field>
+      {linkRoom > 0 ? (
+        <Field label="Liên kết bổ sung">
+          <SubmissionLinksEditor
+            value={link}
+            disabled={busy}
+            onChange={setLink}
+            max={linkRoom}
+            hint={`Bài nộp đã có ${existingLinks.length} liên kết, còn thêm được ${linkRoom} (tối đa ${MAX_SUBMISSION_LINKS}).`}
+          />
+        </Field>
+      ) : (
+        <p className="small muted">
+          Bài nộp đã có đủ {MAX_SUBMISSION_LINKS} liên kết nên không thêm được liên kết mới.
+        </p>
+      )}
+      {tooManyLinks && (
+        <p className="error" role="alert">
+          Chỉ còn thêm được {linkRoom} liên kết mới.
+        </p>
+      )}
       <div className="stack">
         <label className="upload-zone">
           <strong>Đính kèm thêm tệp</strong>
@@ -197,7 +224,7 @@ export function SubmissionAddendum({
         </p>
       )}
       <div className="inline-actions">
-        <Button disabled={busy || uploading || nothing} onClick={() => void send()}>
+        <Button disabled={busy || uploading || nothing || tooManyLinks} onClick={() => void send()}>
           <Send size={16} /> Gửi bổ sung
         </Button>
         <Button variant="ghost" disabled={busy} onClick={() => setOpen(false)}>
