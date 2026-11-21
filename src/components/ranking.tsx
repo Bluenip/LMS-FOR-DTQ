@@ -12,7 +12,7 @@ function Table({ rows, lessons }: { rows: RankRow[]; lessons: number }) {
   if (!rows.length) return <p className="muted small">Chưa có thành viên.</p>;
   return (
     <div className="table-wrap">
-      <table className="table">
+      <table className="table card-table ranking-table">
         <thead>
           <tr>
             <th>Hạng</th>

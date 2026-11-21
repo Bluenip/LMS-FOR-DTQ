@@ -2466,6 +2466,14 @@ h3 {
   .row > select {
     flex: 1 1 100%;
   }
+  /* Ranking cards: rank and name on the first line, the scores in three columns below. */
+  .ranking-table tbody tr {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    column-gap: var(--space-md);
+  }
+  .ranking-table tbody td:nth-child(2) {
+    grid-column: span 2;
+  }
 }
 @media (max-width: 600px) {
   /* iOS Safari zooms the page into any field whose text is under 16px. */
@@ -2474,4 +2482,37 @@ h3 {
   textarea {
     font-size: 16px !important;
   }
+}
+
+/* Tab bars that scroll sideways fade the edge where more tabs are hidden. */
+.tabs[data-fade-end='true'],
+.class-tabs[data-fade-end='true'] {
+  mask-image: linear-gradient(to right, #000 calc(100% - 40px), transparent);
+}
+.tabs[data-fade-start='true'],
+.class-tabs[data-fade-start='true'] {
+  mask-image: linear-gradient(to right, transparent, #000 40px);
+}
+.tabs[data-fade-start='true'][data-fade-end='true'],
+.class-tabs[data-fade-start='true'][data-fade-end='true'] {
+  mask-image: linear-gradient(
+    to right,
+    transparent,
+    #000 40px,
+    #000 calc(100% - 40px),
+    transparent
+  );
+}
+.tabs,
+.class-tabs {
+  scrollbar-width: none;
+}
+.tabs::-webkit-scrollbar,
+.class-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+/* Leaves room for the sticky header when the lesson editor is scrolled into view. */
+.teacher-editor-slot {
+  scroll-margin-top: 96px;
 }
