@@ -121,6 +121,7 @@ Thuộc tính: tiêu đề (2–200), hướng dẫn, **hạn nộp** (`dueAt`),
 
 - **Lưu nháp** (`saveSubmission`) và **nộp** (`submitAssignment`): chỉ học viên đã duyệt; cần `expectedRevision`.
 - Nội dung: văn bản, liên kết `http(s)`, tối đa **10 tệp đính kèm** (PDF, DOCX, PPTX, ảnh, **video MP4/WebM/MOV**).
+- **Bài thuyết trình Canva:** học viên dán **liên kết xem** của Canva (Chia sẻ → Bất kỳ ai có liên kết, dạng `canva.com/design/.../view`). Cạnh liên kết có **Xem trước** (khung trong trang) và **Trình chiếu** (toàn màn hình, để giáo viên trình chiếu trên lớp mà không phải tải về; trên iPhone khung phủ kín cửa sổ vì Safari chỉ cho video toàn màn hình). Esc hoặc nút **Thoát** để thoát. Nên nộp liên kết Canva thay cho tệp PPTX xuất từ Canva: PPTX không mang theo font Canva nên khi xem trực tuyến có thể hiển thị sai font.
 - **Khi nộp:** bắt buộc tích **xác nhận bài làm của chính mình**; phải có văn bản, tệp hoặc liên kết; chỉ khi **không có tệp và cũng không có liên kết** thì văn bản mới phải đạt số từ yêu cầu (tệp hoặc liên kết minh chứng thay cho bài viết); kiểm tra **hạn nộp** (trừ khi cho nộp muộn); kiểm tra **số lượt** (`attempt` < `maxAttempts`); mỗi lần nộp tăng `attempt`.
 - Bài đã nộp (`SUBMITTED`/`GRADED`) **không sửa trực tiếp**.
 - **Thu hồi** (`withdrawSubmission`): về `DRAFT` để sửa/nộp lại; chỉ khi chưa chấm, **chưa quá hạn**, bài cho phép nộp lại và còn lượt. Thu hồi xóa điểm nháp.

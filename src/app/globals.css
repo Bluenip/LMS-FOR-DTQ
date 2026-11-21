@@ -2516,3 +2516,62 @@ h3 {
 .teacher-editor-slot {
   scroll-margin-top: 96px;
 }
+
+/* Canva presentation: the design fills the screen on black, with a close button on top. */
+.canva-stage {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100dvh;
+  max-width: none;
+  max-height: none;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: #000;
+  display: grid;
+  overflow: hidden;
+}
+.canva-stage::backdrop {
+  background: #000;
+}
+.canva-stage iframe {
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+.canva-stage-close {
+  position: absolute;
+  top: max(12px, env(safe-area-inset-top));
+  right: max(12px, env(safe-area-inset-right));
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 40px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  font-size: 14px;
+  opacity: 0.75;
+  transition: opacity var(--dur-short);
+}
+.canva-stage-close:hover,
+.canva-stage-close:focus-visible {
+  opacity: 1;
+}
+.canva-stage-close:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 2px;
+}
+@media (max-width: 600px) {
+  /* Link first, then its buttons on their own line, so the address is never squeezed out. */
+  .submission-link-list li {
+    flex-wrap: wrap;
+  }
+  .submission-link-actions {
+    flex-basis: 100%;
+    flex-wrap: wrap;
+  }
+}

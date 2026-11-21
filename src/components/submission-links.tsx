@@ -1,6 +1,7 @@
 'use client';
-import { useState } from 'react';
-import { ExternalLink, Eye, Link2, Plus, X } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { createPortal, flushSync } from 'react-dom';
+import { ExternalLink, Eye, Link2, MonitorPlay, Plus, X } from 'lucide-react';
 import {
   LINK_KIND_LABEL,
   MAX_SUBMISSION_LINKS,
@@ -122,6 +123,7 @@ export function SubmissionLinkList({ link }: { link: string | undefined }) {
             {l}
           </a>
           <span className="submission-link-actions">
+            <CanvaPresent link={l} />
             <CanvaPreview link={l} />
             <a
               className="button ghost"
@@ -164,6 +166,78 @@ function CanvaPreview({ link }: { link: string }) {
           Nếu khung trống, học viên chưa bật chia sẻ công khai; hãy bấm “Mở” để xem trên Canva.
         </p>
       </Dialog>
+    </>
+  );
+}
+
+/**
+ * "Trình chiếu": shows a shared Canva design across the whole screen so a teacher can present it in
+ * class without downloading anything. It is a modal <dialog>, so it also sits above the grading
+ * dialog it is opened from. Uses the browser's full-screen mode where page content may use it
+ * (desktop, Android); on iPhone, which allows it only for videos, it simply covers the window.
+ * Esc, the close button or leaving full screen ends it.
+ */
+function CanvaPresent({ link }: { link: string }) {
+  const [open, setOpen] = useState(false);
+  const stage = useRef<HTMLDialogElement>(null);
+  const src = canvaEmbedUrl(link);
+  useEffect(() => {
+    if (!open) return;
+    // Leaving full screen with the browser's own Esc or gesture ends the presentation too.
+    const onFullscreen = () => {
+      if (!document.fullscreenElement) setOpen(false);
+    };
+    document.addEventListener('fullscreenchange', onFullscreen);
+    return () => {
+      document.removeEventListener('fullscreenchange', onFullscreen);
+      if (document.fullscreenElement) void document.exitFullscreen().catch(() => {});
+    };
+  }, [open]);
+  if (!src) return null;
+  return (
+    <>
+      <Button
+        variant="secondary"
+        aria-label="Trình chiếu bài Canva toàn màn hình"
+        onClick={() => {
+          // Render the stage now so it can be shown and put in full screen within this click.
+          flushSync(() => setOpen(true));
+          const el = stage.current;
+          if (!el) return;
+          if (!el.open) el.showModal();
+          void el.requestFullscreen?.().catch(() => {});
+        }}
+      >
+        <MonitorPlay size={15} /> Trình chiếu
+      </Button>
+      {open &&
+        createPortal(
+          <dialog
+            className="canva-stage"
+            ref={stage}
+            aria-label="Trình chiếu bài Canva"
+            onCancel={(e) => {
+              // React passes portal events up to the grading dialog, which would close too.
+              e.stopPropagation();
+              e.preventDefault();
+              setOpen(false);
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* First in the dialog so it, not the Canva frame, gets the focus. */}
+            <button
+              type="button"
+              className="canva-stage-close"
+              aria-label="Thoát trình chiếu"
+              autoFocus
+              onClick={() => setOpen(false)}
+            >
+              <X size={20} /> Thoát
+            </button>
+            <iframe src={src} title="Bài thuyết trình Canva" allow="fullscreen" allowFullScreen />
+          </dialog>,
+          document.body,
+        )}
     </>
   );
 }
